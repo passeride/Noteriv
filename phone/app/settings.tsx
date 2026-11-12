@@ -1,7 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
-  Button,
   Text,
   ScrollView,
   TouchableOpacity,
@@ -733,8 +732,7 @@ export default function SettingsScreen() {
       {/* Git sync */}
       {renderSectionHeader('Git Sync', 'git-branch-outline')}
       <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
-        <NativeGitSettings key={vault?.id} />
-        <Button title="Choose a GitHub repository using a token" onPress={() => setShowTokenModal(true)} />
+        <NativeGitSettings key={vault?.id} onChooseRepository={() => setShowTokenModal(true)} />
       </View>
 
       {/* About */}

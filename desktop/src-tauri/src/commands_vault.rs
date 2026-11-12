@@ -42,8 +42,8 @@ pub async fn vault_update(args: UpdateVaultInput) -> Option<Vault> {
 }
 
 #[tauri::command]
-pub async fn vault_delete(app: AppHandle, id: String) -> bool {
-    let _ = crate::auth::remove_token(&id);
+pub async fn vault_delete(app: AppHandle, id: String) -> Result<bool, String> {
+    crate::auth::remove_token(&id)?;
     let ok = store::delete_vault(&id);
     // Also restart watcher so we don't leave it pointing at a deleted vault.
     let state: State<AppState> = app.state();
@@ -56,7 +56,7 @@ pub async fn vault_delete(app: AppHandle, id: String) -> bool {
             None => w.stop(),
         }
     }
-    ok
+    Ok(ok)
 }
 
 #[tauri::command]

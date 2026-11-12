@@ -36,7 +36,7 @@ notify-debouncer-mini = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 tiny_http = "0.12"
 
-# (No OS keyring — see src/auth.rs for rationale. Disk-only matches Electron.)
+# Credentials are stored by the target-specific OS keyring dependency below.
 
 # Encoding helpers
 atomicwrites = "0.4"
@@ -66,3 +66,15 @@ quick-xml = { version = "0.36", features = ["serialize"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+
+[dependencies.noteriv-git]
+path = "../../crates/noteriv-git"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["linux-native-sync-persistent", "crypto-rust"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }

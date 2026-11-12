@@ -4,6 +4,8 @@ import { loadSettings, saveSettings, DEFAULT_SETTINGS } from '@/lib/settings';
 import * as VaultOps from '@/lib/vault';
 import * as FS from '@/lib/file-system';
 import * as GitSync from '@/lib/provider-sync';
+import { oauthIO } from '@/lib/github-login';
+GitSync.setOAuthIO(oauthIO);
 
 interface AppContextType {
   // Vault
@@ -71,6 +73,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const currentDirRef = useRef(currentDir);
   currentDirRef.current = currentDir;
 
+  const editorRef = useRef({ currentFile, content, isDirty, vaultPath: vault?.path });
+  editorRef.current = { currentFile, content, isDirty, vaultPath: vault?.path };
+  useEffect(() => {
+    let snapshot: { currentFile: string | null; content: string; vaultPath: string | undefined } | null = null;
+    GitSync.setSyncHooks({
+      before: async () => {
+        const live = editorRef.current;
+        snapshot = { ...live };
+        if (live.currentFile && live.isDirty) {
+          if (!FS.writeFile(live.currentFile, live.content)) throw new Error('Save failed; sync stopped to protect your edits');
+          setIsDirty(false);
+        }
+      },
+      after: async () => {
+        if (currentDirRef.current) setFiles(FS.readDir(currentDirRef.current));
+        if (!snapshot?.currentFile) return;
+        const disk = await FS.readFile(snapshot.currentFile);
+        const live = editorRef.current;
+        if (live.currentFile !== snapshot.currentFile || live.vaultPath !== snapshot.vaultPath) return;
+        if (live.content === snapshot.content) {
+          if (disk === null) { setCurrentFileState(null); setContentState(''); }
+          else setContentState(disk);
+        } else if (disk !== live.content) {
+          // Preserve a remote edit received while the user continued typing.
+          if (disk !== null && disk !== snapshot.content) {
+            const stem = snapshot.currentFile.replace(/\.(md|markdown)$/i, '');
+            let copy = `${stem} (conflict ${Date.now()}).md`;
+            while (await FS.readFile(copy) !== null) copy = `${stem} (conflict ${Date.now()} ${Math.random().toString(36).slice(2)}).md`;
+            if (!FS.writeFile(copy, disk)) throw new Error('Could not preserve the remote edit; your current edits remain open');
+          }
+          if (!FS.writeFile(live.currentFile, live.content)) throw new Error('Could not save current edits after sync');
+        }
+      },
+    });
+    return () => GitSync.setSyncHooks(undefined);
+  }, []);
+
   // Initialize
   useEffect(() => {
     (async () => {
@@ -125,7 +164,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Auto-pull from the configured forge when vault opens.
   useEffect(() => {
-    if (!vault?.gitRemote || hasPulledOnOpen.current) return;
+    if (!settings.pullOnOpen || !vault?.gitRemote || hasPulledOnOpen.current) return;
     hasPulledOnOpen.current = true;
 
     (async () => {
@@ -133,9 +172,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       syncInFlight.current = true;
       try {
         const token = await GitSync.getVaultToken(vault.id);
-        if (!token) return;
+
         console.log('[Noteriv] Auto-pulling from remote...');
-        const result = await GitSync.pull(vault.path, token, vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
+        const result = await GitSync.pull(vault.path, token ?? '', vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
         console.log(`[Noteriv] Pull complete: ${result.pulled} files, ${result.errors.length} errors`);
         if (result.pulled > 0 && currentDirRef.current) {
           setFiles(FS.readDir(currentDirRef.current));
@@ -146,29 +185,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         syncInFlight.current = false;
       }
     })();
-  }, [vault?.id, vault?.gitRemote]);
+  }, [vault?.id, vault?.gitRemote, vault?.autoSync, settings.gitSyncInterval, settings.pullOnOpen]);
 
-  // Auto-sync every 5 seconds (pull + push if changes)
+  // Only sync at the configured interval; timers read live editor state through hooks.
   useEffect(() => {
     if (autoSyncTimer.current) {
       clearInterval(autoSyncTimer.current);
       autoSyncTimer.current = null;
     }
 
-    if (!vault?.gitRemote) return;
+    if (!vault?.gitRemote || !vault.autoSync || settings.gitSyncInterval <= 0) return;
 
     autoSyncTimer.current = setInterval(async () => {
       if (syncInFlight.current) return;
       syncInFlight.current = true;
       try {
         const token = await GitSync.getVaultToken(vault.id);
-        if (!token) return;
-        // Save current file before sync
-        if (isDirty && currentFile) {
-          FS.writeFile(currentFile, content);
-          setIsDirty(false);
-        }
-        const result = await GitSync.sync(vault.path, token, vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
+
+        const result = await GitSync.sync(vault.path, token ?? '', vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
         if (result.errors.length > 0) {
           console.warn('[Noteriv] Sync errors:', result.errors);
         }
@@ -181,7 +215,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } finally {
         syncInFlight.current = false;
       }
-    }, 5_000);
+    }, Math.max(60_000, settings.gitSyncInterval * 1000));
 
     return () => {
       if (autoSyncTimer.current) {
@@ -189,7 +223,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         autoSyncTimer.current = null;
       }
     };
-  }, [vault?.id, vault?.gitRemote]);
+  }, [vault?.id, vault?.gitRemote, vault?.autoSync, settings.gitSyncInterval, settings.pullOnOpen]);
 
   const refreshFiles = useCallback(() => {
     if (!currentDir) return;

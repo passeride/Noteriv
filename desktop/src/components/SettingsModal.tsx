@@ -22,6 +22,7 @@ import {
   FOLDER_DIRECTIONS,
   type SyncProviderType,
 } from "@/lib/sync-providers";
+import GitSyncPanel from "./GitSyncPanel";
 import ThemePicker from "@/components/ThemePicker";
 import PluginMount from "@/components/PluginMount";
 import type { SettingsTab } from "@/lib/plugin-api";
@@ -80,6 +81,7 @@ interface SettingsModalProps {
   platform: string;
   vaultPath: string;
   vault: Vault | null;
+  onBeforeGitOperation: () => Promise<void>;
   onSettingsChange: (settings: AppSettings) => void;
   onHotkeysChange: (hotkeys: HotkeyBinding[]) => void;
   onVaultUpdate: (vault: Vault) => void;
@@ -96,6 +98,7 @@ export default function SettingsModal({
   platform,
   vaultPath,
   vault,
+  onBeforeGitOperation,
   onSettingsChange,
   onHotkeysChange,
   onVaultUpdate,
@@ -697,7 +700,7 @@ export default function SettingsModal({
             </div>
           )}
 
-          <Row label="Git credentials" desc="Access token for HTTPS sync, stored encrypted locally. Not needed for SSH remotes.">
+          <Row label="Git credentials" desc="Access token for HTTPS sync, stored in the OS credential store. Configure SSH below.">
             {hostInfo.tokenPageUrl && (
               <button
                 type="button"
@@ -794,6 +797,7 @@ export default function SettingsModal({
       )}
 
       <div className="st-divider" />
+      {vault && <GitSyncPanel key={vault.id} vault={vault} before={onBeforeGitOperation} />}
       <div className="st-group-label">Git Sync</div>
       <Row label="Auto sync interval" desc="Periodically commit and push changes in the background.">
         <select

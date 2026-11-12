@@ -38,8 +38,7 @@ pub struct AppState {
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    // One-time legacy token migration (Electron safeStorage → Tauri keyring).
-    auth::migrate_legacy_tokens();
+    // Credentials migrate lazily, after the OS store confirms the write.
 
     let app_state = AppState {
         clipper: Mutex::new(clipper::ClipperState::default()),
@@ -111,6 +110,7 @@ pub fn run() {
             commands_vault::settings_load,
             commands_vault::settings_save,
             // auth
+            auth::auth_oauth_http,
             auth::auth_save_token,
             auth::auth_has_token,
             auth::auth_remove_token,
@@ -120,6 +120,8 @@ pub fn run() {
             auth::auth_open_token_page,
             auth::auth_get_user,
             // git
+            commands_git::git_native,
+            commands_git::git_save_credentials,
             commands_git::git_is_installed,
             commands_git::git_is_repo,
             commands_git::git_init,

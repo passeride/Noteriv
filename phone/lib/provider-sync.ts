@@ -1,264 +1,108 @@
+// Provider-independent Git protocol; no per-file forge API sync.
 import { GitProvider } from '@/types';
-import * as FS from '@/lib/file-system';
-import * as GitHub from '@/lib/github-sync';
-import { getItem, KEYS } from '@/lib/storage';
-import {
-  conflictCopyPath,
-  contentHash,
-  loadSyncBase,
-  pullAction,
-  saveSyncBase,
-  shouldDeleteLocal,
-  vaultFileUri,
-  vaultRelativePath,
-} from '@/lib/sync-state';
+import { getItem, setItem, KEYS } from './storage';
+import { getVaults } from './vault';
+import { refresh, type OAuthConfig, type OAuthToken, type OAuthIO } from '../../packages/git-client/oauth';
 
 export type SyncProvider = GitProvider;
-export type SyncResult = GitHub.SyncResult;
-
-interface Remote {
-  provider: SyncProvider;
-  baseUrl: string;
-  project: string;
+export interface NativeStatus {
+  isRepo: boolean; branch: string | null; remote: string | null;
+  inProgress: boolean; pulled: number; pushed: number;
+  changes: number; changedFiles: string[]; conflicts: string[];
+  ahead: number; behind: number; mergePending: boolean;
+  sync: { lastSuccess: number | null; lastError: string | null };
 }
-
-interface RemoteFile {
-  path: string;
-  sha?: string;
+export interface Credentials {
+  origin?: string; username?: string; token?: string; sshPrivateKey?: string; sshPassphrase?: string; hostKeySha256?: string;
+  oauth?: { config: OAuthConfig; token: OAuthToken };
 }
-
-function originFromRemote(remote: string): { origin: string; project: string } | null {
-  const trimmed = remote.trim().replace(/\.git\/?$/, '');
-  const ssh = trimmed.match(/^(?:ssh:\/\/)?git@([^/:]+)(?::(\d+))?[:/]([^\s]+)$/);
-  if (ssh) return { origin: `https://${ssh[1]}${ssh[2] ? `:${ssh[2]}` : ''}`, project: ssh[3] };
-  try {
-    const url = new URL(trimmed);
-    return { origin: url.origin, project: url.pathname.replace(/^\/+|\/+$/g, '') };
-  } catch {
-    return null;
-  }
-}
-
+export interface SyncResult { pulled: number; pushed: number; errors: string[]; conflicts?: string[] }
 export function detectProvider(remote: string, hint?: SyncProvider): SyncProvider | null {
   if (hint) return hint;
-  const host = originFromRemote(remote)?.origin.toLowerCase() ?? '';
-  if (host.includes('github.com')) return 'github';
+  let host = '';
+  try { host = new URL(remote).hostname; } catch { host = remote.match(/@([^:/]+)/)?.[1] ?? ''; }
+  if (host === 'github.com') return 'github';
   if (host.includes('gitlab')) return 'gitlab';
-  if (host.includes('gitea') || host.includes('forgejo')) return 'gitea';
-  return null;
+  if (/gitea|forgejo|codeberg/.test(host)) return 'gitea';
+  return null; // native Git accepts this URL without knowing the forge
 }
-
-function parseRemote(remoteUrl: string, hint?: SyncProvider): Remote | null {
-  const parsed = originFromRemote(remoteUrl);
-  const provider = detectProvider(remoteUrl, hint);
-  if (!parsed || !provider || !parsed.project) return null;
-  return { provider, baseUrl: parsed.origin, project: parsed.project };
+export async function getVaultToken(id: string): Promise<string | null> {
+  const credentials = await getItem<Credentials>(KEYS.GIT_CREDENTIALS(id));
+  return credentials?.token ?? (await getItem<string>(KEYS.GIT_TOKEN(id))) ?? await getItem<string>(KEYS.GITHUB_TOKEN(id));
 }
-
-export async function getVaultToken(vaultId: string): Promise<string | null> {
-  // Old installs keep working without migrating their GitHub token.
-  return (await getItem<string>(KEYS.GIT_TOKEN(vaultId))) ?? await getItem<string>(KEYS.GITHUB_TOKEN(vaultId));
+function remoteOrigin(remote: string): string {
+  try { const url = new URL(remote); return `${url.protocol}//${url.hostname.toLowerCase()}:${url.port || (url.protocol === 'https:' ? '443' : '22')}`; }
+  catch { return `ssh://${remote.match(/@([^:]+)/)?.[1]?.toLowerCase() ?? ''}:22`; }
 }
-
-function encodeBase64(value: string): string {
-  const utf8 = encodeURIComponent(value).replace(/%([0-9A-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-  if (typeof btoa === 'function') return btoa(utf8);
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  const bytes = new TextEncoder().encode(value);
-  let result = '';
-  for (let i = 0; i < bytes.length; i += 3) {
-    const first = bytes[i];
-    const second = bytes[i + 1] ?? 0;
-    const third = bytes[i + 2] ?? 0;
-    result += chars[first >> 2];
-    result += chars[((first & 3) << 4) | (second >> 4)];
-    result += i + 1 < bytes.length ? chars[((second & 15) << 2) | (third >> 6)] : '=';
-    result += i + 2 < bytes.length ? chars[third & 63] : '=';
-  }
-  return result;
+export async function saveCredentials(id: string, value: Credentials): Promise<void> {
+  const vault = (await getVaults()).find(v => v.id === id);
+  if (!vault) throw new Error('Unknown vault');
+  const origin = value.oauth ? 'https://github.com:443' : vault.gitRemote ? remoteOrigin(vault.gitRemote) : undefined;
+  await setItem(KEYS.GIT_CREDENTIALS(id), { ...value, origin });
 }
-
-function decodeBase64(value: string): string {
-  const cleaned = value.replace(/[^A-Za-z0-9+/]/g, '');
-  if (typeof atob === 'function') {
-    const latin1 = atob(cleaned);
-    return decodeURIComponent(latin1.split('').map((c) => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`).join(''));
-  }
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  const bytes: number[] = [];
-  for (let i = 0; i < cleaned.length; i += 4) {
-    const first = chars.indexOf(cleaned[i]);
-    const second = chars.indexOf(cleaned[i + 1]);
-    const third = chars.indexOf(cleaned[i + 2]);
-    const fourth = chars.indexOf(cleaned[i + 3]);
-    bytes.push((first << 2) | (second >> 4));
-    if (third !== -1) bytes.push(((second & 15) << 4) | (third >> 2));
-    if (fourth !== -1) bytes.push(((third & 3) << 6) | fourth);
-  }
-  return new TextDecoder().decode(new Uint8Array(bytes));
+export async function native<T = NativeStatus>(request: Record<string, unknown>): Promise<T> {
+  // Dynamic import keeps Expo Go usable for local notes, but sync requires a native build.
+  let module;
+  try { module = (await import('../modules/noteriv-git')).default; }
+  catch { throw new Error('Git sync requires a Noteriv native build with the Git module; it is unavailable in Expo Go'); }
+  const response = JSON.parse(await module.execute(JSON.stringify(request)));
+  if (!response.ok) throw new Error(response.error || 'Git operation failed');
+  return response.value as T;
 }
-
-function api(remote: Remote, path: string, token: string, options: RequestInit = {}): Promise<Response> {
-  const headers = remote.provider === 'gitlab'
-    ? { 'PRIVATE-TOKEN': token, 'Content-Type': 'application/json', ...(options.headers as Record<string, string>) }
-    : { Authorization: `token ${token}`, 'Content-Type': 'application/json', ...(options.headers as Record<string, string>) };
-  const prefix = remote.provider === 'gitlab' ? '/api/v4' : '/api/v1';
-  return fetch(`${remote.baseUrl}${prefix}${path}`, { ...options, headers });
+export function nativeDir(uri: string): string {
+  if (!uri.startsWith('file://')) throw new Error('Git vaults must use local app storage');
+  return decodeURIComponent(uri.slice('file://'.length)).replace(/\/$/, '');
 }
-
-async function branch(remote: Remote, token: string): Promise<string> {
-  const project = encodeURIComponent(remote.project);
-  const path = remote.provider === 'gitlab' ? `/projects/${project}` : `/repos/${remote.project}`;
-  const response = await api(remote, path, token);
-  if (!response.ok) throw new Error(`Failed to get repository info: ${response.status}`);
-  return (await response.json()).default_branch ?? 'main';
-}
-
-async function listFiles(remote: Remote, token: string, ref: string): Promise<RemoteFile[]> {
-  if (remote.provider === 'gitlab') {
-    const files: RemoteFile[] = [];
-    for (let page = 1; ; page++) {
-      const response = await api(remote, `/projects/${encodeURIComponent(remote.project)}/repository/tree?ref=${encodeURIComponent(ref)}&recursive=true&per_page=100&page=${page}`, token);
-      if (!response.ok) throw new Error(`Failed to get repository tree: ${response.status}`);
-      const items = await response.json();
-      files.push(...items.filter((item: { type: string }) => item.type === 'blob').map((item: { path: string; id: string }) => ({ path: item.path, sha: item.id })));
-      if (items.length < 100) break;
+// The secure store is read only at the adapter boundary; never store secrets in a vault.
+export async function vaultCredentials(id: string, io?: OAuthIO): Promise<Credentials> {
+  const credentials = await getItem<Credentials>(KEYS.GIT_CREDENTIALS(id)) ?? { token: await getVaultToken(id) ?? '' };
+  if (credentials.oauth && io) {
+    const updated = await refresh(credentials.oauth.config, credentials.oauth.token, io);
+    if (updated !== credentials.oauth.token) {
+      credentials.oauth.token = updated; credentials.token = updated.accessToken;
+      await saveCredentials(id, credentials);
     }
-    return files;
   }
-  const response = await api(remote, `/repos/${remote.project}/git/trees/${encodeURIComponent(ref)}?recursive=1`, token);
-  if (!response.ok) throw new Error(`Failed to get repository tree: ${response.status}`);
-  return ((await response.json()).tree ?? []).filter((item: { type: string }) => item.type === 'blob').map((item: { path: string; sha: string }) => ({ path: item.path, sha: item.sha }));
+  return credentials;
 }
-
-/** GitLab's files API takes the path as one encoded segment; Gitea's contents API takes it as segments. */
-function encodeFilePath(remote: Remote, path: string): string {
-  return remote.provider === 'gitlab' ? encodeURIComponent(path) : path.split('/').map(encodeURIComponent).join('/');
+let hooks: { before: () => Promise<void>; after: () => Promise<void> } | undefined;
+let oauthIO: OAuthIO | undefined;
+export async function withEditor<T>(work: () => Promise<T>): Promise<T> {
+  await hooks?.before();
+  try { return await work(); } finally { await hooks?.after(); }
 }
-
-async function readRemoteFile(remote: Remote, token: string, ref: string, path: string): Promise<{ content: string; sha?: string }> {
-  const encodedPath = encodeFilePath(remote, path);
-  if (remote.provider === 'gitlab') {
-    const response = await api(remote, `/projects/${encodeURIComponent(remote.project)}/repository/files/${encodedPath}/raw?ref=${encodeURIComponent(ref)}`, token);
-    if (!response.ok) throw new Error(`Failed to get file ${path}: ${response.status}`);
-    return { content: await response.text() };
-  }
-  const response = await api(remote, `/repos/${remote.project}/contents/${encodedPath}?ref=${encodeURIComponent(ref)}`, token);
-  if (!response.ok) throw new Error(`Failed to get file ${path}: ${response.status}`);
-  const data = await response.json();
-  return { content: decodeBase64(data.content), sha: data.sha };
-}
-
-async function writeRemoteFile(remote: Remote, token: string, ref: string, path: string, content: string, sha?: string): Promise<void> {
-  const encodedPath = encodeFilePath(remote, path);
-  const message = 'Sync from Noteriv Mobile';
-  if (remote.provider === 'gitlab') {
-    const response = await api(remote, `/projects/${encodeURIComponent(remote.project)}/repository/files/${encodedPath}`, token, {
-      method: sha ? 'PUT' : 'POST',
-      body: JSON.stringify({ branch: ref, content, commit_message: message, encoding: 'text' }),
-    });
-    if (!response.ok) throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
-    return;
-  }
-  // Gitea/Forgejo create with POST and update with PUT (which requires the sha).
-  const response = await api(remote, `/repos/${remote.project}/contents/${encodedPath}`, token, {
-    method: sha ? 'PUT' : 'POST',
-    body: JSON.stringify({ branch: ref, content: encodeBase64(content), message, ...(sha ? { sha } : {}) }),
-  });
-  if (!response.ok) throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
-}
-
-const markdown = (path: string) => /\.(md|markdown)$/i.test(path) && !path.startsWith('.noteriv/');
-
-export async function pull(vaultPath: string, token: string, remoteUrl: string, branchName?: string, hint?: SyncProvider): Promise<SyncResult> {
-  const remote = parseRemote(remoteUrl, hint);
-  if (!remote) return { pulled: 0, pushed: 0, errors: ['Unknown Git provider. Choose GitLab or Gitea/Forgejo for self-hosted remotes.'] };
-  if (remote.provider === 'github') return GitHub.pull(vaultPath, token, remoteUrl, branchName);
-  const result: SyncResult = { pulled: 0, pushed: 0, errors: [] };
+export function setOAuthIO(io: OAuthIO): void { oauthIO = io; }
+export function setSyncHooks(value: typeof hooks): void { hooks = value; }
+const running = new Set<string>();
+async function run(action: string, vaultPath: string, token: string, remote: string, branch?: string): Promise<SyncResult> {
+  if (running.has(vaultPath)) return { pulled: 0, pushed: 0, errors: ['Another sync is already running'] };
+  running.add(vaultPath);
+  let started = false;
   try {
-    const ref = branchName || await branch(remote, token);
-    const base = await loadSyncBase(vaultPath, remoteUrl, branchName);
-    const files = (await listFiles(remote, token, ref)).filter((file) => markdown(file.path));
-    const paths = new Set(files.map((file) => file.path));
-    // Apply remote deletions only to notes that haven't changed here since the last sync.
-    for (const file of await FS.listAllMarkdownFiles(vaultPath)) {
-      const path = vaultRelativePath(vaultPath, file.filePath);
-      if (path.startsWith('.trash/') || !markdown(path) || paths.has(path)) continue;
-      if (shouldDeleteLocal(await FS.readFile(file.filePath), base[path])) {
-        FS.deleteFile(file.filePath);
-        delete base[path];
-        result.pulled++;
-      }
+    await hooks?.before(); started = true;
+    const dir = nativeDir(vaultPath);
+    const vault = (await getVaults()).find(v => v.path === vaultPath);
+    if (!vault) throw new Error('Unknown vault');
+    const credentials = await vaultCredentials(vault.id, oauthIO);
+    // Legacy callers pass an ephemeral token while connecting a new remote.
+    if (token) credentials.token = credentials.oauth ? credentials.token : token;
+    const before = await native({ action: 'status', dir });
+    if (!before.isRepo) {
+      await native({ action: 'init', dir, branch: branch || 'main' });
+      await native({ action: 'remote', dir, remote });
+    } else if (before.remote !== remote) {
+      // Changing the server must be accompanied by explicitly saved credentials.
+      await native({ action: 'remote', dir, remote });
     }
-    for (const file of files) {
-      try {
-        const remoteFile = await readRemoteFile(remote, token, ref, file.path);
-        const localPath = vaultFileUri(vaultPath, file.path);
-        switch (pullAction(await FS.readFile(localPath), remoteFile.content, base[file.path])) {
-          case 'skip':
-            base[file.path] = contentHash(remoteFile.content);
-            break;
-          case 'take-remote':
-            FS.writeFile(localPath, remoteFile.content);
-            base[file.path] = contentHash(remoteFile.content);
-            result.pulled++;
-            break;
-          case 'keep-local':
-            break;
-          case 'conflict': {
-            const copy = vaultFileUri(vaultPath, conflictCopyPath(file.path));
-            if ((await FS.readFile(copy)) === null) {
-              FS.writeFile(copy, remoteFile.content);
-              result.pulled++;
-            }
-            break;
-          }
-        }
-      } catch (error) { result.errors.push(`Pull ${file.path}: ${error instanceof Error ? error.message : String(error)}`); }
-    }
-    saveSyncBase(vaultPath, remoteUrl, branchName, base);
-  } catch (error) { result.errors.push(`Pull failed: ${error instanceof Error ? error.message : String(error)}`); }
-  return result;
+    const status = await native({ action, dir, credentials });
+    return { pulled: status.pulled, pushed: status.pushed, conflicts: status.conflicts,
+      errors: status.conflicts.length ? [`Sync paused: ${status.conflicts.length} file(s) have conflicts. Resolve them in Settings.`] : [] };
+  } catch (error) { return { pulled: 0, pushed: 0, errors: [error instanceof Error ? error.message : String(error)] }; }
+  finally { try { if (started) await hooks?.after(); } finally { running.delete(vaultPath); } }
 }
-
-export async function push(vaultPath: string, token: string, remoteUrl: string, branchName?: string, hint?: SyncProvider): Promise<SyncResult> {
-  const remote = parseRemote(remoteUrl, hint);
-  if (!remote) return { pulled: 0, pushed: 0, errors: ['Unknown Git provider. Choose GitLab or Gitea/Forgejo for self-hosted remotes.'] };
-  if (remote.provider === 'github') return GitHub.push(vaultPath, token, remoteUrl, branchName);
-  const result: SyncResult = { pulled: 0, pushed: 0, errors: [] };
-  try {
-    const ref = branchName || await branch(remote, token);
-    const base = await loadSyncBase(vaultPath, remoteUrl, branchName);
-    const files = new Map((await listFiles(remote, token, ref)).map((file) => [file.path, file]));
-    for (const file of await FS.listAllMarkdownFiles(vaultPath)) {
-      const path = vaultRelativePath(vaultPath, file.filePath);
-      if (!markdown(path)) continue;
-      try {
-        const content = await FS.readFile(file.filePath);
-        if (content === null) continue;
-        const existing = files.get(path);
-        if (existing && (await readRemoteFile(remote, token, ref, path)).content === content) {
-          base[path] = contentHash(content);
-          continue;
-        }
-        await writeRemoteFile(remote, token, ref, path, content, existing?.sha);
-        base[path] = contentHash(content);
-        result.pushed++;
-      } catch (error) { result.errors.push(`Push ${path}: ${error instanceof Error ? error.message : String(error)}`); }
-    }
-    saveSyncBase(vaultPath, remoteUrl, branchName, base);
-  } catch (error) { result.errors.push(`Push failed: ${error instanceof Error ? error.message : String(error)}`); }
-  return result;
-}
-
-export async function sync(vaultPath: string, token: string, remote: string, branch?: string, hint?: SyncProvider): Promise<SyncResult> {
-  const pulled = await pull(vaultPath, token, remote, branch, hint);
-  const pushed = await push(vaultPath, token, remote, branch, hint);
-  return { pulled: pulled.pulled, pushed: pushed.pushed, errors: [...pulled.errors, ...pushed.errors] };
-}
-
-export async function freshClone(vaultPath: string, token: string, remoteUrl: string, branch?: string, hint?: SyncProvider): Promise<SyncResult> {
-  const remote = parseRemote(remoteUrl, hint);
-  if (remote?.provider === 'github') return GitHub.freshClone(vaultPath, token, remoteUrl, branch);
-  return { pulled: 0, pushed: 0, errors: ['Fresh Clone is currently available for GitHub remotes only. Use Sync Now for this provider.'] };
+export async function sync(v: string, t: string, r: string, b?: string, _hint?: SyncProvider): Promise<SyncResult> { return run('sync', v, t, r, b); }
+export async function pull(v: string, t: string, r: string, b?: string, _hint?: SyncProvider): Promise<SyncResult> { return run('pull', v, t, r, b); }
+export async function push(v: string, t: string, r: string, b?: string, _hint?: SyncProvider): Promise<SyncResult> { return run('push', v, t, r, b); }
+export async function freshClone(_v: string, _t: string, _r: string, _b?: string, _hint?: SyncProvider): Promise<SyncResult> {
+  return { pulled: 0, pushed: 0, errors: ['Create a new vault to clone a fresh working copy. Existing notes are never deleted by sync.'] };
 }

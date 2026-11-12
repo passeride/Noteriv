@@ -20,6 +20,9 @@ import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import { KEYS, setItem } from '@/lib/storage';
 import * as GitSync from '@/lib/provider-sync';
+import * as VaultOps from '@/lib/vault';
+import NativeGitSettings from '@/components/NativeGitSettings';
+import { removeItem as removeStoredItem } from '@/lib/storage';
 import { GitProvider } from '@/types';
 import { loadSnippets } from '@/lib/css-snippets';
 import { getInstalledPlugins, getEnabledPluginIds } from '@/lib/plugins';
@@ -165,8 +168,9 @@ export default function SettingsScreen() {
         text: 'Disconnect',
         style: 'destructive',
         onPress: async () => {
-          await AsyncStorage.removeItem(KEYS.GITHUB_TOKEN(vault.id));
-          await AsyncStorage.removeItem(KEYS.GIT_TOKEN(vault.id));
+          await removeStoredItem(KEYS.GITHUB_TOKEN(vault.id));
+          await removeStoredItem(KEYS.GIT_TOKEN(vault.id));
+          await removeStoredItem(KEYS.GIT_CREDENTIALS(vault.id));
           setGhToken(null);
         },
       },
@@ -319,6 +323,11 @@ export default function SettingsScreen() {
           text: 'Reset Everything',
           style: 'destructive',
           onPress: async () => {
+            for (const item of await VaultOps.getVaults()) {
+              await removeStoredItem(KEYS.GITHUB_TOKEN(item.id));
+              await removeStoredItem(KEYS.GIT_TOKEN(item.id));
+              await removeStoredItem(KEYS.GIT_CREDENTIALS(item.id));
+            }
             await AsyncStorage.clear();
             router.replace('/setup');
           },
@@ -723,6 +732,7 @@ export default function SettingsScreen() {
       {/* Git sync */}
       {renderSectionHeader('Git Sync', 'git-branch-outline')}
       <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+        <NativeGitSettings key={vault?.id} />
         {gitConnected ? (
           <>
             <View style={[s.settingRow, { borderBottomColor: colors.border }]}>

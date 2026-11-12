@@ -1,167 +1,114 @@
-// GitHub auth: token storage (OS keyring, falls back to encrypted-on-disk),
-// validate, list repos, create repo, open token page.
-
+// Tokens and SSH keys live exclusively in the operating-system credential store.
+use crate::paths;
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::HashMap;
-use std::fs;
+use std::{collections::HashMap, fs, sync::Mutex};
 use tauri_plugin_opener::OpenerExt;
-
-use crate::paths;
-
-// ============================================================
-// Token storage — disk only.
-//
-// We deliberately do NOT use the OS keyring. The Linux secret-service
-// implementations (gnome-keyring, kwallet) routinely pop a modal
-// keyring-unlock dialog the first time a new app reads or writes — which
-// fires for *every* git sync until unlocked. Disk-only matches Electron's
-// safeStorage fallback path (base64 on disk) and never prompts.
-// ============================================================
-
-fn fallback_load() -> HashMap<String, String> {
-    let path = paths::token_file();
-    fs::read_to_string(&path)
-        .ok()
-        .and_then(|s| serde_json::from_str::<HashMap<String, String>>(&s).ok())
-        .unwrap_or_default()
+pub type GitCredentials = noteriv_git::Credentials;
+static MIGRATION: Mutex<()> = Mutex::new(());
+fn entry(vault_id: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new("com.noteriv.git", vault_id)
+        .map_err(|_| "Cannot access the OS credential store".into())
 }
-
-/// One-time importer: legacy Electron tokens.enc had values either as Electron
-/// safeStorage envelopes (unreadable from Rust) or as plain base64 (the JS
-/// fallback). For each entry that's plain base64, re-store via keyring and mark
-/// it migrated. Entries that look like safeStorage blobs are dropped — the user
-/// will need to re-paste their token. We write a marker file so we only run
-/// once per machine.
-pub fn migrate_legacy_tokens() {
-    let marker = paths::user_data_dir().join(".tokens-migrated");
-    if marker.exists() {
-        return;
+fn storage_error() -> String {
+    "OS credential store is locked or unavailable. Unlock it and retry; credentials were not saved to disk.".into()
+}
+fn legacy() -> Result<HashMap<String, String>, String> {
+    match fs::read_to_string(paths::token_file()) {
+        Ok(s) => serde_json::from_str(&s)
+            .map_err(|_| "Legacy credential file is unreadable; enter credentials again".into()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(HashMap::new()),
+        Err(_) => Err("Cannot read legacy credential file".into()),
     }
-    let path = paths::token_file();
-    if !path.exists() {
-        let _ = fs::write(&marker, "");
-        return;
+}
+fn remove_legacy(id: &str) -> Result<(), String> {
+    let mut map = legacy()?;
+    if map.remove(id).is_some() {
+        if map.is_empty() {
+            fs::remove_file(paths::token_file()).map_err(|_| "Cannot remove legacy credentials")?;
+        } else {
+            fs::write(
+                paths::token_file(),
+                serde_json::to_vec(&map).map_err(|_| "Cannot encode credentials")?,
+            )
+            .map_err(|_| "Cannot update legacy credential file")?;
+        }
     }
-    let raw = match fs::read_to_string(&path) {
-        Ok(s) => s,
-        Err(_) => {
-            let _ = fs::write(&marker, "");
-            return;
+    Ok(())
+}
+pub fn save_credentials(id: &str, credentials: &GitCredentials) -> Result<(), String> {
+    let _guard = MIGRATION.lock().map_err(|_| storage_error())?;
+    let mut credentials = credentials.clone();
+    if credentials.origin.is_none() {
+        let vault = crate::store::get_vaults().into_iter().find(|v| v.id == id);
+        credentials.origin = vault
+            .and_then(|v| v.git_remote)
+            .and_then(|r| noteriv_git::remote_origin(&r).ok());
+        if credentials.oauth.is_some() {
+            credentials.origin = Some("https://github.com:443".into());
         }
-    };
-    let map: HashMap<String, String> = match serde_json::from_str(&raw) {
-        Ok(m) => m,
-        Err(_) => {
-            let _ = fs::write(&marker, "");
-            return;
-        }
-    };
-
-    let mut migrated = HashMap::new();
-    let mut count = 0usize;
-    for (vault_id, value) in map.iter() {
-        // Plain base64 of an ASCII-printable token is recoverable. safeStorage
-        // envelopes start with v10/v11 prefixes (Linux/Mac) or DPAPI bytes
-        // (Windows) — those decode to non-ASCII and fail to parse as a token.
-        if let Ok(decoded) = B64.decode(value.as_bytes()) {
-            if let Ok(s) = String::from_utf8(decoded) {
-                let looks_like_token = !s.is_empty()
-                    && s.chars().all(|c| c.is_ascii_graphic())
-                    && (s.starts_with("ghp_")
-                        || s.starts_with("github_pat_")
-                        || s.starts_with("gho_")
-                        || s.starts_with("ghu_")
-                        || s.starts_with("ghs_")
-                        || s.len() >= 30);
-                if looks_like_token {
-                    save_token_internal(vault_id, &s);
-                    count += 1;
-                    continue;
+    }
+    let value = serde_json::to_string(&credentials).map_err(|_| storage_error())?;
+    let entry = entry(id)?;
+    entry.set_password(&value).map_err(|_| storage_error())?;
+    if entry.get_password().map_err(|_| storage_error())? != value {
+        return Err(storage_error());
+    }
+    remove_legacy(id)
+}
+pub fn get_credentials(id: &str) -> Result<Option<GitCredentials>, String> {
+    let _guard = MIGRATION.lock().map_err(|_| storage_error())?;
+    let entry = entry(id)?;
+    match entry.get_password() {
+        Ok(value) => serde_json::from_str(&value)
+            .map(Some)
+            .map_err(|_| "Stored credentials are unreadable".into()),
+        Err(keyring::Error::NoEntry) => {
+            let Some(raw) = legacy()?.remove(id) else {
+                return Ok(None);
+            };
+            let decoded = B64
+                .decode(raw)
+                .map_err(|_| "Enter your credentials again")?;
+            let text = String::from_utf8(decoded).map_err(|_| "Enter your credentials again")?;
+            let credentials = if let Ok(v) = serde_json::from_str::<Value>(&text) {
+                GitCredentials {
+                    username: v["u"].as_str().unwrap_or("").into(),
+                    token: v["t"].as_str().unwrap_or("").into(),
+                    ..Default::default()
                 }
+            } else {
+                GitCredentials {
+                    token: text,
+                    ..Default::default()
+                }
+            };
+            let value = serde_json::to_string(&credentials).map_err(|_| storage_error())?;
+            entry.set_password(&value).map_err(|_| storage_error())?;
+            if entry.get_password().map_err(|_| storage_error())? != value {
+                return Err(storage_error());
             }
+            remove_legacy(id)?;
+            Ok(Some(credentials))
         }
-        // Couldn't migrate — keep the raw (unreadable) entry so we know one
-        // existed but the user must re-paste.
-        migrated.insert(vault_id.clone(), value.clone());
-    }
-    if count > 0 {
-        log::info!("[auth] migrated {count} legacy token(s) to disk store");
-    }
-    let _ = fs::write(&marker, "");
-}
-
-fn fallback_save(map: &HashMap<String, String>) {
-    let path = paths::token_file();
-    if let Ok(s) = serde_json::to_string(map) {
-        let _ = fs::write(path, s);
+        Err(_) => Err(storage_error()),
     }
 }
-
-/// Credentials for HTTPS git auth. `username` is the value sent before the
-/// token: "oauth2" for GitHub/GitLab, your login for Gitea/Forgejo,
-/// "x-token-auth" for Bitbucket. An empty username falls back to "oauth2".
-#[derive(Clone)]
-pub struct GitCredentials {
-    pub username: String,
-    pub token: String,
+pub fn get_token(id: &str) -> Result<Option<String>, String> {
+    Ok(get_credentials(id)?
+        .map(|c| c.token)
+        .filter(|t| !t.is_empty()))
 }
-
-impl GitCredentials {
-    /// Build an authenticated HTTPS clone/pull/push URL for `remote`.
-    pub fn auth_url(&self, remote: &str) -> String {
-        make_auth_url(remote, &self.username, &self.token)
+pub fn remove_token(id: &str) -> Result<bool, String> {
+    let _guard = MIGRATION.lock().map_err(|_| storage_error())?;
+    match entry(id)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => {}
+        Err(_) => return Err(storage_error()),
     }
+    remove_legacy(id)?;
+    Ok(true)
 }
-
-pub fn save_credentials_internal(vault_id: &str, username: &str, token: &str) {
-    let mut map = fallback_load();
-    let envelope = serde_json::json!({ "u": username, "t": token }).to_string();
-    map.insert(vault_id.into(), B64.encode(envelope));
-    fallback_save(&map);
-}
-
-/// Back-compat helper for the token-only migration path (no username).
-pub fn save_token_internal(vault_id: &str, token: &str) {
-    save_credentials_internal(vault_id, "", token);
-}
-
-pub fn get_credentials(vault_id: &str) -> Option<GitCredentials> {
-    let map = fallback_load();
-    let raw = map.get(vault_id)?;
-    if raw.is_empty() {
-        return None;
-    }
-    let decoded = B64.decode(raw.as_bytes()).ok()?;
-    let s = String::from_utf8(decoded).ok()?;
-    if s.is_empty() {
-        return None;
-    }
-    // New format: a JSON envelope { "u": username, "t": token }.
-    if let Ok(v) = serde_json::from_str::<Value>(&s) {
-        if let Some(t) = v.get("t").and_then(|x| x.as_str()) {
-            if !t.is_empty() {
-                let u = v.get("u").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                return Some(GitCredentials { username: u, token: t.to_string() });
-            }
-        }
-    }
-    // Legacy format: the whole string is a bare token (e.g. an old GitHub PAT).
-    Some(GitCredentials { username: String::new(), token: s })
-}
-
-pub fn get_token(vault_id: &str) -> Option<String> {
-    get_credentials(vault_id).map(|c| c.token)
-}
-
-pub fn remove_token(vault_id: &str) -> bool {
-    let mut map = fallback_load();
-    map.remove(vault_id);
-    fallback_save(&map);
-    true
-}
-
 // ============================================================
 // IPC commands
 // ============================================================
@@ -177,22 +124,25 @@ pub struct SaveTokenInput {
 }
 
 #[tauri::command]
-pub async fn auth_save_token(args: SaveTokenInput) -> bool {
-    save_credentials_internal(
+pub async fn auth_save_token(args: SaveTokenInput) -> Result<bool, String> {
+    save_credentials(
         &args.vault_id,
-        args.username.as_deref().unwrap_or(""),
-        &args.token,
-    );
-    true
+        &GitCredentials {
+            username: args.username.unwrap_or_default(),
+            token: args.token,
+            ..Default::default()
+        },
+    )?;
+    Ok(true)
 }
 
 #[tauri::command]
-pub async fn auth_has_token(vault_id: String) -> bool {
-    get_token(&vault_id).is_some()
+pub async fn auth_has_token(vault_id: String) -> Result<bool, String> {
+    Ok(get_credentials(&vault_id)?.is_some())
 }
 
 #[tauri::command]
-pub async fn auth_remove_token(vault_id: String) -> bool {
+pub async fn auth_remove_token(vault_id: String) -> Result<bool, String> {
     remove_token(&vault_id)
 }
 
@@ -259,7 +209,10 @@ pub async fn auth_validate_token(token: String) -> GitHubUser {
                 .and_then(|s| s.as_str())
                 .or_else(|| v.get("login").and_then(|s| s.as_str()))
                 .map(String::from),
-            avatar: v.get("avatar_url").and_then(|s| s.as_str()).map(String::from),
+            avatar: v
+                .get("avatar_url")
+                .and_then(|s| s.as_str())
+                .map(String::from),
             error: None,
         },
         Err(e) => GitHubUser {
@@ -297,9 +250,8 @@ pub struct GitHubRepo {
 #[tauri::command]
 pub async fn auth_list_repos(args: ListReposInput) -> Result<Vec<GitHubRepo>, String> {
     let page = args.page.unwrap_or(1);
-    let path = format!(
-        "/user/repos?sort=updated&per_page=30&page={page}&affiliation=owner,collaborator"
-    );
+    let path =
+        format!("/user/repos?sort=updated&per_page=30&page={page}&affiliation=owner,collaborator");
     let v = gh_request("GET", &path, Some(&args.token), None).await?;
     let arr = v.as_array().cloned().unwrap_or_default();
     Ok(arr
@@ -310,8 +262,14 @@ pub async fn auth_list_repos(args: ListReposInput) -> Result<Vec<GitHubRepo>, St
             private: r.get("private").and_then(|b| b.as_bool()).unwrap_or(false),
             clone_url: str_field(&r, "clone_url"),
             ssh_url: str_field(&r, "ssh_url"),
-            description: r.get("description").and_then(|s| s.as_str()).map(String::from),
-            updated_at: r.get("updated_at").and_then(|s| s.as_str()).map(String::from),
+            description: r
+                .get("description")
+                .and_then(|s| s.as_str())
+                .map(String::from),
+            updated_at: r
+                .get("updated_at")
+                .and_then(|s| s.as_str())
+                .map(String::from),
         })
         .collect())
 }
@@ -348,8 +306,14 @@ pub async fn auth_create_repo(args: CreateRepoInput) -> Result<GitHubRepo, Strin
         private: v.get("private").and_then(|b| b.as_bool()).unwrap_or(false),
         clone_url: str_field(&v, "clone_url"),
         ssh_url: str_field(&v, "ssh_url"),
-        description: v.get("description").and_then(|s| s.as_str()).map(String::from),
-        updated_at: v.get("updated_at").and_then(|s| s.as_str()).map(String::from),
+        description: v
+            .get("description")
+            .and_then(|s| s.as_str())
+            .map(String::from),
+        updated_at: v
+            .get("updated_at")
+            .and_then(|s| s.as_str())
+            .map(String::from),
     })
 }
 
@@ -363,105 +327,104 @@ pub async fn auth_open_token_page(app: tauri::AppHandle) -> bool {
 }
 
 #[tauri::command]
-pub async fn auth_get_user(vault_id: String) -> Option<GitHubUser> {
-    let token = get_token(&vault_id)?;
+pub async fn auth_get_user(vault_id: String) -> Result<Option<GitHubUser>, String> {
+    let Some(token) = get_token(&vault_id)? else {
+        return Ok(None);
+    };
     let user = auth_validate_token(token).await;
     if user.valid {
-        Some(user)
+        Ok(Some(user))
     } else {
-        None
+        Ok(None)
     }
 }
 
-/// Convert a git SSH URL to its HTTPS equivalent.
-///   git@github.com:user/repo.git      -> https://github.com/user/repo.git
-///   ssh://git@github.com/user/repo.git -> https://github.com/user/repo.git
-fn ssh_to_https(remote: &str) -> Option<String> {
-    if let Some(rest) = remote.strip_prefix("git@") {
-        if let Some(idx) = rest.find(':') {
-            let host = &rest[..idx];
-            let path = &rest[idx + 1..];
-            return Some(format!("https://{host}/{path}"));
+/// Only the OAuth protocol endpoints are exposed; requests never follow redirects.
+#[tauri::command]
+pub async fn auth_oauth_http(url: String, body: HashMap<String, String>) -> Result<Value, String> {
+    let parsed = url::Url::parse(&url).map_err(|_| "Invalid OAuth endpoint")?;
+    if parsed.scheme() != "https"
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err("OAuth endpoints must use HTTPS".into());
+    }
+    let github = parsed.host_str() == Some("github.com");
+    if github && !["/login/device/code", "/login/oauth/access_token"].contains(&parsed.path()) {
+        return Err("Invalid GitHub OAuth endpoint".into());
+    }
+    if !github
+        && !(parsed.path() == "/sessions"
+            || parsed.path() == "/refresh"
+            || (parsed.path().starts_with("/sessions/") && parsed.path().ends_with("/claim")))
+    {
+        return Err("Invalid OAuth broker endpoint".into());
+    }
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("Noteriv")
+        .build()
+        .map_err(|_| "Cannot start OAuth request")?;
+    let request = client.post(parsed).header("Accept", "application/json");
+    let response = if github {
+        request.form(&body)
+    } else {
+        request.json(&body)
+    }
+    .send()
+    .await
+    .map_err(|_| "OAuth request failed")?;
+    if !response.status().is_success() {
+        return Err("OAuth server rejected the request".into());
+    }
+    response
+        .json()
+        .await
+        .map_err(|_| "Invalid OAuth response".into())
+}
+
+pub async fn network_credentials(id: &str) -> Result<GitCredentials, String> {
+    static REFRESH: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    let _refresh_guard = REFRESH.lock().await;
+    let mut creds = get_credentials(id)?.unwrap_or_default();
+    if let Some(oauth) = creds.oauth.clone() {
+        let expires = oauth["token"]["expiresAt"].as_i64().unwrap_or(i64::MAX);
+        if expires <= chrono::Utc::now().timestamp_millis() + 60_000 {
+            let refresh = oauth["token"]["refreshToken"]
+                .as_str()
+                .ok_or("GitHub login expired; sign in again")?;
+            let client_id = oauth["config"]["clientId"]
+                .as_str()
+                .ok_or("Missing GitHub client ID")?;
+            let broker = oauth["config"]["brokerUrl"]
+                .as_str()
+                .filter(|s| !s.is_empty());
+            let endpoint = broker
+                .map(|s| format!("{}/refresh", s.trim_end_matches('/')))
+                .unwrap_or_else(|| "https://github.com/login/oauth/access_token".into());
+            let response = auth_oauth_http(
+                endpoint,
+                HashMap::from([
+                    ("client_id".into(), client_id.into()),
+                    ("grant_type".into(), "refresh_token".into()),
+                    ("refresh_token".into(), refresh.into()),
+                ]),
+            )
+            .await?;
+            creds.token = response["access_token"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .ok_or("GitHub login expired; sign in again")?
+                .into();
+            let now = chrono::Utc::now().timestamp_millis();
+            let new_token = serde_json::json!({ "accessToken": creds.token, "refreshToken": response["refresh_token"], "expiresAt": response["expires_in"].as_i64().map(|s| now + s * 1000), "refreshExpiresAt": response["refresh_token_expires_in"].as_i64().map(|s| now + s * 1000) });
+            creds.oauth =
+                Some(serde_json::json!({ "config": oauth["config"], "token": new_token }));
+            save_credentials(id, &creds)?;
         }
     }
-    if let Some(rest) = remote.strip_prefix("ssh://git@") {
-        return Some(format!("https://{rest}"));
-    }
-    None
-}
-
-/// Build an authenticated git URL (`https://USERNAME:TOKEN@host/...`). The
-/// username defaults to "oauth2" (works for GitHub and GitLab); pass a login
-/// for Gitea/Forgejo or "x-token-auth" for Bitbucket. If `remote_url` is SSH,
-/// rewrite to HTTPS first — PATs can't auth SSH.
-pub fn make_auth_url(remote_url: &str, username: &str, token: &str) -> String {
-    if token.is_empty() {
-        return remote_url.to_string();
-    }
-    let working = ssh_to_https(remote_url).unwrap_or_else(|| remote_url.to_string());
-    if let Ok(mut url) = url::Url::parse(&working) {
-        if url.scheme() == "https" {
-            let user = if username.is_empty() { "oauth2" } else { username };
-            let _ = url.set_username(user);
-            let _ = url.set_password(Some(token));
-            return url.to_string();
-        }
-    }
-    remote_url.to_string()
-}
-
-pub fn credentials_for_vault(vault_id: Option<&str>) -> Option<GitCredentials> {
-    vault_id.and_then(get_credentials)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::make_auth_url;
-
-    #[test]
-    fn empty_token_leaves_url_untouched() {
-        assert_eq!(make_auth_url("https://github.com/u/r.git", "", ""), "https://github.com/u/r.git");
-    }
-
-    #[test]
-    fn blank_username_defaults_to_oauth2() {
-        // Works for GitHub and GitLab.
-        assert_eq!(
-            make_auth_url("https://gitlab.com/u/r.git", "", "glpat-xyz"),
-            "https://oauth2:glpat-xyz@gitlab.com/u/r.git"
-        );
-    }
-
-    #[test]
-    fn explicit_username_is_used() {
-        // Gitea/Forgejo want <login>:<token>.
-        assert_eq!(
-            make_auth_url("https://forgejo.example.com/u/r.git", "alice", "tok"),
-            "https://alice:tok@forgejo.example.com/u/r.git"
-        );
-    }
-
-    #[test]
-    fn bitbucket_token_username() {
-        assert_eq!(
-            make_auth_url("https://bitbucket.org/u/r.git", "x-token-auth", "tok"),
-            "https://x-token-auth:tok@bitbucket.org/u/r.git"
-        );
-    }
-
-    #[test]
-    fn ssh_remote_rewritten_to_https_when_token_present() {
-        assert_eq!(
-            make_auth_url("git@gitlab.com:u/r.git", "", "tok"),
-            "https://oauth2:tok@gitlab.com/u/r.git"
-        );
-    }
-
-    #[test]
-    fn self_hosted_host_preserved() {
-        assert_eq!(
-            make_auth_url("https://git.mycorp.internal/team/notes.git", "ci", "tok"),
-            "https://ci:tok@git.mycorp.internal/team/notes.git"
-        );
-    }
+    Ok(creds)
 }

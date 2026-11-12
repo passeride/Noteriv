@@ -161,6 +161,9 @@ interface ElectronAPI {
   gitIsRepo: (dir: string) => Promise<boolean>;
   gitInit: (dir: string) => Promise<boolean>;
   gitSetRemote: (dir: string, url: string) => Promise<boolean>;
+  authOAuthHttp: (url: string, body: Record<string, string>) => Promise<Record<string, unknown>>;
+  gitNative: <T = unknown>(request: Record<string, unknown>, vaultId?: string) => Promise<T>;
+  gitSaveCredentials: (vaultId: string, credentials: Record<string, unknown>) => Promise<boolean>;
   gitStatus: (dir: string) => Promise<GitStatus>;
   gitSync: (dir: string, message?: string, vaultId?: string) => Promise<boolean>;
   gitPull: (dir: string, vaultId?: string) => Promise<boolean>;

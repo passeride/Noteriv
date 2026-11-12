@@ -12,6 +12,6 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
   s.source_files = '**/*.swift'
   s.vendored_frameworks = 'NoterivGit.xcframework'
-  s.frameworks = 'Security', 'SystemConfiguration'
-  s.libraries = 'c++', 'z', 'resolv'
+  s.frameworks = 'Security', 'SystemConfiguration', 'CoreFoundation'
+  s.libraries = 'c++', 'z', 'resolv', 'iconv'
 end

@@ -20,6 +20,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: crates/noteriv-git -> target
+          cache-on-failure: true
       - run: cargo fmt --manifest-path crates/noteriv-git/Cargo.toml --check
       - run: cargo test --locked --manifest-path crates/noteriv-git/Cargo.toml
       - run: cargo clippy --locked --manifest-path crates/noteriv-git/Cargo.toml --all-targets -- -D warnings
@@ -40,6 +41,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: desktop/src-tauri -> target
+          cache-on-failure: true
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libdbus-1-dev libssl-dev
       - run: npm ci
         working-directory: desktop
@@ -59,12 +61,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: crates/noteriv-git -> target
+          cache-on-failure: true
       - run: cargo install cargo-ndk --locked
       - run: npm ci
         working-directory: phone
@@ -101,6 +105,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: crates/noteriv-git -> target
+          cache-on-failure: true
       - run: npm ci
         working-directory: phone
       - run: npm run build:git:ios

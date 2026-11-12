@@ -89,6 +89,7 @@ pub const SHIM_JS: &str = r#"
       setActiveVault: function (id) { return invoke("vault_set_active", { id: id }); },
 
       // ---- auth
+      authOAuthHttp: function (url, body) { return invoke("auth_oauth_http", { url: url, body: body }); },
       authSaveToken: function (vaultId, token, username) { return invoke("auth_save_token", { args: { vaultId: vaultId, token: token, username: username } }); },
       authHasToken: function (vaultId) { return invoke("auth_has_token", { vaultId: vaultId }); },
       authRemoveToken: function (vaultId) { return invoke("auth_remove_token", { vaultId: vaultId }); },
@@ -101,6 +102,8 @@ pub const SHIM_JS: &str = r#"
       authGetUser: function (vaultId) { return invoke("auth_get_user", { vaultId: vaultId }); },
 
       // ---- git
+      gitNative: function (request, vaultId) { return invoke("git_native", { request: request, vaultId: vaultId }); },
+      gitSaveCredentials: function (vaultId, credentials) { return invoke("git_save_credentials", { vaultId: vaultId, credentials: credentials }); },
       gitIsInstalled: function () { return invoke("git_is_installed"); },
       gitIsRepo: function (dir) { return invoke("git_is_repo", { dir: dir }); },
       gitInit: function (dir) { return invoke("git_init", { dir: dir }); },

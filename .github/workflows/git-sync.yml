@@ -1,0 +1,124 @@
+name: Native Git sync
+on:
+  pull_request:
+  push:
+    branches: [main, 'feat/shared-git-sync']
+  workflow_dispatch:
+concurrency:
+  group: native-git-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/noteriv-git -> target
+          cache-on-failure: true
+      - run: cargo fmt --manifest-path crates/noteriv-git/Cargo.toml --check
+      - run: cargo test --locked --manifest-path crates/noteriv-git/Cargo.toml
+      - run: cargo clippy --locked --manifest-path crates/noteriv-git/Cargo.toml --all-targets -- -D warnings
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test services/github-auth/server.test.mjs
+  desktop:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          cache-on-failure: true
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libdbus-1-dev libssl-dev
+      - run: npm ci
+        working-directory: desktop
+      - run: npm run typecheck && npm test && npm run build:next
+        working-directory: desktop
+      - run: cargo check --locked --manifest-path desktop/src-tauri/Cargo.toml
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: phone/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/noteriv-git -> target
+          cache-on-failure: true
+      - run: cargo install cargo-ndk --locked
+      - run: npm ci
+        working-directory: phone
+      - run: npx tsc --noEmit && npx expo export --platform android --output-dir dist-android
+        working-directory: phone
+      - run: npm run build:git:android
+        working-directory: phone
+      - run: npx expo prebuild --platform android --no-install
+        working-directory: phone
+      - run: |
+          if ! ./gradlew assembleDebug --no-daemon --console=plain > gradle-build.log 2>&1; then
+            grep -n -C 3 -E '(^e:|error:|What went wrong|Caused by:)' gradle-build.log | tail -n 150 || true
+            tail -n 60 gradle-build.log
+            exit 1
+          fi
+          tail -n 10 gradle-build.log
+        working-directory: phone/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noteriv-native-git-debug
+          path: phone/android/app/build/outputs/apk/debug/*.apk
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: phone/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/noteriv-git -> target
+          cache-on-failure: true
+      - run: npm ci
+        working-directory: phone
+      - run: npm run build:git:ios
+        working-directory: phone
+      - run: npx expo prebuild --platform ios --no-install
+        working-directory: phone
+      - run: pod install
+        working-directory: phone/ios
+      - run: |
+          if ! xcodebuild -workspace noteriv.xcworkspace -scheme noteriv -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build > xcodebuild.log 2>&1; then
+            grep -n -C 3 -E 'error:|Undefined symbols|BUILD FAILED' xcodebuild.log | tail -n 150 || true
+            tail -n 30 xcodebuild.log
+            exit 1
+          fi
+          tail -n 10 xcodebuild.log
+        working-directory: phone/ios

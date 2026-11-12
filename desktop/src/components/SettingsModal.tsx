@@ -22,6 +22,8 @@ import {
   FOLDER_DIRECTIONS,
   type SyncProviderType,
 } from "@/lib/sync-providers";
+import GitSyncPanel from "./GitSyncPanel";
+import SyncTabs from "./SyncTabs";
 import ThemePicker from "@/components/ThemePicker";
 import PluginMount from "@/components/PluginMount";
 import type { SettingsTab } from "@/lib/plugin-api";
@@ -60,7 +62,7 @@ interface GitHostInfo {
 
 function gitHostInfo(url: string): GitHostInfo {
   const host = gitRemoteHost(url);
-  const isGitHub = host === "github.com" || host.endsWith(".github.com");
+  const isGitHub = host === "github.com";
   let tokenPageUrl: string | null = null;
   if (isGitHub) {
     tokenPageUrl = "https://github.com/settings/tokens/new?scopes=repo&description=Noteriv";
@@ -80,6 +82,7 @@ interface SettingsModalProps {
   platform: string;
   vaultPath: string;
   vault: Vault | null;
+  onBeforeGitOperation: () => Promise<void>;
   onSettingsChange: (settings: AppSettings) => void;
   onHotkeysChange: (hotkeys: HotkeyBinding[]) => void;
   onVaultUpdate: (vault: Vault) => void;
@@ -96,6 +99,7 @@ export default function SettingsModal({
   platform,
   vaultPath,
   vault,
+  onBeforeGitOperation,
   onSettingsChange,
   onHotkeysChange,
   onVaultUpdate,
@@ -105,6 +109,9 @@ export default function SettingsModal({
   onClose,
 }: SettingsModalProps) {
   const [active, setActive] = useState<Section>("general");
+  const [syncTab, setSyncTab] = useState<"status" | "github" | "self-hosted" | "options">(vault?.gitRemote ? "status" : "github");
+  const [githubMethod, setGithubMethod] = useState<"token" | "app">("token");
+  const [serverMethod, setServerMethod] = useState<"https" | "ssh">(vault?.gitRemote && !vault.gitRemote.startsWith("https://") ? "ssh" : "https");
   const [activePluginTab, setActivePluginTab] = useState<string | null>(null);
   // Falls back to the built-in section if the plugin's tab goes away
   const pluginTab = pluginTabs.find((t) => t.id === activePluginTab) ?? null;
@@ -548,7 +555,7 @@ export default function SettingsModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [active, vault?.id]);
+  }, [active, vault?.id, vault?.gitRemote]);
 
   const handleSaveRemote = async () => {
     if (!window.electronAPI || !vault) return;
@@ -656,24 +663,27 @@ export default function SettingsModal({
     const showTokenInput = !isConnected || editingToken;
     const remoteDirty = (vault?.gitRemote || "") !== remoteUrl.trim();
     const hostInfo = gitHostInfo(vault?.gitRemote || remoteUrl);
-
-    return (
-    <div className="st-section">
-      <div className="st-group-label">Git Repository</div>
-      {!vault ? (
-        <div className="st-row-desc" style={{ padding: "8px 0" }}>
-          Open a vault to configure Git sync.
-        </div>
-      ) : (
-        <>
-          <Row label="Remote URL" desc="Git remote for this vault — GitHub, GitLab, Gitea/Forgejo, Bitbucket, or self-hosted. HTTPS or SSH.">
+    const panel = (section: "status" | "author" | "ssh" | "github") => vault && <GitSyncPanel key={`${vault.id}-${section}`} vault={vault} before={onBeforeGitOperation} section={section} />;
+    return <div className="st-section">
+      <SyncTabs id="git-setup" label="Git sync settings" value={syncTab} onChange={setSyncTab} items={[
+        { value: "status", label: "Status" }, { value: "github", label: "GitHub" },
+        { value: "self-hosted", label: "Self-hosted" }, { value: "options", label: "Options" },
+      ]} />
+      <div role="tabpanel" id={`git-setup-panel-${syncTab}`} aria-labelledby={`git-setup-tab-${syncTab}`}>
+        {!vault && <p className="st-row-desc">Open a vault to configure Git sync.</p>}
+        {syncTab === "status" && panel("status")}
+        {vault && (syncTab === "github" || syncTab === "self-hosted") && <>
+          <div className="st-group-label">{syncTab === "github" ? "Connect GitHub" : "Connect your Git server"}</div>
+          <p className="st-row-desc" style={{ marginBottom: 14 }}>{syncTab === "github" ? "Use a personal access token without creating an App, or choose GitHub App sign-in." : "Use GitLab, Gitea, Forgejo, or any Git server over HTTPS or SSH."}</p>
+          {syncTab === "github" ? <SyncTabs id="github-method" label="GitHub connection method" value={githubMethod} onChange={setGithubMethod} items={[{ value: "token", label: "Personal access token" }, { value: "app", label: "GitHub App" }]} /> : <SyncTabs id="server-method" label="Server connection method" value={serverMethod} onChange={setServerMethod} items={[{ value: "https", label: "HTTPS token" }, { value: "ssh", label: "SSH key" }]} />}
+          <Row label="Remote URL" desc="Clone URL for this vault. Save it before connecting.">
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <input
                 type="text"
                 className="st-text-input"
                 value={remoteUrl}
                 onChange={(e) => { setRemoteUrl(e.target.value); setRemoteSaved(false); }}
-                placeholder="https://gitlab.com/user/repo.git"
+                placeholder={syncTab === "github" ? "https://github.com/user/repo.git" : serverMethod === "ssh" ? "git@git.example.com:team/repo.git" : "https://git.example.com/team/repo.git"}
                 style={{ minWidth: 240 }}
               />
               <button
@@ -697,12 +707,15 @@ export default function SettingsModal({
             </div>
           )}
 
-          <Row label="Git credentials" desc="Access token for HTTPS sync, stored encrypted locally. Not needed for SSH remotes.">
-            {hostInfo.tokenPageUrl && (
+
+          <div role="tabpanel" id={syncTab === "github" ? `github-method-panel-${githubMethod}` : `server-method-panel-${serverMethod}`} aria-labelledby={syncTab === "github" ? `github-method-tab-${githubMethod}` : `server-method-tab-${serverMethod}`}>
+            {((syncTab === "github" && githubMethod === "token") || (syncTab === "self-hosted" && serverMethod === "https")) && <>
+          <Row label="Git credentials" desc="Personal access token for HTTPS, stored securely on this device.">
+            {(syncTab === "github" || hostInfo.tokenPageUrl) && (
               <button
                 type="button"
                 className="st-test-btn"
-                onClick={() => window.electronAPI?.openExternal(hostInfo.tokenPageUrl!)}
+                onClick={() => window.electronAPI?.openExternal(syncTab === "github" ? "https://github.com/settings/tokens" : hostInfo.tokenPageUrl!)}
               >
                 Generate token →
               </button>
@@ -741,7 +754,7 @@ export default function SettingsModal({
 
           {showTokenInput && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 0" }}>
-              {!hostInfo.isGitHub && (
+              {!(syncTab === "github") && (
                 <input
                   type="text"
                   className="st-text-input"
@@ -758,7 +771,7 @@ export default function SettingsModal({
                   className="st-text-input"
                   value={tokenInput}
                   onChange={(e) => setTokenInput(e.target.value)}
-                  placeholder={hostInfo.isGitHub ? "ghp_xxxx..." : "Access token / app password"}
+                  placeholder={(syncTab === "github") ? "ghp_xxxx..." : "Access token / app password"}
                   onKeyDown={(e) => { if (e.key === "Enter" && tokenInput.trim() && !savingToken) submitToken(); }}
                   style={{ flex: 1, fontFamily: "var(--font-mono, monospace)" }}
                 />
@@ -780,7 +793,7 @@ export default function SettingsModal({
                   </button>
                 )}
               </div>
-              {!hostInfo.isGitHub && (
+              {!(syncTab === "github") && (
                 <div className="st-row-desc">
                   Token is stored encrypted and used as the HTTPS password. For Bitbucket, set username to <code>x-token-auth</code>.
                 </div>
@@ -790,10 +803,14 @@ export default function SettingsModal({
               )}
             </div>
           )}
-        </>
-      )}
 
-      <div className="st-divider" />
+            </>}
+            {syncTab === "github" && githubMethod === "app" && panel("github")}
+            {syncTab === "self-hosted" && serverMethod === "ssh" && panel("ssh")}
+          </div>
+        </>}
+        {syncTab === "options" && <>
+          {panel("author")}
       <div className="st-group-label">Git Sync</div>
       <Row label="Auto sync interval" desc="Periodically commit and push changes in the background.">
         <select
@@ -927,8 +944,10 @@ export default function SettingsModal({
           )}
         </div>
       )}
-    </div>
-    );
+
+        </>}
+      </div>
+    </div>;
   };
 
   const renderEcosystem = () => (

@@ -74,7 +74,13 @@ jobs:
         working-directory: phone
       - run: npx expo prebuild --platform android --no-install
         working-directory: phone
-      - run: ./gradlew assembleDebug --no-daemon
+      - run: |
+          if ! ./gradlew assembleDebug --no-daemon --console=plain > gradle-build.log 2>&1; then
+            grep -n -C 3 -E '(^e:|error:|What went wrong|Caused by:)' gradle-build.log | tail -n 150 || true
+            tail -n 60 gradle-build.log
+            exit 1
+          fi
+          tail -n 10 gradle-build.log
         working-directory: phone/android
       - uses: actions/upload-artifact@v4
         with:
@@ -103,5 +109,11 @@ jobs:
         working-directory: phone
       - run: pod install
         working-directory: phone/ios
-      - run: xcodebuild -workspace noteriv.xcworkspace -scheme noteriv -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+      - run: |
+          if ! xcodebuild -workspace noteriv.xcworkspace -scheme noteriv -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build > xcodebuild.log 2>&1; then
+            grep -n -C 3 -E 'error:|Undefined symbols|BUILD FAILED' xcodebuild.log | tail -n 150 || true
+            tail -n 30 xcodebuild.log
+            exit 1
+          fi
+          tail -n 10 xcodebuild.log
         working-directory: phone/ios

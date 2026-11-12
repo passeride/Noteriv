@@ -3,7 +3,7 @@
 Desktop and Android/iOS now use `crates/noteriv-git` (git2-rs/libgit2).
 Desktop's existing IPC methods are adapters; mobile uses the local Expo module
 in `phone/modules/noteriv-git`. Git does not need to be installed separately.
-The old phone per-file REST implementation is no longer the sync entry point.
+The old phone per-file REST synchronization implementation has been removed.
 
 ## Configure a vault
 
@@ -27,7 +27,9 @@ Windows uses WinHTTP.
 
 Local edits are committed before fetching. Fast-forwards use safe checkout.
 Diverged histories merge normally. A conflict pauses synchronization and prevents
-push. Resolve each file by keeping local or remote in Settings. Both original
+push. The current working file is preserved under `.noteriv/conflict-recovery/`
+before a resolution replaces it, so edits made after the merge started are recoverable.
+Resolve each file by keeping local or remote in Settings. Both original
 versions remain in Git history, including binary files. The last resolution makes
 a two-parent merge commit; push is a separate, explicit sync afterward. Existing
 rebases and detached HEAD states require attention rather than automatic abort.

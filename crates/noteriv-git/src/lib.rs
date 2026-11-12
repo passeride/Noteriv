@@ -136,7 +136,8 @@ fn check_credentials(remote: &str, creds: &Credentials) -> Result<()> {
 }
 fn callbacks(creds: &Credentials) -> RemoteCallbacks<'_> {
     let mut cb = RemoteCallbacks::new();
-    cb.credentials(move |_url, username, allowed| {
+    cb.credentials(move |url, username, allowed| {
+        check_credentials(url, creds)?;
         let user = if creds.username.is_empty() {
             username.unwrap_or("git")
         } else {
@@ -221,20 +222,72 @@ fn record(repo: &Repository, error: Option<&Error>, success: bool) -> Result<()>
     }
     fs::rename(temp, state_path(repo)).map_err(io)
 }
-pub fn init(path: &Path) -> Result<()> {
-    let repo = Repository::init(path)?;
-    let mut config = repo.config()?;
-    config.set_bool("core.symlinks", false)?;
-    // Exclusions are local, do not overwrite the user's .gitignore.
-    let excludes = repo.path().join("info/exclude");
-    let mut text = fs::read_to_string(&excludes).unwrap_or_default();
+fn clean_url(value: &str) -> Option<String> {
+    let mut url = url::Url::parse(value).ok()?;
+    if !["http", "https"].contains(&url.scheme())
+        || (url.username().is_empty() && url.password().is_none())
+    {
+        return None;
+    }
+    url.set_password(None).ok()?;
+    url.set_username("").ok()?;
+    Some(url.to_string())
+}
+fn scrub_legacy_urls(repo: &Repository) -> Result<()> {
+    let mut config = repo.config()?.open_level(git2::ConfigLevel::Local)?;
+    let mut changes = Vec::new();
+    {
+        let mut entries = config.entries(None)?;
+        while let Some(entry) = entries.next() {
+            let entry = entry?;
+            let (Some(name), Some(value)) = (entry.name(), entry.value()) else {
+                continue;
+            };
+            if name.starts_with("remote.") && (name.ends_with(".url") || name.ends_with(".pushurl"))
+            {
+                if let Some(clean) = clean_url(value) {
+                    changes.push((name.to_owned(), clean));
+                }
+            } else if name.starts_with("branch.")
+                && name.ends_with(".remote")
+                && clean_url(value).is_some()
+            {
+                changes.push((name.to_owned(), "origin".into()));
+            }
+        }
+    }
+    for (key, value) in changes {
+        config.set_str(&key, &value)?;
+    }
+    Ok(())
+}
+fn exclude_metadata(repo: &Repository) -> Result<()> {
+    // Local exclusions also apply to repositories created by older versions.
+    let directory = repo.path().join("info");
+    fs::create_dir_all(&directory).map_err(io)?;
+    let excludes = directory.join("exclude");
+    let mut text = match fs::read_to_string(&excludes) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(io(e)),
+    };
+    let previous = text.len();
     for pattern in [".noteriv/", ".trash/"] {
         if !text.lines().any(|line| line == pattern) {
             text.push_str(&format!("\n{pattern}\n"));
         }
     }
-    fs::write(excludes, text).map_err(io)?;
+    if text.len() != previous {
+        fs::write(excludes, text).map_err(io)?;
+    }
     Ok(())
+}
+pub fn init(path: &Path) -> Result<()> {
+    let repo = Repository::init(path)?;
+    let _lock = lock(&repo)?;
+    repo.config()?.set_bool("core.symlinks", false)?;
+    scrub_legacy_urls(&repo)?;
+    exclude_metadata(&repo)
 }
 pub fn clone_repository(remote: &str, path: &Path, creds: &Credentials) -> Result<()> {
     check_credentials(remote, creds)?;
@@ -293,10 +346,10 @@ pub fn status(path: &Path) -> Result<Status> {
             None
         }
     });
-    let remote = repo
-        .find_remote("origin")
-        .ok()
-        .and_then(|r| r.url().map(str::to_owned));
+    let remote = repo.find_remote("origin").ok().and_then(|r| {
+        r.url()
+            .map(|u| clean_url(u).unwrap_or_else(|| u.to_owned()))
+    });
     let (ahead, behind) = branch
         .as_ref()
         .and_then(|b| {
@@ -472,7 +525,10 @@ fn push_repo(repo: &Repository, creds: &Credentials) -> Result<()> {
     }
     let branch = branch_name(repo)?;
     let mut remote = repo.find_remote("origin")?;
-    check_credentials(remote.url().unwrap_or(""), creds)?;
+    check_credentials(
+        remote.pushurl().or_else(|| remote.url()).unwrap_or(""),
+        creds,
+    )?;
     let mut cb = callbacks(creds);
     // libgit2 may report transport success even when the server rejects the ref.
     cb.push_update_reference(|_, rejection| match rejection {
@@ -483,6 +539,7 @@ fn push_repo(repo: &Repository, creds: &Credentials) -> Result<()> {
     });
     let mut options = PushOptions::new();
     options.remote_callbacks(cb);
+    options.follow_redirects(git2::RemoteRedirect::None);
     remote.push(
         &[&format!("refs/heads/{branch}:refs/heads/{branch}")],
         Some(&mut options),
@@ -491,6 +548,8 @@ fn push_repo(repo: &Repository, creds: &Credentials) -> Result<()> {
 pub fn run(path: &Path, action: &str, creds: &Credentials, message: &str) -> Result<Status> {
     let repo = Repository::open(path)?;
     let _lock = lock(&repo)?;
+    scrub_legacy_urls(&repo)?;
+    exclude_metadata(&repo)?;
     let mut pulled = 0;
     let mut pushed = 0;
     let result = (|| {
@@ -539,7 +598,10 @@ pub fn run(path: &Path, action: &str, creds: &Credentials, message: &str) -> Res
     record(
         &repo,
         result.as_ref().err(),
-        result.is_ok() && !repo.index()?.has_conflicts() && action == "sync",
+        result.is_ok()
+            && !repo.index()?.has_conflicts()
+            && action == "sync"
+            && repo.find_remote("origin").is_ok(),
     )?;
     // Don't persist libgit2 errors: even a server response can contain secrets.
     result.map_err(|error| {
@@ -598,6 +660,7 @@ fn safe_path(repo: &Repository, rel: &str) -> Result<PathBuf> {
 pub fn resolve(path: &Path, rel: &str, side: &str) -> Result<Status> {
     let repo = Repository::open(path)?;
     let _lock = lock(&repo)?;
+    exclude_metadata(&repo)?;
     let dest = safe_path(&repo, rel)?;
     let mut index = repo.index()?;
     let conflict = index
@@ -614,6 +677,50 @@ pub fn resolve(path: &Path, rel: &str, side: &str) -> Result<Status> {
         "theirs" => conflict.their,
         _ => return Err(fail("Choose ours or theirs")),
     };
+    // Edits made after the merge started may not be in either conflict stage.
+    // Keep the working bytes before any explicit replacement/deletion.
+    let working_bytes = match fs::read(&dest) {
+        Ok(bytes) => Some(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => return Err(io(e)),
+    };
+    if let Some(bytes) = working_bytes {
+        let chosen = selected
+            .as_ref()
+            .and_then(|e| repo.find_blob(e.id).ok())
+            .map(|b| b.content().to_vec());
+        if chosen.as_deref() != Some(bytes.as_slice()) {
+            let workdir = repo
+                .workdir()
+                .ok_or_else(|| fail("A working directory is required"))?;
+            let recovery = workdir.join(".noteriv").join("conflict-recovery");
+            // Do not follow metadata-directory symlinks supplied by a remote.
+            for directory in [workdir.join(".noteriv"), recovery.clone()] {
+                if fs::symlink_metadata(&directory)
+                    .map(|m| m.file_type().is_symlink())
+                    .unwrap_or(false)
+                {
+                    return Err(fail("Recovery directory must not be a symlink"));
+                }
+            }
+            fs::create_dir_all(&recovery).map_err(io)?;
+            let stamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            let name = dest
+                .file_name()
+                .ok_or_else(|| fail("Invalid conflict filename"))?
+                .to_string_lossy();
+            let recovery_file = recovery.join(format!("{stamp}-{name}"));
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(recovery_file)
+                .map_err(io)?;
+            std::io::Write::write_all(&mut file, &bytes).map_err(io)?;
+        }
+    }
     if let Some(entry) = selected {
         if entry.mode != 0o100644 && entry.mode != 0o100755 {
             return Err(fail("Only regular files can be resolved here"));

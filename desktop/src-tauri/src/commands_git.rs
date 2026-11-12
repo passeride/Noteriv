@@ -31,12 +31,18 @@ async fn credentials(id: Option<&str>, dir: &str) -> Result<git::Credentials, St
 async fn background<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|_| "Git worker failed".to_owned())?
+}
+async fn mutate<T: Send + 'static>(
+    f: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    background(move || {
         let _guard = crate::commands_fs::lock_file_mutations();
         f()
     })
     .await
-    .map_err(|_| "Git worker failed".to_owned())?
 }
 #[tauri::command]
 pub async fn git_is_installed() -> bool {
@@ -52,7 +58,7 @@ pub async fn git_is_repo(state: State<'_, AppState>, dir: String) -> Result<bool
 #[tauri::command]
 pub async fn git_init(state: State<'_, AppState>, dir: String) -> Result<bool, String> {
     scoped(&state, &dir)?;
-    background(move || {
+    mutate(move || {
         git::init(Path::new(&dir)).map_err(|e| e.to_string())?;
         Ok(true)
     })
@@ -69,21 +75,38 @@ pub async fn git_set_remote(
     args: SetRemoteInput,
 ) -> Result<bool, String> {
     scoped(&state, &args.dir)?;
-    // Changing host must never reuse a token belonging to a different server.
+    let url = args.url.trim();
+    if !url.is_empty() {
+        git::validate_remote(url).map_err(|e| e.to_string())?;
+    }
     let old = git::status(Path::new(&args.dir))
         .map_err(|e| e.to_string())?
         .remote;
-    if old
+    let changed_host = old
         .as_deref()
-        .is_some_and(|old| remote_host(old) != remote_host(&args.url))
-    {
-        for vault in crate::store::get_vaults() {
-            if dunce::canonicalize(&vault.path).ok() == dunce::canonicalize(&args.dir).ok() {
-                auth::remove_token(&vault.id)?;
+        .is_some_and(|old| remote_host(old) != remote_host(url));
+    let vaults: Vec<_> = crate::store::get_vaults()
+        .into_iter()
+        .filter(|v| dunce::canonicalize(&v.path).ok() == dunce::canonicalize(&args.dir).ok())
+        .collect();
+    if changed_host {
+        // Bind legacy credentials before changing the URL. A concurrent request
+        // cannot send them to the new host, even if removing the entry fails.
+        for vault in &vaults {
+            if let Some(mut credentials) = auth::get_credentials(&vault.id)? {
+                if credentials.origin.is_none() {
+                    credentials.origin = old.as_deref().and_then(|r| git::remote_origin(r).ok());
+                    auth::save_credentials(&vault.id, &credentials)?;
+                }
             }
         }
     }
-    git::set_remote(Path::new(&args.dir), args.url.trim()).map_err(|e| e.to_string())?;
+    git::set_remote(Path::new(&args.dir), url).map_err(|e| e.to_string())?;
+    if changed_host {
+        for vault in vaults {
+            auth::remove_token(&vault.id)?;
+        }
+    }
     Ok(true)
 }
 fn remote_host(url: &str) -> String {
@@ -113,7 +136,7 @@ pub struct GitSyncInput {
 }
 async fn run(args: GitSyncInput, action: &'static str) -> Result<bool, String> {
     let creds = credentials(args.vault_id.as_deref(), &args.dir).await?;
-    background(move || {
+    mutate(move || {
         let status = git::run(
             Path::new(&args.dir),
             action,
@@ -151,6 +174,16 @@ pub struct GitLogInput {
     dir: String,
     count: Option<usize>,
 }
+fn display_dates(mut entries: Vec<git::LogEntry>) -> Vec<git::LogEntry> {
+    for entry in &mut entries {
+        if let Ok(seconds) = entry.date.parse::<i64>() {
+            if let Some(date) = chrono::DateTime::<chrono::Utc>::from_timestamp(seconds, 0) {
+                entry.date = date.to_rfc3339();
+            }
+        }
+    }
+    entries
+}
 #[tauri::command]
 pub async fn git_log(
     state: State<'_, AppState>,
@@ -158,7 +191,9 @@ pub async fn git_log(
 ) -> Result<Vec<git::LogEntry>, String> {
     scoped(&state, &args.dir)?;
     background(move || {
-        git::history(Path::new(&args.dir), args.count.unwrap_or(20)).map_err(|e| e.to_string())
+        git::history(Path::new(&args.dir), args.count.unwrap_or(20))
+            .map(display_dates)
+            .map_err(|e| e.to_string())
     })
     .await
 }
@@ -176,7 +211,7 @@ pub async fn git_clone(state: State<'_, AppState>, args: GitCloneInput) -> Resul
         Some(id) => auth::get_credentials(&id)?.unwrap_or_default(),
         None => Default::default(),
     };
-    background(move || {
+    mutate(move || {
         git::clone_repository(&args.url, Path::new(&args.dir), &creds)
             .map_err(|e| e.to_string())?;
         Ok(true)
@@ -203,7 +238,9 @@ pub async fn git_file_log(
     scoped(&state, &args.dir)?;
     let rel = relative(&args.dir, &args.file_path)?;
     background(move || {
-        git::file_history(Path::new(&args.dir), &rel, 500).map_err(|e| e.to_string())
+        git::file_history(Path::new(&args.dir), &rel, 500)
+            .map(display_dates)
+            .map_err(|e| e.to_string())
     })
     .await
 }
@@ -244,7 +281,16 @@ pub async fn git_native(
     } else {
         json!(git::Credentials::default())
     };
+    let read_only = matches!(
+        request["action"].as_str(),
+        Some("status" | "history" | "show")
+    );
     background(move || {
+        let _guard = if read_only {
+            None
+        } else {
+            Some(crate::commands_fs::lock_file_mutations())
+        };
         let response: Value = serde_json::from_str(&git::bridge::dispatch(&request.to_string()))
             .map_err(|_| "Invalid Git response")?;
         if response["ok"] == true {

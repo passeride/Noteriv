@@ -116,7 +116,18 @@ fn conflict_resolution_keeps_two_parent_history() {
         vec!["note.md"]
     );
     assert!(engine::run(ours.path(), "commit", &Credentials::default(), "bad").is_err());
+    fs::write(ours.path().join("note.md"), "typed after conflict\n").unwrap();
     let result = engine::resolve(ours.path(), "note.md", "theirs").unwrap();
+    let recovery = fs::read_dir(ours.path().join(".noteriv/conflict-recovery"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    assert_eq!(
+        fs::read_to_string(recovery).unwrap(),
+        "typed after conflict\n"
+    );
     assert!(result.conflicts.is_empty());
     assert_eq!(
         repo.head()
@@ -131,4 +142,45 @@ fn conflict_resolution_keeps_two_parent_history() {
         "theirs\n"
     );
     assert!(engine::resolve(ours.path(), "../outside", "ours").is_err());
+}
+
+#[test]
+fn legacy_authenticated_urls_are_scrubbed_and_push_urls_are_origin_checked() {
+    let dir = vault();
+    let repo = Repository::open(dir.path()).unwrap();
+    repo.remote("origin", "https://oauth2:SECRET@git.example/team/notes.git")
+        .unwrap();
+    repo.config()
+        .unwrap()
+        .set_str(
+            "branch.main.remote",
+            "https://oauth2:SECRET@git.example/team/notes.git",
+        )
+        .unwrap();
+    assert!(!engine::status(dir.path())
+        .unwrap()
+        .remote
+        .unwrap()
+        .contains("SECRET"));
+    engine::run(dir.path(), "commit", &Credentials::default(), "migration").unwrap();
+    assert_eq!(
+        repo.find_remote("origin").unwrap().url(),
+        Some("https://git.example/team/notes.git")
+    );
+    assert_eq!(
+        repo.config()
+            .unwrap()
+            .get_string("branch.main.remote")
+            .unwrap(),
+        "origin"
+    );
+    repo.remote_set_pushurl("origin", Some("https://other.example/team/notes.git"))
+        .unwrap();
+    let credentials = Credentials {
+        origin: Some("https://git.example:443".into()),
+        token: "SECRET".into(),
+        ..Default::default()
+    };
+    let error = engine::run(dir.path(), "push", &credentials, "test").unwrap_err();
+    assert!(error.message().contains("another server"));
 }

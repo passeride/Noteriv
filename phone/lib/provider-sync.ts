@@ -56,6 +56,7 @@ export function nativeDir(uri: string): string {
 // The secure store is read only at the adapter boundary; never store secrets in a vault.
 export async function vaultCredentials(id: string, io?: OAuthIO): Promise<Credentials> {
   const credentials = await getItem<Credentials>(KEYS.GIT_CREDENTIALS(id)) ?? { token: await getVaultToken(id) ?? '' };
+  if (!credentials.origin) { const vault = (await getVaults()).find(v => v.id === id); if (vault?.gitRemote) credentials.origin = remoteOrigin(vault.gitRemote); }
   if (credentials.oauth && io) {
     const updated = await refresh(credentials.oauth.config, credentials.oauth.token, io);
     if (updated !== credentials.oauth.token) {
@@ -67,16 +68,20 @@ export async function vaultCredentials(id: string, io?: OAuthIO): Promise<Creden
 }
 let hooks: { before: () => Promise<void>; after: () => Promise<void> } | undefined;
 let oauthIO: OAuthIO | undefined;
+let editorBusy = false;
 export async function withEditor<T>(work: () => Promise<T>): Promise<T> {
-  await hooks?.before();
-  try { return await work(); } finally { await hooks?.after(); }
+  if (editorBusy) throw new Error('Another Git operation is running');
+  editorBusy = true;
+  let prepared = false;
+  try { await hooks?.before(); prepared = true; return await work(); }
+  finally { try { if (prepared) await hooks?.after(); } finally { editorBusy = false; } }
 }
 export function setOAuthIO(io: OAuthIO): void { oauthIO = io; }
 export function setSyncHooks(value: typeof hooks): void { hooks = value; }
 const running = new Set<string>();
 async function run(action: string, vaultPath: string, token: string, remote: string, branch?: string): Promise<SyncResult> {
-  if (running.has(vaultPath)) return { pulled: 0, pushed: 0, errors: ['Another sync is already running'] };
-  running.add(vaultPath);
+  if (running.has(vaultPath) || editorBusy) return { pulled: 0, pushed: 0, errors: ['Another sync is already running'] };
+  running.add(vaultPath); editorBusy = true;
   let started = false;
   try {
     await hooks?.before(); started = true;
@@ -98,7 +103,7 @@ async function run(action: string, vaultPath: string, token: string, remote: str
     return { pulled: status.pulled, pushed: status.pushed, conflicts: status.conflicts,
       errors: status.conflicts.length ? [`Sync paused: ${status.conflicts.length} file(s) have conflicts. Resolve them in Settings.`] : [] };
   } catch (error) { return { pulled: 0, pushed: 0, errors: [error instanceof Error ? error.message : String(error)] }; }
-  finally { try { if (started) await hooks?.after(); } finally { running.delete(vaultPath); } }
+  finally { try { if (started) await hooks?.after(); } finally { running.delete(vaultPath); editorBusy = false; } }
 }
 export async function sync(v: string, t: string, r: string, b?: string, _hint?: SyncProvider): Promise<SyncResult> { return run('sync', v, t, r, b); }
 export async function pull(v: string, t: string, r: string, b?: string, _hint?: SyncProvider): Promise<SyncResult> { return run('pull', v, t, r, b); }

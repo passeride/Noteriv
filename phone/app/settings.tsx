@@ -1,6 +1,7 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
+  Button,
   Text,
   ScrollView,
   TouchableOpacity,
@@ -733,130 +734,7 @@ export default function SettingsScreen() {
       {renderSectionHeader('Git Sync', 'git-branch-outline')}
       <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
         <NativeGitSettings key={vault?.id} />
-        {gitConnected ? (
-          <>
-            <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
-              <Text style={[s.settingLabel, { color: colors.textPrimary }]}>
-                Status
-              </Text>
-              <View style={s.statusRow}>
-                <View style={[s.statusDot, { backgroundColor: colors.green }]} />
-                <Text style={{ color: colors.green, fontSize: 14, fontWeight: '500' }}>
-                  Connected
-                </Text>
-              </View>
-            </View>
-
-            {lastSyncTime && (
-              <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
-                <Text style={[s.settingLabel, { color: colors.textPrimary }]}>
-                  Last sync
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-                  {lastSyncTime}
-                </Text>
-              </View>
-            )}
-
-            {syncStatus && (
-              <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
-                <Text
-                  style={{
-                    color: syncStatus.includes('failed')
-                      ? colors.red
-                      : colors.textSecondary,
-                    fontSize: 13,
-                    flex: 1,
-                  }}
-                >
-                  {syncStatus}
-                </Text>
-              </View>
-            )}
-
-            <View style={[s.settingRow, { borderBottomColor: colors.border, gap: 8 }]}>
-              <TouchableOpacity
-                style={[
-                  s.syncButton,
-                  { backgroundColor: colors.accent },
-                  syncing && { opacity: 0.6 },
-                ]}
-                onPress={handleSyncNow}
-                disabled={syncing}
-              >
-                {syncing ? (
-                  <ActivityIndicator size="small" color={colors.bgPrimary} />
-                ) : (
-                  <Ionicons name="sync" size={18} color={colors.bgPrimary} />
-                )}
-                <Text style={[s.syncButtonText, { color: colors.bgPrimary }]}>
-                  {syncing ? 'Syncing...' : 'Sync Now'}
-                </Text>
-              </TouchableOpacity>
-              {provider === 'github' && (
-                <TouchableOpacity
-                  style={[
-                    s.syncButton,
-                    { backgroundColor: colors.red },
-                    syncing && { opacity: 0.6 },
-                  ]}
-                  onPress={handleFreshClone}
-                  disabled={syncing}
-                >
-                  <Ionicons name="cloud-download-outline" size={18} color={colors.bgPrimary} />
-                  <Text style={[s.syncButtonText, { color: colors.bgPrimary }]}>
-                    Fresh Clone
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
-              <Text style={[s.settingLabel, { color: colors.textPrimary }]}>Auto-sync</Text>
-              <Text style={{ color: colors.green, fontSize: 13, fontWeight: '500' }}>Every 5s</Text>
-            </View>
-
-            <TouchableOpacity
-              style={[s.settingRow, { borderBottomColor: colors.border }]}
-              onPress={handleDisconnectGitHub}
-            >
-              <Text style={{ color: colors.red, fontSize: 15, fontWeight: '500' }}>
-                Disconnect Remote
-              </Text>
-              <Ionicons name="close-circle-outline" size={20} color={colors.red} />
-            </TouchableOpacity>
-          </>
-        ) : (
-          <View style={s.gitDisconnected}>
-            <Text style={[s.gitDisconnectedText, { color: colors.textMuted }]}>
-                Connect GitHub, GitLab, Gitea, or Forgejo to sync notes across devices.
-            </Text>
-            <TouchableOpacity
-              style={[s.connectButton, { backgroundColor: colors.accent }]}
-              onPress={() => setShowTokenModal(true)}
-            >
-              <Ionicons name="logo-github" size={20} color={colors.bgPrimary} />
-              <Text style={[s.connectButtonText, { color: colors.bgPrimary }]}>
-                Connect GitHub
-              </Text>
-            </TouchableOpacity>
-            <View style={s.customRemoteForm}>
-              <Text style={[s.modalHint, { color: colors.textMuted }]}>For GitLab or Gitea/Forgejo, enter the clone URL and a token with repository read/write access.</Text>
-              <View style={s.providerRow}>
-                {(['gitlab', 'gitea'] as GitProvider[]).map((item) => (
-                  <TouchableOpacity key={item} style={[s.providerOption, { backgroundColor: colors.bgSecondary }, providerInput === item && { backgroundColor: colors.accent }]} onPress={() => setProviderInput(item)}>
-                    <Text style={{ color: providerInput === item ? colors.bgPrimary : colors.textSecondary, fontWeight: '600' }}>{item === 'gitlab' ? 'GitLab' : 'Gitea / Forgejo'}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TextInput style={[s.tokenInput, { color: colors.textPrimary, backgroundColor: colors.bgSecondary, borderColor: colors.border }]} placeholder="https://git.example.com/group/repo.git" placeholderTextColor={colors.textMuted} value={remoteInput} onChangeText={setRemoteInput} autoCapitalize="none" autoCorrect={false} />
-              <TextInput style={[s.tokenInput, { color: colors.textPrimary, backgroundColor: colors.bgSecondary, borderColor: colors.border }]} placeholder="Personal access token" placeholderTextColor={colors.textMuted} value={tokenInput} onChangeText={setTokenInput} autoCapitalize="none" autoCorrect={false} secureTextEntry />
-              <TouchableOpacity style={[s.connectButton, { backgroundColor: colors.accent }, (!remoteInput.trim() || !tokenInput.trim() || syncing) && { opacity: 0.5 }]} onPress={handleSaveCustomRemote} disabled={!remoteInput.trim() || !tokenInput.trim() || syncing}>
-                <Text style={[s.connectButtonText, { color: colors.bgPrimary }]}>{syncing ? 'Saving...' : 'Save & Sync Remote'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        <Button title="Choose a GitHub repository using a token" onPress={() => setShowTokenModal(true)} />
       </View>
 
       {/* About */}

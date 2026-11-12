@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Text, TextInput, View } from 'react-native';
+import { Alert, Button, Switch, Text, TextInput, View } from 'react-native';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import * as Git from '@/lib/provider-sync';
@@ -8,7 +8,7 @@ import { removeItem, KEYS } from '@/lib/storage';
 import { oauthIO } from '@/lib/github-login';
 import { login } from '../../packages/git-client/oauth';
 export default function NativeGitSettings() {
-  const { vault, refreshVaults, refreshFiles } = useApp();
+  const { vault, refreshVaults, refreshFiles, settings, updateSettings } = useApp();
   const { colors } = useTheme();
   const [status, setStatus] = useState<Git.NativeStatus | null>(null), [busy, setBusy] = useState(''), [error, setError] = useState('');
   const [remote, setRemote] = useState(vault?.gitRemote ?? ''), [branch, setBranch] = useState(vault?.gitBranch || 'main');
@@ -26,7 +26,7 @@ export default function NativeGitSettings() {
     try { await fn(); await read(); refreshFiles(); } catch (e) { setError(String(e)); }
     finally { setBusy(''); }
   }
-  const input = (label: string, value: string, set: (v: string) => void, secret = false) => <TextInput accessibilityLabel={label} placeholder={label} placeholderTextColor={colors.textMuted} value={value} onChangeText={set} secureTextEntry={secret} autoCapitalize="none" autoCorrect={false} style={{ color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, padding: 10, borderRadius: 6 }} />;
+  const input = (label: string, value: string, set: (v: string) => void, secret = false, multiline = false) => <TextInput accessibilityLabel={label} placeholder={label} placeholderTextColor={colors.textMuted} value={value} onChangeText={set} secureTextEntry={secret} multiline={multiline} autoCapitalize="none" autoCorrect={false} style={{ color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, padding: 10, borderRadius: 6 }} />;
   const run = (action: string) => task(action, async () => {
     const result = action === 'pull' ? await Git.pull(vault.path, '', vault.gitRemote!, vault.gitBranch) : await Git.sync(vault.path, '', vault.gitRemote!, vault.gitBranch);
     if (result.errors.length) throw new Error(result.errors.join('\n'));
@@ -34,13 +34,21 @@ export default function NativeGitSettings() {
   const resolve = (path: string, side: string) => Alert.alert('Resolve conflict', `Keep the ${side === 'ours' ? 'local' : 'remote'} version of ${path}? Original versions remain in Git history.`, [{ text: 'Cancel' }, { text: 'Keep version', onPress: () => task('Resolving conflict', () => Git.withEditor(() => Git.native({ action: 'resolve', dir, path, side }))) }]);
   return <View style={{ padding: 16, gap: 10 }}>
     <Text style={{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 18 }}>Git sync</Text>
-    <Text style={{ color: colors.textPrimary }}>{busy || (status?.conflicts.length ? 'Paused: conflicts' : 'Ready')} · {status?.branch ?? 'No branch'}</Text>
+    <Text style={{ color: colors.textPrimary }}>{busy || (status?.inProgress ? 'Syncing' : '') || (status?.conflicts.length ? 'Paused: conflicts' : 'Ready')} · {status?.branch ?? 'No branch'}</Text>
     <Text style={{ color: colors.textPrimary }}>Last successful sync: {status?.sync.lastSuccess ? new Date(status.sync.lastSuccess * 1000).toLocaleString() : 'Never'}</Text>
     <Text style={{ color: colors.textPrimary }}>{status?.changes ?? 0} changed · {status?.ahead ?? 0} ahead · {status?.behind ?? 0} behind</Text>
     {!!(error || status?.sync.lastError) && <Text accessibilityRole="alert" style={{ color: colors.textPrimary }}>{error || status?.sync.lastError}</Text>}
     {status?.changedFiles.map(p => <Text key={p} style={{ color: colors.textPrimary }}>{p}</Text>)}
     {status?.conflicts.map(path => <View key={path}><Text style={{ color: colors.textPrimary }}>{path}</Text><Button title="Keep local" disabled={!!busy} onPress={() => resolve(path, 'ours')} /><Button title="Keep remote" disabled={!!busy} onPress={() => resolve(path, 'theirs')} /></View>)}
+    {status?.mergePending && !status.conflicts.length && <Button title="Finish resolved merge" disabled={!!busy} onPress={() => task('Finishing merge', () => Git.withEditor(() => Git.native({ action: 'finishMerge', dir })))} />}
     <Button title="Sync now" disabled={!!busy || !vault.gitRemote || !!status?.conflicts.length} onPress={() => run('sync')} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><Text style={{ color: colors.textPrimary }}>Automatic sync</Text><Switch value={vault.autoSync} disabled={!!busy} onValueChange={value => task('Saving auto-sync', async () => { if (value && settings.gitSyncInterval <= 0) await updateSettings({ gitSyncInterval: 60 }); await VaultOps.updateVault(vault.id, { autoSync: value }); await refreshVaults(); })} /></View>
+    <Text style={{ color: colors.textMuted }}>Automatic sync uses the configured interval, with a minimum of one minute.</Text>
+    <Button title="Disconnect remote" disabled={!!busy || !vault.gitRemote} onPress={() => task('Disconnecting', async () => {
+      await removeItem(KEYS.GIT_CREDENTIALS(vault.id)); await removeItem(KEYS.GIT_TOKEN(vault.id)); await removeItem(KEYS.GITHUB_TOKEN(vault.id));
+      if (status?.isRepo) await Git.native({ action: 'remote', dir, remote: '' });
+      await VaultOps.updateVault(vault.id, { gitRemote: null, autoSync: false }); await refreshVaults();
+    })} />
     {input('Remote HTTPS or SSH URL', remote, setRemote)}
     {input('Branch (used when initializing a vault)', branch, setBranch)}
     <Button title="Save remote" disabled={!!busy || !remote.trim()} onPress={() => task('Saving remote', async () => {
@@ -53,7 +61,7 @@ export default function NativeGitSettings() {
     <Button title="Save author" disabled={!!busy} onPress={() => task('Saving author', async () => { if (!status?.isRepo) await Git.native({ action: 'init', dir, branch }); await Git.native({ action: 'identity', dir, name, email }); })} />
     <Text style={{ color: colors.textPrimary }}>HTTPS token or SSH key (stored securely on this device)</Text>
     {input('Username (HTTPS or SSH)', username, setUsername)} {input('HTTPS access token', token, setToken, true)}
-    {input('SSH private key (PEM)', key, setKey, true)} {input('SSH passphrase', passphrase, setPassphrase, true)} {input('Trusted SHA256 host fingerprint', fingerprint, setFingerprint)}
+    {input('SSH private key (PEM)', key, setKey, false, true)} {input('SSH passphrase', passphrase, setPassphrase, true)} {input('Trusted SHA256 host fingerprint', fingerprint, setFingerprint)}
     <Button title="Save credentials" disabled={!!busy} onPress={() => task('Saving credentials', async () => { await Git.saveCredentials(vault.id, { username, token, sshPrivateKey: key || undefined, sshPassphrase: passphrase || undefined, hostKeySha256: fingerprint || undefined }); setToken(''); setKey(''); setPassphrase(''); })} />
     <Text style={{ color: colors.textPrimary }}>GitHub App sign-in</Text>
     {input('GitHub App client ID', clientId, setClientId)} {input('Trusted OAuth broker HTTPS URL (optional)', brokerUrl, setBrokerUrl)}

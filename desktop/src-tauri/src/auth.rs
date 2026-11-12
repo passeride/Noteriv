@@ -328,6 +328,18 @@ pub async fn auth_open_token_page(app: tauri::AppHandle) -> bool {
 
 #[tauri::command]
 pub async fn auth_get_user(vault_id: String) -> Result<Option<GitHubUser>, String> {
+    let remote = crate::store::get_vaults()
+        .into_iter()
+        .find(|v| v.id == vault_id)
+        .and_then(|v| v.git_remote);
+    if remote
+        .as_deref()
+        .and_then(|r| noteriv_git::remote_origin(r).ok())
+        .as_deref()
+        != Some("https://github.com:443")
+    {
+        return Ok(None);
+    }
     let Some(token) = get_token(&vault_id)? else {
         return Ok(None);
     };

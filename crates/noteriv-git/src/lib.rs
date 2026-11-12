@@ -577,7 +577,13 @@ fn safe_path(repo: &Repository, rel: &str) -> Result<PathBuf> {
     }
     for part in Path::new(rel).components() {
         match part {
-            Component::Normal(p) if p.to_string_lossy().to_lowercase() != ".git" => path.push(p),
+            Component::Normal(p)
+                if p.to_string_lossy().to_lowercase() != ".git"
+                    && !p.to_string_lossy().contains(':')
+                    && !p.to_string_lossy().ends_with(['.', ' ']) =>
+            {
+                path.push(p)
+            }
             _ => return Err(fail("File must be inside the vault")),
         }
         if fs::symlink_metadata(&path)
@@ -718,3 +724,122 @@ pub fn show(path: &Path, revision: &str, rel: &str) -> Result<String> {
 }
 
 pub mod bridge;
+
+#[cfg(test)]
+mod merge_tests {
+    use super::*;
+    fn vault(text: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        init(dir.path()).unwrap();
+        set_identity(dir.path(), "Test", "test@example.com").unwrap();
+        fs::write(dir.path().join("note.md"), text).unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        commit_all(&repo, "initial").unwrap();
+        dir
+    }
+    fn track(repo: &Repository, other: &Repository) {
+        let oid = other.head().unwrap().target().unwrap();
+        // Transfer objects without enabling file:// in production transports.
+        let name = other.path().to_str().unwrap();
+        let mut remote = repo.remote_anonymous(name).unwrap();
+        remote
+            .fetch(&["+refs/heads/*:refs/remotes/origin/*"], None, None)
+            .unwrap();
+        let branch = branch_name(repo).unwrap();
+        repo.reference(&format!("refs/remotes/origin/{branch}"), oid, true, "test")
+            .unwrap();
+    }
+    #[test]
+    fn existing_api_vault_merges_unrelated_history_without_losing_either_side() {
+        let local = vault("local\n");
+        let remote = vault("remote\n");
+        let repo = Repository::open(local.path()).unwrap();
+        let other = Repository::open(remote.path()).unwrap();
+        track(&repo, &other);
+        merge_remote(&repo).unwrap();
+        assert!(repo.index().unwrap().has_conflicts());
+        let conflict = repo
+            .index()
+            .unwrap()
+            .conflicts()
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            repo.find_blob(conflict.our.unwrap().id).unwrap().content(),
+            b"local\n"
+        );
+        assert_eq!(
+            repo.find_blob(conflict.their.unwrap().id)
+                .unwrap()
+                .content(),
+            b"remote\n"
+        );
+    }
+    #[test]
+    fn fast_forward_refuses_concurrent_local_edits() {
+        let local = vault("base\n");
+        let remote_dir = tempfile::tempdir().unwrap();
+        let other = Repository::clone(local.path().to_str().unwrap(), remote_dir.path()).unwrap();
+        set_identity(remote_dir.path(), "Other", "other@example.com").unwrap();
+        fs::write(remote_dir.path().join("note.md"), "remote\n").unwrap();
+        commit_all(&other, "remote").unwrap();
+        let repo = Repository::open(local.path()).unwrap();
+        track(&repo, &other);
+        fs::write(local.path().join("note.md"), "typed during fetch\n").unwrap();
+        assert!(merge_remote(&repo).is_err());
+        assert_eq!(
+            fs::read_to_string(local.path().join("note.md")).unwrap(),
+            "typed during fetch\n"
+        );
+    }
+    #[test]
+    fn delete_edit_conflict_can_keep_the_deleted_side() {
+        let local = vault("base\n");
+        let remote_dir = tempfile::tempdir().unwrap();
+        let other = Repository::clone(local.path().to_str().unwrap(), remote_dir.path()).unwrap();
+        set_identity(remote_dir.path(), "Other", "other@example.com").unwrap();
+        fs::write(remote_dir.path().join("note.md"), "remote edit\n").unwrap();
+        commit_all(&other, "edit").unwrap();
+        let repo = Repository::open(local.path()).unwrap();
+        fs::remove_file(local.path().join("note.md")).unwrap();
+        commit_all(&repo, "delete").unwrap();
+        track(&repo, &other);
+        merge_remote(&repo).unwrap();
+        assert!(repo.index().unwrap().has_conflicts());
+        resolve(local.path(), "note.md", "ours").unwrap();
+        assert!(!local.path().join("note.md").exists());
+        assert_eq!(
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .parent_count(),
+            2
+        );
+    }
+    #[test]
+    fn a_second_operation_observes_the_repository_lock() {
+        let dir = vault("base\n");
+        let repo = Repository::open(dir.path()).unwrap();
+        let _guard = lock(&repo).unwrap();
+        assert!(status(dir.path()).unwrap().in_progress);
+        assert!(run(dir.path(), "commit", &Credentials::default(), "second").is_err());
+    }
+    #[test]
+    fn credentials_are_bound_to_origin_and_oauth_to_github() {
+        let creds = Credentials {
+            token: "secret".into(),
+            origin: Some("https://git.example:443".into()),
+            ..Default::default()
+        };
+        assert!(check_credentials("https://other.example/repo", &creds).is_err());
+        check_credentials("https://git.example/repo", &creds).unwrap();
+        let oauth = Credentials {
+            oauth: Some(serde_json::json!({})),
+            ..Default::default()
+        };
+        assert!(check_credentials("https://other.example/repo", &oauth).is_err());
+    }
+}

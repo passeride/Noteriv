@@ -4,6 +4,9 @@ on:
   push:
     branches: [main, 'feat/shared-git-sync']
   workflow_dispatch:
+concurrency:
+  group: native-git-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

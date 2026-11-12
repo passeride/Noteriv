@@ -61,7 +61,7 @@ interface GitHostInfo {
 
 function gitHostInfo(url: string): GitHostInfo {
   const host = gitRemoteHost(url);
-  const isGitHub = host === "github.com" || host.endsWith(".github.com");
+  const isGitHub = host === "github.com";
   let tokenPageUrl: string | null = null;
   if (isGitHub) {
     tokenPageUrl = "https://github.com/settings/tokens/new?scopes=repo&description=Noteriv";

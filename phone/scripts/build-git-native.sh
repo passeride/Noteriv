@@ -6,11 +6,13 @@ module="$repo_root/phone/modules/noteriv-git"
 case "${1:-android}" in
   android)
     # Requires Android NDK, rustup targets and cargo-ndk (see docs/sync/native-git.md).
-    cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o "$module/android/src/main/jniLibs" build --manifest-path "$manifest" --release
+    cd "$repo_root/crates/noteriv-git"
+    cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o "$module/android/src/main/jniLibs" build --manifest-path "$manifest" --release --locked
     ;;
   ios)
+    export IPHONEOS_DEPLOYMENT_TARGET=15.1
     for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
-      cargo build --manifest-path "$manifest" --release --target "$target"
+      cargo build --manifest-path "$manifest" --release --locked --target "$target"
     done
     output="$repo_root/crates/noteriv-git/target"
     mkdir -p "$output/ios-simulator" "$output/headers"

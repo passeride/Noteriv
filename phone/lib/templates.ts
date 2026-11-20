@@ -69,9 +69,17 @@ export function processTemplate(content: string, title?: string): string {
     timestamp: now.getTime().toString(),
   };
 
-  let result = content;
+  let result = content.replace(/<%\s*tp\.file\.title\s*%>/g, () => variables.title);
+  result = result.replace(/<%\s*tp\.date\.now\(\s*(?:(["'])([^"'\r\n]*)\1\s*)?\)\s*%>/g,
+    (_match, _quote, pattern: string | undefined) => {
+      const tokens: Record<string, string> = {
+        YYYY: year, MM: date.slice(5, 7), DD: date.slice(8, 10),
+        HH: time.slice(0, 2), mm: time.slice(3, 5),
+      };
+      return (pattern ?? 'YYYY-MM-DD').replace(/YYYY|MM|DD|HH|mm/g, token => tokens[token]);
+    });
   for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'gi'), value);
+    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'gi'), () => value);
   }
 
   return result;
@@ -82,7 +90,9 @@ export function processTemplate(content: string, title?: string): string {
  */
 export function getTemplateVariables(): { variable: string; description: string }[] {
   return [
-    { variable: '{{date}}', description: 'Current date (YYYY-MM-DD)' },
+    { variable: '<% tp.file.title %>', description: 'Note title' },
+    { variable: '<% tp.date.now("YYYY-MM-DD") %>', description: 'Formatted current date' },
+    { variable: '{{date}}' , description: 'Current date (YYYY-MM-DD)' },
     { variable: '{{time}}', description: 'Current time (HH:MM)' },
     { variable: '{{title}}', description: 'Note title' },
     { variable: '{{datetime}}', description: 'Full date and time (YYYY-MM-DD HH:MM)' },

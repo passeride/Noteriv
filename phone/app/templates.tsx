@@ -65,7 +65,9 @@ export default function TemplatesScreen() {
     const dir = currentDir || vault.path;
     const filePath = `${dir.endsWith('/') ? dir : dir + '/'}${fileName}`;
 
-    const ok = writeFile(filePath, previewContent);
+    const raw = await loadTemplate(selectedTemplate.path);
+    if (raw === null) return;
+    const ok = writeFile(filePath, processTemplate(raw, fileName.slice(0, -3)));
     if (ok) {
       refreshFiles();
       router.back();
@@ -75,7 +77,7 @@ export default function TemplatesScreen() {
     } else {
       Alert.alert('Error', 'Failed to create file from template.');
     }
-  }, [selectedTemplate, vault, currentDir, previewContent, refreshFiles, router]);
+  }, [selectedTemplate, vault, currentDir, refreshFiles, router]);
 
   const handleBack = useCallback(() => {
     if (selectedTemplate) {

@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  ScrollView,
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
@@ -15,8 +16,13 @@ import {
 import { Paths } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
+import { useApp } from '@/context/AppContext';
+import { vaultRelativePath } from '@/lib/sync-state';
 import { FileEntry } from '@/types';
 import { rename, deleteFile, deleteDir, trashFile } from '@/lib/file-system';
+
+const ICONS = ['📁', '📝', '⭐', '📚', '🏠', '💡', '📅', '✅', '🎯', '🛠️', '🔬', '🎵', '💻', '🌱', '💼', '📌'];
+const ICON_COLORS = ['#6278B5', '#953F70', '#AA632D', '#378257', '#566575'];
 
 interface NotesListProps {
   files: FileEntry[];
@@ -44,6 +50,20 @@ export default function NotesList({
   isAtRoot,
 }: NotesListProps) {
   const { colors } = useTheme();
+  const { workspace, updateWorkspace } = useApp();
+  const fileIcons = workspace.fileIcons;
+  const [iconTarget, setIconTarget] = useState<FileEntry | null>(null);
+  const [symbol, setSymbol] = useState('');
+  const [iconColor, setIconColor] = useState(ICON_COLORS[0]);
+  const saveIcon = (value: string) => {
+    if (!iconTarget) return;
+    const key = vaultRelativePath(vaultPath, iconTarget.path);
+    const icons = { ...fileIcons };
+    if (value) icons[key] = { symbol: value, color: iconColor };
+    else delete icons[key];
+    updateWorkspace({ fileIcons: icons });
+    setIconTarget(null);
+  };
   const [renameTarget, setRenameTarget] = useState<FileEntry | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -109,10 +129,16 @@ export default function NotesList({
             );
           },
         },
-        { text: 'Cancel', style: 'cancel' },
-      ]
+        { text: 'Change icon', onPress: () => {
+          const icon = fileIcons?.[vaultRelativePath(vaultPath, entry.path)];
+          setSymbol(icon?.symbol ?? '');
+          setIconColor(icon?.color ?? ICON_COLORS[0]);
+          setIconTarget(entry);
+        } },
+      ],
+      { cancelable: true }
     );
-  }, [onRefresh]);
+  }, [fileIcons, onRefresh, vaultPath]);
 
   const handleRename = useCallback(() => {
     if (!renameTarget || !renameValue.trim()) return;
@@ -123,6 +149,12 @@ export default function NotesList({
 
   const renderItem = useCallback(
     ({ item }: { item: FileEntry }) => {
+      const icon = fileIcons?.[vaultRelativePath(vaultPath, item.path)];
+      const customIcon = icon && (
+        <View style={[styles.fileIcon, { backgroundColor: icon.color + '38' }]}>
+          <Text style={{ color: colors.textPrimary, fontSize: 19 }}>{icon.symbol}</Text>
+        </View>
+      );
       if (item.isDirectory) {
         return (
           <TouchableOpacity
@@ -132,9 +164,9 @@ export default function NotesList({
           onLongPress={() => handleLongPress(item)}
             activeOpacity={0.6}
           >
-            <View style={[styles.folderIcon, { backgroundColor: colors.blue + '15' }]}>
+            {customIcon || <View style={[styles.folderIcon, { backgroundColor: colors.blue + '15' }]}>
               <Ionicons name="folder" size={20} color={colors.blue} />
-            </View>
+            </View>}
             <Text style={[styles.itemName, { color: colors.textPrimary }]} numberOfLines={1}>
               {item.name}
             </Text>
@@ -152,16 +184,16 @@ export default function NotesList({
           onLongPress={() => handleLongPress(item)}
           activeOpacity={0.6}
         >
-          <View style={[styles.fileIcon, { backgroundColor: colors.bgTertiary }]}>
+          {customIcon || <View style={[styles.fileIcon, { backgroundColor: colors.bgTertiary }]}>
             <Ionicons name="document-text-outline" size={20} color={colors.textSecondary} />
-          </View>
+          </View>}
           <Text style={[styles.itemName, { color: colors.textPrimary }]} numberOfLines={1}>
             {displayName}
           </Text>
         </TouchableOpacity>
       );
     },
-    [colors, selectedPath, onFilePress, onFolderPress, handleLongPress]
+    [colors, fileIcons, vaultPath, selectedPath, onFilePress, onFolderPress, handleLongPress]
   );
 
   return (
@@ -228,6 +260,43 @@ export default function NotesList({
       />
 
       {/* Rename modal */}
+      <Modal visible={!!iconTarget} transparent animationType="fade" onRequestClose={() => setIconTarget(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalDialog, { backgroundColor: colors.bgTertiary, maxHeight: '85%' }]}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Icon for {iconTarget?.name}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {ICONS.map(icon => <TouchableOpacity key={icon} accessibilityRole="button"
+                  accessibilityState={{ selected: symbol === icon }} onPress={() => setSymbol(icon)}
+                  style={{ padding: 8, borderRadius: 8, backgroundColor: symbol === icon ? iconColor : colors.bgPrimary }}>
+                  <Text style={{ fontSize: 22 }}>{icon}</Text>
+                </TouchableOpacity>)}
+              </View>
+              <TextInput accessibilityLabel="Custom emoji or symbol" placeholder="Custom emoji or symbol"
+                placeholderTextColor={colors.textSecondary} value={symbol} onChangeText={setSymbol} maxLength={12}
+                style={[styles.modalInput, { color: colors.textPrimary, borderColor: colors.border, marginTop: 12 }]} />
+              <View style={{ flexDirection: 'row', gap: 12, marginVertical: 12 }}>
+                {ICON_COLORS.map(color => <TouchableOpacity key={color} accessibilityRole="button"
+                  accessibilityLabel={`Icon background ${color}`} accessibilityState={{ selected: color === iconColor }}
+                  onPress={() => setIconColor(color)} style={{ width: 34, height: 34, borderRadius: 17,
+                    backgroundColor: color, borderWidth: color === iconColor ? 2 : 0, borderColor: colors.textPrimary }} />)}
+              </View>
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.modalCancel} onPress={() => setIconTarget(null)}>
+                  <Text style={{ color: colors.textSecondary }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalCancel} onPress={() => saveIcon('')}>
+                  <Text style={{ color: colors.textSecondary }}>Reset</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalConfirm} disabled={!symbol.trim()} onPress={() => saveIcon(symbol.trim())}>
+                  <Text style={{ color: colors.textPrimary }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         visible={renameTarget !== null}
         transparent

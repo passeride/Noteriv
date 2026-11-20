@@ -11,10 +11,12 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { readProperties } from '@/lib/properties';
+import { vaultFileUri } from '@/lib/sync-state';
 import { parseWikiLink } from '@/lib/wiki-links';
 import { useTheme } from '@/context/ThemeContext';
 import { parseQuery, executeQuery, parseNoteData, QueryResult } from '@/lib/dataview';
-import { listAllMarkdownFiles, readFile } from '@/lib/file-system';
+import { fileExists, listAllMarkdownFiles, readFile } from '@/lib/file-system';
 import { getInstalledPlugins, getEnabledPluginIds } from '@/lib/plugins';
 
 interface MarkdownPreviewProps {
@@ -1027,6 +1029,19 @@ export default function MarkdownPreview({
 }: MarkdownPreviewProps) {
   const { colors } = useTheme();
   const blocks = useMemo(() => parseBlocks(content), [content]);
+  const bannerUri = useMemo(() => {
+    const banner = readProperties(content).find(property => property.key === 'banner')?.value;
+    if (typeof banner !== 'string') return undefined;
+    const value = banner.trim();
+    if (/^https:\/\//i.test(value)) return value;
+    if (!vaultPath) return undefined;
+    const parts = value.replace(/^!?\[\[|\]\]$/g, '').split('/');
+    if (parts.some(part => !part || part === '.' || part === '..' || part.includes('\\'))) return undefined;
+    const uri = vaultFileUri(vaultPath, parts.join('/'));
+    return fileExists(uri) ? uri : undefined;
+  }, [content, vaultPath]);
+  const [failedBanner, setFailedBanner] = useState<string>();
+
   const lineHeight = fontSize * 1.65;
   const scrollRef = useRef<ScrollViewInstance>(null);
   const headingYMap = useRef<Map<number, number>>(new Map());
@@ -1454,6 +1469,9 @@ export default function MarkdownPreview({
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator
     >
+      {bannerUri && failedBanner !== bannerUri && <Image accessibilityLabel="Note banner"
+        source={{ uri: bannerUri }} resizeMode="cover" onError={() => setFailedBanner(bannerUri)}
+        style={{ width: '100%', height: 156, borderRadius: 12, marginBottom: 14 }} />}
       {blocks.map(renderBlock)}
     </ScrollView>
   );

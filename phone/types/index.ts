@@ -37,6 +37,7 @@ export interface WorkspaceState {
   viewMode: 'edit' | 'preview';
   fileOrder?: Record<string, string[]>;
   bookmarks?: string[];
+  fileIcons?: Record<string, { symbol: string; color: string }>;
 }
 
 export interface FileEntry {

@@ -7,6 +7,7 @@ export interface Vault {
   gitProvider?: GitProvider;
   gitBranch: string;
   homeFolder?: string;
+  homeFile?: string;
   autoSync: boolean;
   lastOpened: number;
 }

@@ -21,7 +21,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { KEYS } from '@/lib/storage';
 import * as GitSync from '@/lib/provider-sync';
 import * as VaultOps from '@/lib/vault';
-import { directoryExists } from '@/lib/file-system';
+import { fileExists } from '@/lib/file-system';
 import { vaultFileUri } from '@/lib/sync-state';
 import NativeGitSettings from '@/components/NativeGitSettings';
 import { removeItem as removeStoredItem } from '@/lib/storage';
@@ -46,31 +46,29 @@ const AUTO_SAVE_OPTIONS = [
 const TAB_SIZE_OPTIONS = [2, 4, 8];
 
 export default function SettingsScreen() {
-  const { settings, updateSettings, vault, refreshVaults, setCurrentDir } = useApp();
+  const { settings, updateSettings, vault, refreshVaults } = useApp();
   const { colors } = useTheme();
   const router = useRouter();
-  const [homeFolder, setHomeFolder] = useState('');
-  useEffect(() => setHomeFolder(vault?.homeFolder ?? ''), [vault?.id, vault?.homeFolder]);
+  const [homeFile, setHomeFile] = useState('');
+  useEffect(() => setHomeFile(vault?.homeFile ?? ''), [vault?.id, vault?.homeFile]);
 
-  const saveHomeFolder = async () => {
+  const saveHomeFile = async () => {
     if (!vault) return;
-    const value = homeFolder.trim().replace(/\/+$/, '');
+    const value = homeFile.trim();
     const segments = value.split('/');
     if (value && segments.some(segment => !segment || segment.startsWith('.') || segment.includes('\\'))) {
-      Alert.alert('Home folder', 'Enter a folder path inside this vault, such as Projects/Home.');
+      Alert.alert('Start note', 'Enter a note path inside this vault, such as Projects/Home.md.');
       return;
     }
-    const folder = value ? vaultFileUri(vault.path, value) + '/' : vault.path;
-    if (!directoryExists(folder)) {
-      Alert.alert('Home folder', 'This folder does not exist in the vault.');
+    if (value && (!/\.(md|markdown)$/i.test(value) || !fileExists(vaultFileUri(vault.path, value)))) {
+      Alert.alert('Start note', 'Choose an existing Markdown note.');
       return;
     }
     try {
-      await VaultOps.updateVault(vault.id, { homeFolder: value });
+      await VaultOps.updateVault(vault.id, { homeFile: value });
       await refreshVaults();
-      setCurrentDir(folder);
     } catch (error) {
-      Alert.alert('Home folder', error instanceof Error ? error.message : String(error));
+      Alert.alert('Start note', error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -416,21 +414,21 @@ export default function SettingsScreen() {
 
       {vault && (
         <>
-          {renderSectionHeader('Home folder', 'home-outline')}
+          {renderSectionHeader('Start note', 'home-outline')}
           <View style={[s.section, { backgroundColor: colors.bgTertiary, padding: 12, gap: 8 }]}>
             <TextInput
-              accessibilityLabel="Home folder"
-              placeholder="Vault root"
+              accessibilityLabel="Start note"
+              placeholder="Home.md"
               placeholderTextColor={colors.textMuted}
-              value={homeFolder}
-              onChangeText={setHomeFolder}
+              value={homeFile}
+              onChangeText={setHomeFile}
               autoCapitalize="none"
               autoCorrect={false}
               style={[s.tokenInput, { color: colors.textPrimary, borderColor: colors.border }]}
             />
-            <Text style={{ color: colors.textSecondary }}>Enter a folder path in this vault, or leave blank for the root.</Text>
-            <TouchableOpacity style={[s.modalButton, { backgroundColor: colors.accent }]} onPress={saveHomeFolder}>
-              <Text style={{ color: colors.bgPrimary, fontWeight: '600' }}>Save home folder</Text>
+            <Text style={{ color: colors.textSecondary }}>Enter the path to a Markdown note, or leave blank to start with the file panel.</Text>
+            <TouchableOpacity style={[s.modalButton, { backgroundColor: colors.accent }]} onPress={saveHomeFile}>
+              <Text style={{ color: colors.bgPrimary, fontWeight: '600' }}>Save start note</Text>
             </TouchableOpacity>
           </View>
         </>

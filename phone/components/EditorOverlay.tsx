@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { Animated, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Paths } from 'expo-file-system';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
+import NotesList from '@/components/NotesList';
 import { readDir } from '@/lib/file-system';
 
 let recentCommands: string[] = [];
@@ -14,22 +15,37 @@ type Props = {
   vaultPath: string;
   notePath: string;
   commands: EditorCommand[];
+  fileCommands: EditorCommand[];
+  vaultName: string;
+  initialFolder?: string;
+  onSwitchVault: () => void;
+  onCreate: (folder: string) => void;
+  onRefresh: () => void;
   onClose: () => void;
   onOpenNote: (path: string) => void;
 };
 
-export default function EditorOverlay({ mode, vaultPath, notePath, commands, onClose, onOpenNote }: Props) {
+export default function EditorOverlay({ mode, vaultPath, notePath, commands, fileCommands, vaultName, initialFolder, onSwitchVault, onCreate, onRefresh, onClose, onOpenNote }: Props) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const [folder, setFolder] = useState(() => {
+    if (initialFolder) return initialFolder;
     const parent = Paths.dirname(notePath);
+    if (notePath === vaultPath || !parent.startsWith(vaultPath)) return vaultPath;
     return parent.endsWith('/') ? parent : parent + '/';
   });
   const [query, setQuery] = useState('');
   const isFiles = mode === 'files';
-  const items = useMemo(() => isFiles
-    ? readDir(folder).filter(entry => entry.isDirectory || /\.(md|markdown)$/i.test(entry.name))
-    : [], [folder, isFiles]);
+  const [revision, setRevision] = useState(0);
+  const [showActions, setShowActions] = useState(false);
+  const items = useMemo(() => isFiles ? readDir(folder) : [], [folder, isFiles, revision]);
+  const fabOffset = useRef(new Animated.Value(80)).current;
+  useEffect(() => {
+    if (!isFiles) return;
+    const animation = Animated.timing(fabOffset, { toValue: 0, duration: 180, useNativeDriver: true });
+    animation.start();
+    return () => animation.stop();
+  }, [fabOffset, isFiles]);
   const term = query.trim().toLowerCase();
   const ranked = commands.map(command => {
     const label = command.label.toLowerCase();
@@ -64,8 +80,8 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, onC
           isFiles ? { width: Math.min(340, width * 0.78), flex: 1 } : styles.palette,
         ]}>
           <View style={styles.header}>
-            <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>
-              {isFiles ? 'Files' : 'Command palette'}
+            <Text onPress={isFiles ? () => exit(onSwitchVault) : undefined} accessibilityRole={isFiles ? "button" : "header"} style={[styles.title, { color: colors.textPrimary }]}>
+              {isFiles ? vaultName + ' ⌄' : 'Command palette'}
             </Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={12} onPress={onClose}>
               <Ionicons name="close" size={22} color={colors.textPrimary} />
@@ -75,24 +91,22 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, onC
             <>
               <View style={styles.header}>
                 <Pressable accessibilityRole="button" onPress={() => setFolder(vaultPath)}>
-                  <Text style={{ color: colors.accent }}>Vault</Text>
+                  <Text style={{ color: colors.accent }}>Vault root</Text>
                 </Pressable>
-                {folder !== vaultPath && (
-                  <Pressable accessibilityRole="button" onPress={goUp}>
-                    <Text style={{ color: colors.accent }}>Up · {Paths.basename(folder)}</Text>
-                  </Pressable>
-                )}
+                <Pressable accessibilityRole="button" onPress={() => setShowActions(value => !value)}>
+                  <Text style={{ color: colors.accent }}>{showActions ? 'Files' : 'Actions'}</Text>
+                </Pressable>
               </View>
-              <FlatList data={items} keyExtractor={entry => entry.path}
-                ListEmptyComponent={<Text style={[styles.empty, { color: colors.textMuted }]}>No notes or folders</Text>}
+              {showActions ? <FlatList data={fileCommands} keyExtractor={item => item.label}
                 renderItem={({ item }) => (
-                  <Pressable accessibilityRole="button" accessibilityState={{ selected: item.path === notePath }}
-                    style={[styles.row, item.path === notePath && { backgroundColor: colors.bgTertiary }]}
-                    onPress={() => item.isDirectory ? setFolder(item.path.endsWith('/') ? item.path : item.path + '/') : exit(() => onOpenNote(item.path))}>
-                    <Ionicons name={item.isDirectory ? 'folder-outline' : 'document-text-outline'} size={20} color={colors.accent} />
-                    <Text numberOfLines={2} style={{ color: colors.textPrimary, flex: 1 }}>{item.name}</Text>
+                  <Pressable accessibilityRole="button" style={styles.row} onPress={() => exit(item.run)}>
+                    <Text style={{ color: colors.textPrimary }}>{item.label}</Text>
                   </Pressable>
-                )} />
+                )} /> : <NotesList files={items} currentDir={folder} vaultPath={vaultPath}
+                selectedPath={notePath} isAtRoot={folder === vaultPath} onNavigateUp={goUp}
+                onFolderPress={entry => setFolder(entry.path)}
+                onFilePress={entry => exit(() => onOpenNote(entry.path))}
+                onRefresh={() => { setRevision(value => value + 1); onRefresh(); }} />}
             </>
           ) : (
             <>
@@ -111,12 +125,21 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, onC
             </>
           )}
         </View>
+        {isFiles && <Animated.View style={[styles.fab, { transform: [{ translateX: fabOffset }] }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="New note or folder"
+            style={[styles.fabButton, { backgroundColor: colors.accent }]}
+            onPress={() => exit(() => onCreate(folder))}>
+            <Ionicons name="add" size={28} color={colors.bgPrimary} />
+          </Pressable>
+        </Animated.View>}
       </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  fab: { position: 'absolute', right: 16, bottom: 32 },
+  fabButton: { width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   stage: { flex: 1, backgroundColor: 'rgba(0,0,0,0.42)', alignItems: 'flex-start' },
   paletteStage: { alignItems: 'center', paddingTop: 24, paddingHorizontal: 16 },
   panel: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, overflow: 'hidden' },

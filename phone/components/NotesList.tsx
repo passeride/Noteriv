@@ -20,6 +20,7 @@ import { rename, deleteFile, deleteDir, trashFile } from '@/lib/file-system';
 
 interface NotesListProps {
   files: FileEntry[];
+  selectedPath?: string;
   currentDir: string;
   vaultPath: string;
   onFilePress: (file: FileEntry) => void;
@@ -32,6 +33,7 @@ interface NotesListProps {
 
 export default function NotesList({
   files,
+  selectedPath,
   currentDir,
   vaultPath,
   onFilePress,
@@ -126,7 +128,8 @@ export default function NotesList({
           <TouchableOpacity
             style={styles.item}
             onPress={() => onFolderPress(item)}
-            onLongPress={() => handleLongPress(item)}
+            accessibilityState={{ selected: item.path === selectedPath }}
+          onLongPress={() => handleLongPress(item)}
             activeOpacity={0.6}
           >
             <View style={[styles.folderIcon, { backgroundColor: colors.blue + '15' }]}>
@@ -143,8 +146,9 @@ export default function NotesList({
       const displayName = item.name.replace(/\.(md|markdown)$/i, '');
       return (
         <TouchableOpacity
-          style={styles.item}
+          style={[styles.item, item.path === selectedPath && { backgroundColor: colors.bgTertiary }]}
           onPress={() => onFilePress(item)}
+          accessibilityState={{ selected: item.path === selectedPath }}
           onLongPress={() => handleLongPress(item)}
           activeOpacity={0.6}
         >
@@ -157,7 +161,7 @@ export default function NotesList({
         </TouchableOpacity>
       );
     },
-    [colors, onFilePress, onFolderPress, handleLongPress]
+    [colors, selectedPath, onFilePress, onFolderPress, handleLongPress]
   );
 
   return (

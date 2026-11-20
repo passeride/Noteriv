@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   FlatList,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +16,7 @@ import { useApp } from '@/context/AppContext';
 import { WebView } from 'react-native-webview';
 import { listAllMarkdownFiles, readFile } from '@/lib/file-system';
 import { findWikiLinks } from '@/lib/wiki-links';
+import { graphOverview } from '@/lib/graph-overview';
 import { vaultRelativePath } from '@/lib/sync-state';
 
 interface GraphNode {
@@ -41,6 +43,8 @@ export default function GraphScreen() {
   const [graph, setGraph] = useState<VaultGraph | null>(() => lastGraph?.path === vaultPath ? lastGraph : null);
   const [progress, setProgress] = useState<{ path: string; read: number; total: number }>();
   const [failedPath, setFailedPath] = useState<string>();
+  const [showNotes, setShowNotes] = useState(false);
+  const [noteQuery, setNoteQuery] = useState('');
   const [failedRenderer, setFailedRenderer] = useState<{ html: string } | null>(null);
 
   useEffect(() => {
@@ -107,9 +111,15 @@ export default function GraphScreen() {
   }, [vaultPath]);
 
   const current = graph?.path === vaultPath ? graph : null;
-  const source = useMemo(() => current?.nodes.length
-    ? { html: buildGraphHTML(current.nodes, current.edges, colors) }
-    : null, [current, colors]);
+  const overview = useMemo(() => current && graphOverview(current.nodes, current.edges), [current]);
+  const source = useMemo(() => overview?.nodes.length
+    ? { html: buildGraphHTML(overview.nodes, overview.edges, colors) }
+    : null, [overview, colors]);
+  const matchingNotes = useMemo(() => {
+    const query = noteQuery.trim().toLowerCase();
+    return current?.nodes.filter(node => node.label.toLowerCase().includes(query) ||
+      vaultRelativePath(current.path, node.path).toLowerCase().includes(query)) ?? [];
+  }, [current, noteQuery]);
 
   const handleMessage = useCallback((event: any) => {
     try {
@@ -127,25 +137,48 @@ export default function GraphScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Graph View</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity accessibilityRole="button" disabled={!source}
+          accessibilityLabel={showNotes ? 'Show graph' : 'Search linked notes'}
+          onPress={() => setShowNotes(value => !value)} style={styles.headerBtn}>
+          <Ionicons name={showNotes ? 'git-network-outline' : 'search-outline'} size={22} color={source ? colors.textPrimary : colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
-      {source && failedRenderer === source ? (
+      {source && overview && current && !showNotes && failedRenderer !== source &&
+        (overview.nodes.length < current.nodes.length || overview.edges.length < current.edges.length) && (
+          <TouchableOpacity accessibilityRole="button" onPress={() => setShowNotes(true)} style={{ padding: 10 }}>
+            <Text style={{ color: colors.textSecondary }}>
+              Overview · {overview.nodes.length}/{current.nodes.length} notes · Search all linked notes
+            </Text>
+          </TouchableOpacity>
+        )}
+      {source && (showNotes || failedRenderer === source) ? (
         <FlatList
-          data={current?.nodes ?? []}
+          data={matchingNotes}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={<Text style={{ color: colors.textMuted, padding: 16 }}>No matching notes</Text>}
           keyExtractor={node => node.id}
           ListHeaderComponent={
             <View style={{ padding: 16, gap: 8 }}>
-              <Text style={{ color: colors.textPrimary }}>The graph renderer stopped. You can still open linked notes below.</Text>
-              <TouchableOpacity accessibilityRole="button" onPress={() => setFailedRenderer(null)}>
-                <Text style={{ color: colors.accent }}>Retry graph</Text>
-              </TouchableOpacity>
+              {failedRenderer === source && (
+                <>
+                  <Text style={{ color: colors.textPrimary }}>The graph renderer stopped. Linked notes are still available.</Text>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => { setFailedRenderer(null); setShowNotes(false); }}>
+                    <Text style={{ color: colors.accent }}>Retry graph</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+              <TextInput accessibilityLabel="Search linked notes" placeholder="Search linked notes"
+                value={noteQuery} onChangeText={setNoteQuery} autoCapitalize="none"
+                placeholderTextColor={colors.textMuted}
+                style={{ color: colors.textPrimary, backgroundColor: colors.bgSecondary, padding: 12, borderRadius: 8 }} />
             </View>
           }
           renderItem={({ item }) => (
             <TouchableOpacity accessibilityRole="button" style={{ padding: 12 }}
               onPress={() => router.push({ pathname: '/editor', params: { path: item.path } })}>
               <Text style={{ color: colors.textPrimary }}>{item.label}</Text>
+              {current && <Text style={{ color: colors.textMuted }} numberOfLines={1}>{vaultRelativePath(current.path, item.path)}</Text>}
             </TouchableOpacity>
           )}
         />

@@ -8,6 +8,7 @@ import {
   Alert,
   BackHandler,
   ActivityIndicator,
+  Keyboard,
   Modal,
   ScrollView,
   KeyboardAvoidingView,
@@ -23,6 +24,7 @@ import { useApp } from '@/context/AppContext';
 import MarkdownEditor from '@/components/MarkdownEditor';
 import MarkdownPreview from '@/components/MarkdownPreview';
 import BoardView from '@/components/BoardView';
+import EditorOverlay, { type EditorCommand } from '@/components/EditorOverlay';
 import { rename as renameFile, listAllMarkdownFiles } from '@/lib/file-system';
 import { lintMarkdown, LintWarning } from '@/lib/markdown-lint';
 import { isBoardContent, isBoardFile } from '@/lib/board-utils';
@@ -47,6 +49,7 @@ export default function EditorScreen() {
     files,
   } = useApp();
 
+  const [overlay, setOverlay] = useState<'files' | 'commands' | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -231,8 +234,32 @@ export default function EditorScreen() {
   const isBookmarked =
     currentFile && (workspace.bookmarks ?? []).includes(currentFile);
 
+  const openOverlay = (mode: 'files' | 'commands') => {
+    Keyboard.dismiss();
+    setMenuVisible(false);
+    setOverlay(mode);
+  };
+  const commands: EditorCommand[] = [
+    { label: 'Browse files', run: () => openOverlay('files') },
+    { label: 'Save note', run: handleSave },
+    { label: workspace.viewMode === 'edit' ? 'Switch to reading mode' : 'Switch to editing mode', run: toggleViewMode },
+    { label: focusMode ? 'Exit focus mode' : 'Enter focus mode', run: () => setFocusMode(value => !value) },
+    { label: isBookmarked ? 'Remove bookmark' : 'Bookmark note', run: handleBookmark },
+    { label: 'Open graph', run: () => { if (flushFile()) router.push('/graph'); } },
+    { label: 'Open settings', run: () => { if (flushFile()) router.push('/settings'); } },
+  ];
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      {overlay && vault && (
+        <EditorOverlay key={overlay} mode={overlay} vaultPath={vault.path} notePath={displayedPath || vault.path}
+          commands={commands} onClose={() => setOverlay(null)}
+          onOpenNote={notePath => {
+            if (notePath !== currentFile && flushFile()) {
+              router.push({ pathname: '/editor', params: { path: notePath } });
+            }
+          }} />
+      )}
       {/* Header */}
       {!focusMode && <View style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.bgTertiary }]}>
         <TouchableOpacity
@@ -247,6 +274,10 @@ export default function EditorScreen() {
           />
         </TouchableOpacity>
 
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Browse files"
+          style={styles.headerButton} onPress={() => openOverlay('files')}>
+          <Ionicons name="folder-outline" size={21} color={colors.textPrimary} />
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={[styles.fileName, { color: colors.textPrimary }]} numberOfLines={1}>
             {fileName}
@@ -255,6 +286,10 @@ export default function EditorScreen() {
         </View>
 
         <View style={styles.headerActions}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Command palette"
+            style={styles.headerButton} onPress={() => openOverlay('commands')}>
+            <Ionicons name="terminal-outline" size={21} color={colors.textPrimary} />
+          </TouchableOpacity>
           {isDirty && (
             <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: colors.blue }]}

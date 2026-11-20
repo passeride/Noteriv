@@ -9,6 +9,12 @@ import { conflictCopyPath, vaultFileUri, vaultRelativePath } from '@/lib/sync-st
 import { oauthIO } from '@/lib/github-login';
 GitSync.setOAuthIO(oauthIO);
 
+function initialFolder(vault: Vault): string {
+  if (!vault.homeFolder) return vault.path;
+  const folder = vaultFileUri(vault.path, vault.homeFolder) + '/';
+  return FS.directoryExists(folder) ? folder : vault.path;
+}
+
 interface AppContextType {
   // Vault
   vault: Vault | null;
@@ -147,7 +153,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const active = await VaultOps.getActiveVault();
         if (active) {
           setVault(active);
-          setCurrentDirState(active.path);
+          setCurrentDirState(initialFolder(active));
           const ws = await VaultOps.loadWorkspace(active.id);
           setWorkspace(ws);
         }
@@ -276,7 +282,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       flushFile();
       note.open(null, '');
       setVault(v);
-      setCurrentDirState(v.path);
+      setCurrentDirState(initialFolder(v));
       setCurrentFileState(null);
       setContentState('');
       setIsDirty(false);
@@ -289,7 +295,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const v = await VaultOps.createVault(name);
     await refreshVaults();
     setVault(v);
-    setCurrentDirState(v.path);
+    setCurrentDirState(initialFolder(v));
     const ws = await VaultOps.loadWorkspace(v.id);
     setWorkspace(ws);
     return v;

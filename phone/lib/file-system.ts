@@ -111,6 +111,14 @@ export function movePath(oldPath: string, newPath: string): boolean {
   }
 }
 
+export function directoryExists(path: string): boolean {
+  try {
+    return new Directory(path).exists;
+  } catch {
+    return false;
+  }
+}
+
 export function createDir(dirPath: string): boolean {
   try {
     const dir = new Directory(dirPath);

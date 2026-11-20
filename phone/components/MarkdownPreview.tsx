@@ -11,6 +11,7 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { parseWikiLink } from '@/lib/wiki-links';
 import { useTheme } from '@/context/ThemeContext';
 import { parseQuery, executeQuery, parseNoteData, QueryResult } from '@/lib/dataview';
 import { listAllMarkdownFiles, readFile } from '@/lib/file-system';
@@ -576,7 +577,7 @@ function RenderInline({
                 style={{ color: colors.blue, fontSize }}
                 onPress={() => onWikiLinkPress?.(node.name)}
               >
-                {node.name}
+                {parseWikiLink(node.name).display}
               </Text>
             );
           case 'tag':
@@ -613,7 +614,7 @@ function RenderInline({
           case 'embed':
             return (
               <Text key={idx} style={{ color: colors.blue, fontSize }}>
-                {'↗ '}{node.name}
+                {'↗ '}{parseWikiLink(node.name).display}
               </Text>
             );
           case 'footnote_ref':

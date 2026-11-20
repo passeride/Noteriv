@@ -18,6 +18,8 @@ import SearchModal from '@/components/SearchModal';
 import CreateModal from '@/components/CreateModal';
 import VaultSwitcher from '@/components/VaultSwitcher';
 import { FileEntry } from '@/types';
+import { directoryExists } from '@/lib/file-system';
+import { vaultFileUri } from '@/lib/sync-state';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -186,6 +188,10 @@ export default function HomeScreen() {
         onFilePress={handleFilePress}
         onFolderPress={handleFolderPress}
         onNavigateUp={handleNavigateUp}
+        onGoHome={vault.homeFolder ? () => {
+          const path = vaultFileUri(vault.path, vault.homeFolder!) + '/';
+          setCurrentDir(directoryExists(path) ? path : vault.path);
+        } : undefined}
         onRefresh={refreshFiles}
         isAtRoot={isAtRoot}
       />

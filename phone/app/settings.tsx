@@ -21,6 +21,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { KEYS } from '@/lib/storage';
 import * as GitSync from '@/lib/provider-sync';
 import * as VaultOps from '@/lib/vault';
+import { directoryExists } from '@/lib/file-system';
+import { vaultFileUri } from '@/lib/sync-state';
 import NativeGitSettings from '@/components/NativeGitSettings';
 import { removeItem as removeStoredItem } from '@/lib/storage';
 import { loadSnippets } from '@/lib/css-snippets';
@@ -44,9 +46,34 @@ const AUTO_SAVE_OPTIONS = [
 const TAB_SIZE_OPTIONS = [2, 4, 8];
 
 export default function SettingsScreen() {
-  const { settings, updateSettings, vault, refreshVaults } = useApp();
+  const { settings, updateSettings, vault, refreshVaults, setCurrentDir } = useApp();
   const { colors } = useTheme();
   const router = useRouter();
+  const [homeFolder, setHomeFolder] = useState('');
+  useEffect(() => setHomeFolder(vault?.homeFolder ?? ''), [vault?.id, vault?.homeFolder]);
+
+  const saveHomeFolder = async () => {
+    if (!vault) return;
+    const value = homeFolder.trim().replace(/\/+$/, '');
+    const segments = value.split('/');
+    if (value && segments.some(segment => !segment || segment.startsWith('.') || segment.includes('\\'))) {
+      Alert.alert('Home folder', 'Enter a folder path inside this vault, such as Projects/Home.');
+      return;
+    }
+    const folder = value ? vaultFileUri(vault.path, value) + '/' : vault.path;
+    if (!directoryExists(folder)) {
+      Alert.alert('Home folder', 'This folder does not exist in the vault.');
+      return;
+    }
+    try {
+      await VaultOps.updateVault(vault.id, { homeFolder: value });
+      await refreshVaults();
+      setCurrentDir(folder);
+    } catch (error) {
+      Alert.alert('Home folder', error instanceof Error ? error.message : String(error));
+    }
+  };
+
 
   // Git sync state
   const [tokenInput, setTokenInput] = useState('');
@@ -386,6 +413,28 @@ export default function SettingsScreen() {
           updateSettings({ spellCheck: val })
         )}
       </View>
+
+      {vault && (
+        <>
+          {renderSectionHeader('Home folder', 'home-outline')}
+          <View style={[s.section, { backgroundColor: colors.bgTertiary, padding: 12, gap: 8 }]}>
+            <TextInput
+              accessibilityLabel="Home folder"
+              placeholder="Vault root"
+              placeholderTextColor={colors.textMuted}
+              value={homeFolder}
+              onChangeText={setHomeFolder}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[s.tokenInput, { color: colors.textPrimary, borderColor: colors.border }]}
+            />
+            <Text style={{ color: colors.textSecondary }}>Enter a folder path in this vault, or leave blank for the root.</Text>
+            <TouchableOpacity style={[s.modalButton, { backgroundColor: colors.accent }]} onPress={saveHomeFolder}>
+              <Text style={{ color: colors.bgPrimary, fontWeight: '600' }}>Save home folder</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       {/* Appearance */}
       {renderSectionHeader('Appearance', 'color-palette-outline')}

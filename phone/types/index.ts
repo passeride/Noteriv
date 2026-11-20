@@ -6,6 +6,7 @@ export interface Vault {
   // Needed for arbitrary self-hosted hosts where the URL alone cannot identify the forge.
   gitProvider?: GitProvider;
   gitBranch: string;
+  homeFolder?: string;
   autoSync: boolean;
   lastOpened: number;
 }

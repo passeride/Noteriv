@@ -25,6 +25,7 @@ interface NotesListProps {
   onFilePress: (file: FileEntry) => void;
   onFolderPress: (folder: FileEntry) => void;
   onNavigateUp: () => void;
+  onGoHome?: () => void;
   onRefresh: () => void;
   isAtRoot: boolean;
 }
@@ -36,6 +37,7 @@ export default function NotesList({
   onFilePress,
   onFolderPress,
   onNavigateUp,
+  onGoHome,
   onRefresh,
   isAtRoot,
 }: NotesListProps) {
@@ -175,6 +177,12 @@ export default function NotesList({
         }
         ListHeaderComponent={
           <>
+            {onGoHome && (
+              <TouchableOpacity accessibilityLabel="Go to home folder" style={styles.backRow} onPress={onGoHome}>
+                <Ionicons name="home-outline" size={18} color={colors.blue} />
+                <Text style={{ color: colors.blue }}>Home</Text>
+              </TouchableOpacity>
+            )}
             {!isAtRoot && (
               <TouchableOpacity style={[styles.backRow, { borderBottomColor: colors.bgTertiary }]} onPress={onNavigateUp}>
                 <Ionicons name="chevron-back" size={20} color={colors.blue} />

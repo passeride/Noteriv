@@ -162,15 +162,23 @@ export default function EditorScreen() {
     setRenameVisible(true);
   }, []);
 
-  const handleWikiLink = useCallback(async (name: string) => {
+  const openNoteLink = useCallback(async (name: string, markdown = false) => {
     if (!vault) return;
-    const resolved = await resolveWikiLink(name, vault.path);
-    if (resolved) {
-      flushFile();
-      setCurrentFile(null);
-      router.push({ pathname: '/editor', params: { path: resolved } });
+    const resolved = await resolveWikiLink(name, vault.path, currentFile, markdown);
+    if (!resolved) {
+      Alert.alert('Note not found', name);
+      return;
     }
-  }, [vault, flushFile, setCurrentFile, router]);
+    if (resolved === currentFile || !flushFile()) return;
+    setCurrentFile(null);
+    router.push({ pathname: '/editor', params: { path: resolved } });
+  }, [vault, currentFile, flushFile, setCurrentFile, router]);
+
+  const handleMarkdownLink = useCallback((url: string) => {
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith('//')) {
+      void openNoteLink(url, true);
+    }
+  }, [openNoteLink]);
 
   const handleLint = useCallback(async () => {
     setMenuVisible(false);
@@ -427,7 +435,8 @@ export default function EditorScreen() {
               content={content}
               fontSize={settings.fontSize}
               vaultPath={vault?.path}
-              onWikiLinkPress={handleWikiLink}
+              onWikiLinkPress={openNoteLink}
+              onLinkPress={handleMarkdownLink}
             />
           )}
         </View>

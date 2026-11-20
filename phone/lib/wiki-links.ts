@@ -1,4 +1,5 @@
 import { readFile, listAllMarkdownFiles } from '@/lib/file-system';
+import { vaultRelativePath } from '@/lib/sync-state';
 
 export interface ParsedWikiLink {
   raw: string;
@@ -75,39 +76,47 @@ export function findWikiLinks(content: string): ParsedWikiLink[] {
   return links;
 }
 
-/**
- * Resolve a wiki link target to an actual file path within the vault.
- *
- * Wiki links are matched by filename (case-insensitive, without extension).
- * Returns the first matching path, or null if no match is found.
- */
+/** Resolve an Obsidian link while retaining the original file URI for navigation. */
 export async function resolveWikiLink(
-  target: string,
-  vaultPath: string
+  raw: string,
+  vaultPath: string,
+  source?: string | null,
+  markdown = false
 ): Promise<string | null> {
-  if (!target) return null;
+  const { target, heading } = parseWikiLink(raw);
+  if (!target) return heading ? source ?? null : null;
 
-  const allFiles = await listAllMarkdownFiles(vaultPath);
-  const lowerTarget = target.toLowerCase();
+  const key = (path: string) => path.replace(/\.(md|markdown)$/i, '').normalize('NFC').toLowerCase();
+  const sourcePath = source ? vaultRelativePath(vaultPath, source) : '';
+  const sourceDir = sourcePath.split('/').slice(0, -1);
+  const files = await listAllMarkdownFiles(vaultPath);
+  const candidates = files.map(file => ({
+    uri: file.filePath,
+    path: key(vaultRelativePath(vaultPath, file.filePath)),
+    name: key(file.fileName),
+  }));
 
-  // Exact filename match (without extension)
-  for (const file of allFiles) {
-    if (file.fileName.toLowerCase() === lowerTarget) {
-      return file.filePath;
+  let name = target.trim();
+  if (markdown) {
+    try { name = decodeURIComponent(name); } catch { return null; }
+  }
+  const relative = name.startsWith('/') ? [] : [...sourceDir];
+  for (const part of name.split('/')) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (!relative.length) return null;
+      relative.pop();
+    } else {
+      relative.push(part);
     }
   }
-
-  // Try matching against relative path (without extension)
-  for (const file of allFiles) {
-    const relativePath = file.relativePath
-      .replace(/^\//, '')
-      .replace(/\.(md|markdown)$/i, '');
-    if (relativePath.toLowerCase() === lowerTarget) {
-      return file.filePath;
-    }
-  }
-
-  return null;
+  const exact = (path: string) => candidates.find(file => file.path === key(path))?.uri;
+  const local = exact(relative.join('/'));
+  if (markdown) return local ?? null;
+  if (name.startsWith('./') || name.startsWith('../')) return local ?? null;
+  return (name.includes('/') ? exact(name.replace(/^\//, '')) ?? local : local)
+    ?? candidates.find(file => name.includes('/') ? file.path.endsWith('/' + key(name)) : file.name === key(name))?.uri
+    ?? null;
 }
 
 /**

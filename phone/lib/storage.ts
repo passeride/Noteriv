@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import { createStorage } from '../../packages/git-client/secure-storage';
 
 const KEYS = {
   VAULTS: 'noteriv:vaults',
@@ -8,27 +10,17 @@ const KEYS = {
   WORKSPACE: (vaultId: string) => `noteriv:workspace:${vaultId}`,
   GITHUB_TOKEN: (vaultId: string) => `noteriv:ghToken:${vaultId}`,
   GIT_TOKEN: (vaultId: string) => `noteriv:gitToken:${vaultId}`,
+  GIT_CREDENTIALS: (vaultId: string) => `noteriv:gitCredentials:${vaultId}`,
 };
 
-export async function getItem<T>(key: string): Promise<T | null> {
-  try {
-    const value = await AsyncStorage.getItem(key);
-    return value ? JSON.parse(value) : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function setItem<T>(key: string, value: T): Promise<void> {
-  try {
-    await AsyncStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-}
-
-export async function removeItem(key: string): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(key);
-  } catch {}
-}
-
+// Follows covuaduongsinh's secure migration approach, without plaintext fallback.
+const storage = createStorage(AsyncStorage, {
+  available: SecureStore.isAvailableAsync,
+  get: SecureStore.getItemAsync,
+  set: SecureStore.setItemAsync,
+  remove: SecureStore.deleteItemAsync,
+});
+export const getItem = storage.getItem;
+export const setItem = storage.setItem;
+export const removeItem = storage.removeItem;
 export { KEYS };

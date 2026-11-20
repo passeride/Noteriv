@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'phone/**'
+      - 'crates/noteriv-git/**'
+      - 'packages/git-client/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
@@ -47,6 +49,20 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools platforms;android-${{ steps.sdk.outputs.compileSdk }}.0 build-tools;${{ steps.sdk.outputs.buildTools }} ndk;${{ steps.sdk.outputs.ndkVersion }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/noteriv-git -> target
+      - name: Build native Git for Android
+        env:
+          NDK_VERSION: ${{ steps.sdk.outputs.ndkVersion }}
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          cargo install cargo-ndk --locked
+          cargo ndk -t arm64-v8a -o modules/noteriv-git/android/src/main/jniLibs \
+            build --manifest-path ../crates/noteriv-git/Cargo.toml --release --locked
       - uses: gradle/actions/setup-gradle@v4
       - name: Build standalone APK
         working-directory: phone/android
@@ -57,7 +73,7 @@ jobs:
         run: |
           apk=android/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify "$apk"
-          unzip -t "$apk" 'assets/index.android.bundle' 'lib/arm64-v8a/libreactnative.so'
+          unzip -t "$apk" 'assets/index.android.bundle' 'lib/arm64-v8a/libreactnative.so' 'lib/arm64-v8a/libnoteriv_git.so'
           mkdir -p ../bundles
           cp "$apk" ../bundles/Noteriv-android-arm64.apk
       - uses: actions/upload-artifact@v4

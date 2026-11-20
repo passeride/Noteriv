@@ -38,7 +38,7 @@ notify-debouncer-mini = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 tiny_http = "0.12"
 
-# (No OS keyring — see src/auth.rs for rationale. Disk-only matches Electron.)
+# Credentials are stored by the target-specific OS keyring dependency below.
 
 # Encoding helpers
 atomicwrites = "0.4"
@@ -92,6 +92,17 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # a window are read through it (src/clipboard.rs).
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
+keyring = { version = "3", features = ["linux-native-sync-persistent", "crypto-rust"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+
+[dependencies.noteriv-git]
+path = "../../crates/noteriv-git"
+
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }

@@ -3337,6 +3337,7 @@ function Home() {
       {/* Settings */}
       {showSettings && (
         <SettingsModal
+            onBeforeGitOperation={saveWorkspace}
           settings={settings}
           hotkeys={hotkeys}
           platform={platform}

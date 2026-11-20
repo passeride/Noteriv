@@ -18,9 +18,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { BUILT_IN_THEMES, AccentColors, ThemeDefinition } from '@/constants/theme';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
-import { KEYS, setItem } from '@/lib/storage';
+import { KEYS } from '@/lib/storage';
 import * as GitSync from '@/lib/provider-sync';
-import { GitProvider } from '@/types';
+import * as VaultOps from '@/lib/vault';
+import NativeGitSettings from '@/components/NativeGitSettings';
+import { removeItem as removeStoredItem } from '@/lib/storage';
 import { loadSnippets } from '@/lib/css-snippets';
 import { getInstalledPlugins, getEnabledPluginIds } from '@/lib/plugins';
 import {
@@ -42,25 +44,19 @@ const AUTO_SAVE_OPTIONS = [
 const TAB_SIZE_OPTIONS = [2, 4, 8];
 
 export default function SettingsScreen() {
-  const { settings, updateSettings, vault, refreshFiles, refreshVaults } = useApp();
+  const { settings, updateSettings, vault, refreshVaults } = useApp();
   const { colors } = useTheme();
   const router = useRouter();
 
   // Git sync state
-  const [ghToken, setGhToken] = useState<string | null>(null);
   const [tokenInput, setTokenInput] = useState('');
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
-  const [remoteInput, setRemoteInput] = useState('');
-  const [providerInput, setProviderInput] = useState<GitProvider>('gitlab');
-  const [remoteError, setRemoteError] = useState<string | null>(null);
 
   // Repo picker state (inside token modal)
   const [validatingToken, setValidatingToken] = useState(false);
   const [ghUser, setGhUser] = useState<string | null>(null);
-  const [repos, setRepos] = useState<{ id: number; name: string; full_name: string; clone_url: string; private: boolean }[]>([]);
+  const [repos, setRepos] = useState<{ id: number; name: string; full_name: string; clone_url: string; private: boolean; default_branch: string }[]>([]);
   const [selectedRepoUrl, setSelectedRepoUrl] = useState<string | null>(null);
   const [tokenStep, setTokenStep] = useState<'token' | 'repo'>('token');
 
@@ -75,17 +71,6 @@ export default function SettingsScreen() {
   const [showCommunityThemes, setShowCommunityThemes] = useState(false);
   const [loadingCommunityThemes, setLoadingCommunityThemes] = useState(false);
   const [installingThemeId, setInstallingThemeId] = useState<string | null>(null);
-
-  // Load the provider-neutral token, falling back to the legacy GitHub token.
-  useEffect(() => {
-    if (vault) {
-      GitSync.getVaultToken(vault.id).then((token) => {
-        setGhToken(token);
-      });
-      setRemoteInput(vault.gitRemote ?? '');
-      setProviderInput(vault.gitProvider ?? GitSync.detectProvider(vault.gitRemote ?? '') ?? 'gitlab');
-    }
-  }, [vault]);
 
   // Load ecosystem counts and custom themes
   useEffect(() => {
@@ -128,13 +113,10 @@ export default function SettingsScreen() {
 
   const handleSaveTokenAndRepo = useCallback(async () => {
     if (!vault || !tokenInput.trim() || !selectedRepoUrl) return;
-    await setItem(KEYS.GITHUB_TOKEN(vault.id), tokenInput.trim());
-    setGhToken(tokenInput.trim());
-
-    // Save the repo URL on the vault
     const { updateVault } = await import('@/lib/vault');
-    // GitHub sync has always used "main"; say so, in case this vault last synced another provider's branch.
-    await updateVault(vault.id, { gitRemote: selectedRepoUrl, gitProvider: 'github', gitBranch: 'main' });
+    const branch = repos.find(repo => repo.clone_url === selectedRepoUrl)?.default_branch || 'main';
+    await updateVault(vault.id, { gitRemote: selectedRepoUrl, gitProvider: 'github', gitBranch: branch });
+    await GitSync.saveCredentials(vault.id, { username: ghUser ?? undefined, token: tokenInput.trim() });
     await refreshVaults();
 
     // Reset modal state
@@ -146,131 +128,16 @@ export default function SettingsScreen() {
     setShowTokenModal(false);
 
     // Trigger immediate sync
-    setSyncStatus('Syncing...');
     setSyncing(true);
     try {
-      const result = await GitSync.sync(vault.path, tokenInput.trim(), selectedRepoUrl, 'main', 'github');
-      setLastSyncTime(new Date().toLocaleTimeString());
-      setSyncStatus(GitSync.describeResult(result));
+      const result = await GitSync.sync(vault.path, tokenInput.trim(), selectedRepoUrl, branch, 'github');
+      if (result.errors.length) Alert.alert('Git sync', result.errors.join('\n'));
     } catch (err) {
-      setSyncStatus(`Sync failed: ${err instanceof Error ? err.message : String(err)}`);
+      Alert.alert('Git sync', err instanceof Error ? err.message : String(err));
     } finally {
       setSyncing(false);
     }
-  }, [vault, tokenInput, selectedRepoUrl]);
-
-  const handleDisconnectGitHub = useCallback(async () => {
-    if (!vault) return;
-    Alert.alert('Disconnect Remote', 'Remove the stored token for this vault?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Disconnect',
-        style: 'destructive',
-        onPress: async () => {
-          await AsyncStorage.removeItem(KEYS.GITHUB_TOKEN(vault.id));
-          await AsyncStorage.removeItem(KEYS.GIT_TOKEN(vault.id));
-          setGhToken(null);
-        },
-      },
-    ]);
-  }, [vault]);
-
-  const handleSyncNow = useCallback(async () => {
-    if (!vault || !ghToken || !vault.gitRemote) return;
-    setSyncing(true);
-    setSyncStatus(null);
-    try {
-      const result = await GitSync.sync(
-        vault.path,
-        ghToken,
-        vault.gitRemote,
-        vault.gitBranch || undefined,
-        vault.gitProvider
-      );
-      refreshFiles();
-      const now = new Date().toLocaleTimeString();
-      setLastSyncTime(now);
-      setSyncStatus(GitSync.describeResult(result));
-    } catch (err) {
-      setSyncStatus(
-        `Sync failed: ${err instanceof Error ? err.message : String(err)}`
-      );
-    } finally {
-      setSyncing(false);
-    }
-  }, [vault, ghToken, refreshFiles]);
-
-  const handleSaveCustomRemote = useCallback(async () => {
-    if (!vault || !remoteInput.trim() || !tokenInput.trim()) return;
-    const provider = GitSync.detectProvider(remoteInput.trim(), providerInput);
-    if (!provider || provider === 'github') return;
-    const token = tokenInput.trim();
-    setRemoteError(null);
-    setSyncing(true);
-    try {
-      // Ask the server first: a remote that cannot work is not saved, and the
-      // reason is shown under the form instead of a "connected" vault that never syncs.
-      const check = await GitSync.checkRemote(remoteInput.trim(), token, provider);
-      if (!check.ok) {
-        setRemoteError(check.problem);
-        return;
-      }
-      await setItem(KEYS.GIT_TOKEN(vault.id), token);
-      const { updateVault } = await import('@/lib/vault');
-      // Sync the branch the repository really has; a vault starts out assuming "main".
-      await updateVault(vault.id, { gitRemote: remoteInput.trim(), gitProvider: provider, gitBranch: check.branch });
-      setGhToken(token);
-      setTokenInput('');
-      await refreshVaults();
-      const result = await GitSync.sync(vault.path, token, remoteInput.trim(), check.branch, provider);
-      refreshFiles();
-      setLastSyncTime(new Date().toLocaleTimeString());
-      setSyncStatus(GitSync.describeResult(result));
-    } catch (err) {
-      setSyncStatus(`Sync failed: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setSyncing(false);
-    }
-  }, [vault, remoteInput, tokenInput, providerInput, refreshFiles, refreshVaults]);
-
-  const handleFreshClone = useCallback(async () => {
-    if (!vault || !ghToken || !vault.gitRemote) return;
-    Alert.alert(
-      'Fresh Clone',
-      'This will DELETE all local notes and re-download everything from GitHub. Are you sure?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete & Clone',
-          style: 'destructive',
-          onPress: async () => {
-            setSyncing(true);
-            setSyncStatus('Deleting local files & cloning...');
-            try {
-              const result = await GitSync.freshClone(
-                vault.path,
-                ghToken,
-                vault.gitRemote!,
-                vault.gitBranch || undefined,
-                vault.gitProvider
-              );
-              refreshFiles();
-              setLastSyncTime(new Date().toLocaleTimeString());
-              if (result.errors.length > 0) {
-                setSyncStatus(`Cloned: ${result.pulled} files, Errors: ${result.errors.length}`);
-              } else {
-                setSyncStatus(`Fresh clone: ${result.pulled} files downloaded`);
-              }
-            } catch (err) {
-              setSyncStatus(`Clone failed: ${err instanceof Error ? err.message : String(err)}`);
-            } finally {
-              setSyncing(false);
-            }
-          },
-        },
-      ]
-    );
-  }, [vault, ghToken]);
+  }, [vault, tokenInput, selectedRepoUrl, ghUser, refreshVaults, repos]);
 
   const handleBrowseCommunityThemes = useCallback(async () => {
     if (showCommunityThemes) {
@@ -324,6 +191,11 @@ export default function SettingsScreen() {
           text: 'Reset Everything',
           style: 'destructive',
           onPress: async () => {
+            for (const item of await VaultOps.getVaults()) {
+              await removeStoredItem(KEYS.GITHUB_TOKEN(item.id));
+              await removeStoredItem(KEYS.GIT_TOKEN(item.id));
+              await removeStoredItem(KEYS.GIT_CREDENTIALS(item.id));
+            }
             await AsyncStorage.clear();
             router.replace('/setup');
           },
@@ -495,11 +367,6 @@ export default function SettingsScreen() {
     Constants.expoConfig?.version ??
     Constants.manifest2?.extra?.expoClient?.version ??
     '1.0.0';
-
-  const gitConnected = !!ghToken && !!vault?.gitRemote;
-  const provider = vault?.gitRemote
-    ? GitSync.detectProvider(vault.gitRemote, vault.gitProvider)
-    : null;
 
   return (
     <ScrollView
@@ -728,135 +595,7 @@ export default function SettingsScreen() {
       {/* Git sync */}
       {renderSectionHeader('Git Sync', 'git-branch-outline')}
       <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
-        {gitConnected ? (
-          <>
-            <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
-              <Text style={[s.settingLabel, { color: colors.textPrimary }]}>
-                Status
-              </Text>
-              <View style={s.statusRow}>
-                <View style={[s.statusDot, { backgroundColor: colors.green }]} />
-                <Text style={{ color: colors.green, fontSize: 14, fontWeight: '500' }}>
-                  Connected
-                </Text>
-              </View>
-            </View>
-
-            {lastSyncTime && (
-              <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
-                <Text style={[s.settingLabel, { color: colors.textPrimary }]}>
-                  Last sync
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-                  {lastSyncTime}
-                </Text>
-              </View>
-            )}
-
-            {syncStatus && (
-              <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
-                <Text
-                  style={{
-                    color: syncStatus.includes('failed')
-                      ? colors.red
-                      : colors.textSecondary,
-                    fontSize: 13,
-                    flex: 1,
-                  }}
-                >
-                  {syncStatus}
-                </Text>
-              </View>
-            )}
-
-            <View style={[s.settingRow, { borderBottomColor: colors.border, gap: 8 }]}>
-              <TouchableOpacity
-                style={[
-                  s.syncButton,
-                  { backgroundColor: colors.accent },
-                  syncing && { opacity: 0.6 },
-                ]}
-                onPress={handleSyncNow}
-                disabled={syncing}
-              >
-                {syncing ? (
-                  <ActivityIndicator size="small" color={colors.bgPrimary} />
-                ) : (
-                  <Ionicons name="sync" size={18} color={colors.bgPrimary} />
-                )}
-                <Text style={[s.syncButtonText, { color: colors.bgPrimary }]}>
-                  {syncing ? 'Syncing...' : 'Sync Now'}
-                </Text>
-              </TouchableOpacity>
-              {provider === 'github' && (
-                <TouchableOpacity
-                  style={[
-                    s.syncButton,
-                    { backgroundColor: colors.red },
-                    syncing && { opacity: 0.6 },
-                  ]}
-                  onPress={handleFreshClone}
-                  disabled={syncing}
-                >
-                  <Ionicons name="cloud-download-outline" size={18} color={colors.bgPrimary} />
-                  <Text style={[s.syncButtonText, { color: colors.bgPrimary }]}>
-                    Fresh Clone
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
-              <Text style={[s.settingLabel, { color: colors.textPrimary }]}>Auto-sync</Text>
-              <Text style={{ color: colors.green, fontSize: 13, fontWeight: '500' }}>Every 5s</Text>
-            </View>
-
-            <TouchableOpacity
-              style={[s.settingRow, { borderBottomColor: colors.border }]}
-              onPress={handleDisconnectGitHub}
-            >
-              <Text style={{ color: colors.red, fontSize: 15, fontWeight: '500' }}>
-                Disconnect Remote
-              </Text>
-              <Ionicons name="close-circle-outline" size={20} color={colors.red} />
-            </TouchableOpacity>
-          </>
-        ) : (
-          <View style={s.gitDisconnected}>
-            <Text style={[s.gitDisconnectedText, { color: colors.textMuted }]}>
-                Connect GitHub, GitLab, Gitea, or Forgejo to sync notes across devices.
-            </Text>
-            <TouchableOpacity
-              style={[s.connectButton, { backgroundColor: colors.accent }]}
-              onPress={() => setShowTokenModal(true)}
-            >
-              <Ionicons name="logo-github" size={20} color={colors.bgPrimary} />
-              <Text style={[s.connectButtonText, { color: colors.bgPrimary }]}>
-                Connect GitHub
-              </Text>
-            </TouchableOpacity>
-            <View style={s.customRemoteForm}>
-              <Text style={[s.modalHint, { color: colors.textMuted }]}>
-                {providerInput === 'gitlab'
-                  ? 'For GitLab, enter the HTTPS clone URL and an access token with the "api" scope. A token with only read_repository and write_repository will not work here.'
-                  : 'For Gitea or Forgejo, enter the HTTPS clone URL and an access token with read and write access to repositories.'}
-              </Text>
-              <View style={s.providerRow}>
-                {(['gitlab', 'gitea'] as GitProvider[]).map((item) => (
-                  <TouchableOpacity key={item} style={[s.providerOption, { backgroundColor: colors.bgSecondary }, providerInput === item && { backgroundColor: colors.accent }]} onPress={() => { setProviderInput(item); setRemoteError(null); }}>
-                    <Text style={{ color: providerInput === item ? colors.bgPrimary : colors.textSecondary, fontWeight: '600' }}>{item === 'gitlab' ? 'GitLab' : 'Gitea / Forgejo'}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TextInput style={[s.tokenInput, { color: colors.textPrimary, backgroundColor: colors.bgSecondary, borderColor: colors.border }]} placeholder="https://git.example.com/group/repo.git" placeholderTextColor={colors.textMuted} value={remoteInput} onChangeText={(text) => { setRemoteInput(text); setRemoteError(null); }} autoCapitalize="none" autoCorrect={false} />
-              <TextInput style={[s.tokenInput, { color: colors.textPrimary, backgroundColor: colors.bgSecondary, borderColor: colors.border }]} placeholder="Personal access token" placeholderTextColor={colors.textMuted} value={tokenInput} onChangeText={(text) => { setTokenInput(text); setRemoteError(null); }} autoCapitalize="none" autoCorrect={false} secureTextEntry />
-              <TouchableOpacity style={[s.connectButton, { backgroundColor: colors.accent }, (!remoteInput.trim() || !tokenInput.trim() || syncing) && { opacity: 0.5 }]} onPress={handleSaveCustomRemote} disabled={!remoteInput.trim() || !tokenInput.trim() || syncing}>
-                <Text style={[s.connectButtonText, { color: colors.bgPrimary }]}>{syncing ? 'Saving...' : 'Save & Sync Remote'}</Text>
-              </TouchableOpacity>
-              {remoteError ? <Text style={[s.modalHint, { color: colors.red }]}>{remoteError}</Text> : null}
-            </View>
-          </View>
-        )}
+        <NativeGitSettings key={vault?.id} onChooseRepository={() => setShowTokenModal(true)} />
       </View>
 
       {/* About */}

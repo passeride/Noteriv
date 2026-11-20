@@ -16,6 +16,8 @@ import ts from 'typescript';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fakes = {
   '@/lib/file-system': 'tests/fakes/file-system.mjs',
+  '@/lib/github-login': 'tests/fakes/github-login.mjs',
+  '@/modules/noteriv-git': 'tests/fakes/noteriv-git.mjs',
   '@/lib/storage': 'tests/fakes/storage.mjs',
 };
 

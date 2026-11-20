@@ -58,8 +58,6 @@ pub fn run() {
     // process ends, before any window or plugin is set up.
     let startup = app_requests::at_startup();
 
-    // One-time legacy token migration (Electron safeStorage → Tauri keyring).
-    auth::migrate_legacy_tokens();
     // Once: each vault gets its own folder and WebDAV sync settings.
     commands_sync::migrate_vault_sync();
 
@@ -163,6 +161,7 @@ pub fn run() {
             commands_vault::settings_load,
             commands_vault::settings_save,
             // auth
+            auth::auth_oauth_http,
             auth::auth_save_token,
             auth::auth_has_token,
             auth::auth_remove_token,
@@ -172,6 +171,8 @@ pub fn run() {
             auth::auth_open_token_page,
             auth::auth_get_user,
             // git
+            commands_git::git_native,
+            commands_git::git_save_credentials,
             commands_git::git_is_installed,
             commands_git::git_is_repo,
             commands_git::git_init,

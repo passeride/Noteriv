@@ -9,6 +9,7 @@ export const KEYS = {
   WORKSPACE: (vaultId) => `noteriv:workspace:${vaultId}`,
   GITHUB_TOKEN: (vaultId) => `noteriv:ghToken:${vaultId}`,
   GIT_TOKEN: (vaultId) => `noteriv:gitToken:${vaultId}`,
+  GIT_CREDENTIALS: (vaultId) => `noteriv:gitCredentials:${vaultId}`,
 };
 
 export async function getItem(key) {

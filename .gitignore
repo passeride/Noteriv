@@ -59,3 +59,8 @@ phone/eas.json
 
 # docs site (VitePress)
 docs/.vitepress/cache/
+
+# Shared native Git build outputs
+/crates/*/target/
+/phone/modules/noteriv-git/android/src/main/jniLibs/
+/phone/modules/noteriv-git/ios/*.xcframework/

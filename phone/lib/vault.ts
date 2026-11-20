@@ -1,5 +1,5 @@
 import { Vault, WorkspaceState } from '@/types';
-import { getItem, setItem, KEYS } from './storage';
+import { getItem, setItem, removeItem, KEYS } from './storage';
 import { ensureVaultsDir, getVaultPath, createDir } from './file-system';
 
 function generateId(): string {
@@ -64,6 +64,9 @@ export async function updateVault(id: string, updates: Partial<Vault>): Promise<
 }
 
 export async function deleteVault(id: string): Promise<void> {
+  await removeItem(KEYS.GIT_CREDENTIALS(id));
+  await removeItem(KEYS.GIT_TOKEN(id));
+  await removeItem(KEYS.GITHUB_TOKEN(id));
   const vaults = await getVaults();
   const filtered = vaults.filter((v) => v.id !== id);
   await setItem(KEYS.VAULTS, filtered);

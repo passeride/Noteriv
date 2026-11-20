@@ -1,3 +1,5 @@
+> This fork uses a shared native Git engine. See [Native Git setup](./native-git.md) for credentials, OAuth, SSH and platform builds.
+
 ---
 title: Git Sync
 order: 2

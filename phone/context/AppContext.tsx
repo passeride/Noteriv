@@ -6,6 +6,8 @@ import * as FS from '@/lib/file-system';
 import * as GitSync from '@/lib/provider-sync';
 import { NoteSession } from '@/lib/note-session';
 import { conflictCopyPath, vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
+import { oauthIO } from '@/lib/github-login';
+GitSync.setOAuthIO(oauthIO);
 
 interface AppContextType {
   // Vault
@@ -116,6 +118,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [note]);
 
+  useEffect(() => {
+    GitSync.setSyncHooks({
+      before: async () => {
+        if (!flushFile()) throw new Error('Save failed; sync stopped to protect your edits');
+      },
+      after: async () => {
+        if (currentDirRef.current) setFiles(FS.readDir(currentDirRef.current));
+        if (vault?.path) await takeOpenNoteFromDisk(vault.path);
+      },
+    });
+    return () => GitSync.setSyncHooks(undefined);
+  }, [flushFile, takeOpenNoteFromDisk, vault?.path]);
+
   // Initialize
   useEffect(() => {
     (async () => {
@@ -170,7 +185,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Auto-pull from the configured forge when vault opens.
   useEffect(() => {
-    if (!vault?.gitRemote || hasPulledOnOpen.current) return;
+    if (!settings.pullOnOpen || !vault?.gitRemote || hasPulledOnOpen.current) return;
     hasPulledOnOpen.current = true;
 
     (async () => {
@@ -178,9 +193,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       syncInFlight.current = true;
       try {
         const token = await GitSync.getVaultToken(vault.id);
-        if (!token) return;
+
         console.log('[Noteriv] Auto-pulling from remote...');
-        const result = await GitSync.pull(vault.path, token, vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
+        const result = await GitSync.pull(vault.path, token ?? '', vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
         console.log(`[Noteriv] Pull complete: ${result.pulled} files, ${result.errors.length} errors`);
         if (result.pulled > 0) {
           await takeOpenNoteFromDisk(vault.path);
@@ -192,27 +207,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         syncInFlight.current = false;
       }
     })();
-  }, [vault?.id, vault?.gitRemote, vault?.gitBranch]);
+  }, [vault?.id, vault?.gitRemote, vault?.autoSync, settings.gitSyncInterval, settings.pullOnOpen]);
 
-  // Auto-sync every 5 seconds (pull + push if changes)
+  // Only sync at the configured interval; timers read live editor state through hooks.
   useEffect(() => {
     if (autoSyncTimer.current) {
       clearInterval(autoSyncTimer.current);
       autoSyncTimer.current = null;
     }
 
-    if (!vault?.gitRemote) return;
+    if (!vault?.gitRemote || !vault.autoSync || settings.gitSyncInterval <= 0) return;
 
     autoSyncTimer.current = setInterval(async () => {
       if (syncInFlight.current) return;
       syncInFlight.current = true;
       try {
         const token = await GitSync.getVaultToken(vault.id);
-        if (!token) return;
-        // Sync compares what is on disk, so the open note's latest text goes
-        // there first.
-        flushFile();
-        const result = await GitSync.sync(vault.path, token, vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
+
+        const result = await GitSync.sync(vault.path, token ?? '', vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
         if (result.errors.length > 0) {
           console.warn('[Noteriv] Sync errors:', result.errors);
         }
@@ -228,7 +240,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } finally {
         syncInFlight.current = false;
       }
-    }, 5_000);
+    }, Math.max(60_000, settings.gitSyncInterval * 1000));
 
     return () => {
       if (autoSyncTimer.current) {
@@ -236,7 +248,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         autoSyncTimer.current = null;
       }
     };
-  }, [vault?.id, vault?.gitRemote, vault?.gitBranch]);
+  }, [vault?.id, vault?.gitRemote, vault?.autoSync, settings.gitSyncInterval, settings.pullOnOpen]);
 
   const refreshFiles = useCallback(() => {
     if (!currentDir) return;

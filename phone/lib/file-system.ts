@@ -131,9 +131,7 @@ export function readDir(dirPath: string): FileEntry[] {
     const entries: FileEntry[] = [];
 
     for (const item of items) {
-      const name = item instanceof Directory
-        ? item.uri.split('/').filter(Boolean).pop() ?? ''
-        : (item as File).name;
+      const name = item.name;
       if (name.startsWith('.')) continue;
       const isDirectory = item instanceof Directory;
       entries.push({

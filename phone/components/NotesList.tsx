@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Paths } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { FileEntry } from '@/types';
@@ -58,8 +59,7 @@ export default function NotesList({
 
   const folderName = useMemo(() => {
     if (isAtRoot) return null;
-    const parts = currentDir.replace(/\/$/, '').split('/');
-    return parts[parts.length - 1];
+    return Paths.basename(currentDir);
   }, [currentDir, isAtRoot]);
 
   const handleRefresh = useCallback(async () => {

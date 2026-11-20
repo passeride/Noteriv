@@ -10,6 +10,7 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
+import { Paths } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { FileEntry } from '@/types';
@@ -57,7 +58,7 @@ export default function FileTree({
   const buildBreadcrumbs = useCallback(() => {
     if (!vaultPath || !currentDir) return [];
 
-    const vaultName = vaultPath.replace(/\/$/, '').split('/').pop() || 'Vault';
+    const vaultName = Paths.basename(vaultPath) || 'Vault';
     const relative = currentDir.replace(vaultPath, '');
     const segments: { label: string; path: string }[] = [
       { label: vaultName, path: vaultPath },
@@ -68,7 +69,7 @@ export default function FileTree({
       let accumulated = vaultPath;
       for (const part of parts) {
         accumulated += part + '/';
-        segments.push({ label: part, path: accumulated });
+        segments.push({ label: Paths.basename(accumulated), path: accumulated });
       }
     }
 

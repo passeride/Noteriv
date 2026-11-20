@@ -8,6 +8,7 @@ import {
   Animated,
   PanResponder,
 } from 'react-native';
+import { Paths } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -18,15 +19,11 @@ interface BookmarksPanelProps {
 }
 
 function getFileName(path: string): string {
-  const parts = path.replace(/\/$/, '').split('/');
-  return parts[parts.length - 1] || path;
+  return Paths.basename(path) || path;
 }
 
 function getParentPath(path: string): string {
-  const parts = path.split('/').filter(Boolean);
-  if (parts.length <= 1) return '/';
-  // Return the parent folder name
-  return parts[parts.length - 2] || '';
+  return Paths.basename(Paths.dirname(path)) || '/';
 }
 
 interface SwipeableBookmarkProps {

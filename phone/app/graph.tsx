@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -40,6 +41,7 @@ export default function GraphScreen() {
   const [graph, setGraph] = useState<VaultGraph | null>(() => lastGraph?.path === vaultPath ? lastGraph : null);
   const [progress, setProgress] = useState<{ path: string; read: number; total: number }>();
   const [failedPath, setFailedPath] = useState<string>();
+  const [failedRenderer, setFailedRenderer] = useState<{ html: string } | null>(null);
 
   useEffect(() => {
     if (!vaultPath) return;
@@ -128,13 +130,34 @@ export default function GraphScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {source ? (
+      {source && failedRenderer === source ? (
+        <FlatList
+          data={current?.nodes ?? []}
+          keyExtractor={node => node.id}
+          ListHeaderComponent={
+            <View style={{ padding: 16, gap: 8 }}>
+              <Text style={{ color: colors.textPrimary }}>The graph renderer stopped. You can still open linked notes below.</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setFailedRenderer(null)}>
+                <Text style={{ color: colors.accent }}>Retry graph</Text>
+              </TouchableOpacity>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity accessibilityRole="button" style={{ padding: 12 }}
+              onPress={() => router.push({ pathname: '/editor', params: { path: item.path } })}>
+              <Text style={{ color: colors.textPrimary }}>{item.label}</Text>
+            </TouchableOpacity>
+          )}
+        />
+      ) : source ? (
         <WebView
           source={source}
           style={{ backgroundColor: colors.bgPrimary }}
           originWhitelist={['*']}
           onMessage={handleMessage}
           scrollEnabled={false}
+          onRenderProcessGone={() => setFailedRenderer(source)}
+          onError={() => setFailedRenderer(source)}
           startInLoadingState
           renderLoading={() => (
             <View style={[styles.loadingOverlay, { backgroundColor: colors.bgPrimary }]}>
@@ -194,7 +217,7 @@ nodes.forEach((n) => { nodeMap[n.id] = n; });
 function resize() {
   const { width, height } = canvas.getBoundingClientRect();
   if (!width || !height) return;
-  const scale = Math.min(window.devicePixelRatio || 1, Math.sqrt(5000000 / (width * height)));
+  const scale = Math.min(window.devicePixelRatio || 1, 3, Math.sqrt(2400000 / (width * height)));
   canvas.width = Math.round(width * scale);
   canvas.height = Math.round(height * scale);
   ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
@@ -227,7 +250,7 @@ function simulate() {
 
   // Sample repulsion for large vaults. Every node is updated, without
   // computing every pair on each animation frame.
-  const samples = Math.min(nodes.length - 1, 24);
+  const samples = Math.min(nodes.length - 1, nodes.length > 500 ? 8 : 16);
   for (let i = 0; i < nodes.length; i++) {
     const a = nodes[i];
     for (let j = 0; j < samples; j++) {
@@ -322,17 +345,23 @@ function draw() {
 
 const labelNodes = new Set([...nodes].sort((a, b) => conns[b.id] - conns[a.id]).slice(0, 24).map(n => n.id));
 let frames = 0;
-function loop() {
-  if (W && H) {
-    simulate();
-    draw();
-  }
+let layoutStarted;
+function settle(timestamp) {
+  if (!W || !H) return;
+  if (layoutStarted === undefined) layoutStarted = timestamp;
+  simulate();
   frames++;
-  if (frames < 80) requestAnimationFrame(loop);
+  // Paint only the initial and final positions. Full-density repaints of
+  // all edges, circles and labels every frame are expensive on mobile.
+  if (frames < 24 && timestamp - layoutStarted < 360) requestAnimationFrame(settle);
+  else draw();
 }
 resize();
-new ResizeObserver(resize).observe(canvas);
-requestAnimationFrame(loop);
+new ResizeObserver(() => {
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width !== W || rect.height !== H) resize();
+}).observe(canvas);
+requestAnimationFrame(settle);
 
 // Tap to navigate
 canvas.addEventListener('click', (e) => {

@@ -57,3 +57,5 @@ export function createDir() {
 export function readDir() {
   return [];
 }
+
+export function fileExists(path) { return files.has(path); }

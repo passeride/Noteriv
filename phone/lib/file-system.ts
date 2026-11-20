@@ -164,11 +164,13 @@ export async function listAllMarkdownFiles(
 ): Promise<{ filePath: string; fileName: string; relativePath: string }[]> {
   const files: { filePath: string; fileName: string; relativePath: string }[] = [];
 
-  function walk(currentDir: string) {
+  let scanned = 0;
+  async function walk(currentDir: string) {
+    if (++scanned % 16 === 0) await new Promise<void>(resolve => setTimeout(resolve, 0));
     const entries = readDir(currentDir);
     for (const entry of entries) {
       if (entry.isDirectory) {
-        walk(entry.path);
+        await walk(entry.path);
       } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown')) {
         files.push({
           filePath: entry.path,
@@ -179,7 +181,7 @@ export async function listAllMarkdownFiles(
     }
   }
 
-  walk(dir);
+  await walk(dir);
   return files;
 }
 

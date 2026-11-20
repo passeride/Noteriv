@@ -1,5 +1,5 @@
-import { readFile, listAllMarkdownFiles } from '@/lib/file-system';
-import { vaultRelativePath } from '@/lib/sync-state';
+import { fileExists, readFile, listAllMarkdownFiles } from '@/lib/file-system';
+import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 
 export interface ParsedWikiLink {
   raw: string;
@@ -76,6 +76,39 @@ export function findWikiLinks(content: string): ParsedWikiLink[] {
   return links;
 }
 
+const noteKey = (path: string) => path.replace(/\.(md|markdown)$/i, '').normalize('NFC').toLowerCase();
+
+async function buildLinkIndex(vaultPath: string) {
+  const paths = new Map<string, string>();
+  const suffixes = new Map<string, string>();
+  for (const file of await listAllMarkdownFiles(vaultPath)) {
+    const path = noteKey(vaultRelativePath(vaultPath, file.filePath));
+    if (!paths.has(path)) paths.set(path, file.filePath);
+    const segments = path.split('/');
+    for (let i = 0; i < segments.length; i++) {
+      const suffix = segments.slice(i).join('/');
+      if (!suffixes.has(suffix)) suffixes.set(suffix, file.filePath);
+    }
+  }
+  return { paths, suffixes };
+}
+
+let linkIndex: { vault: string; expires: number; promise: ReturnType<typeof buildLinkIndex> } | undefined;
+
+function getLinkIndex(vault: string) {
+  if (linkIndex?.vault === vault && linkIndex.expires > Date.now()) return linkIndex.promise;
+  const promise = buildLinkIndex(vault);
+  linkIndex = { vault, expires: Date.now() + 60_000, promise };
+  void promise.catch(() => {
+    if (linkIndex?.promise === promise) linkIndex = undefined;
+  });
+  return promise;
+}
+
+export function warmWikiLinks(vault: string): void {
+  void getLinkIndex(vault);
+}
+
 /** Resolve an Obsidian link while retaining the original file URI for navigation. */
 export async function resolveWikiLink(
   raw: string,
@@ -86,15 +119,8 @@ export async function resolveWikiLink(
   const { target, heading } = parseWikiLink(raw);
   if (!target) return heading ? source ?? null : null;
 
-  const key = (path: string) => path.replace(/\.(md|markdown)$/i, '').normalize('NFC').toLowerCase();
   const sourcePath = source ? vaultRelativePath(vaultPath, source) : '';
   const sourceDir = sourcePath.split('/').slice(0, -1);
-  const files = await listAllMarkdownFiles(vaultPath);
-  const candidates = files.map(file => ({
-    uri: file.filePath,
-    path: key(vaultRelativePath(vaultPath, file.filePath)),
-    name: key(file.fileName),
-  }));
 
   let name = target.trim();
   if (markdown) {
@@ -110,13 +136,29 @@ export async function resolveWikiLink(
       relative.push(part);
     }
   }
-  const exact = (path: string) => candidates.find(file => file.path === key(path))?.uri;
-  const local = exact(relative.join('/'));
-  if (markdown) return local ?? null;
-  if (name.startsWith('./') || name.startsWith('../')) return local ?? null;
-  return (name.includes('/') ? exact(name.replace(/^\//, '')) ?? local : local)
-    ?? candidates.find(file => name.includes('/') ? file.path.endsWith('/' + key(name)) : file.name === key(name))?.uri
-    ?? null;
+  const localPath = relative.join('/');
+  const explicit = markdown || /^[.]{1,2}\//.test(name);
+  const rooted = !explicit && name.includes('/') && !name.split('/').some(part => part === '..' || part === '.') ? name.replace(/^\//, '') : undefined;
+  const direct = (path: string) => {
+    const candidates = /\.(md|markdown)$/i.test(path)
+      ? [path] : [path + '.md', path + '.markdown'];
+    return candidates.map(file => vaultFileUri(vaultPath, file)).find(fileExists);
+  };
+  const found = (rooted ? direct(rooted) : undefined) ?? direct(localPath);
+  if (found) return found;
+
+  const lookup = async () => {
+    const { paths, suffixes } = await getLinkIndex(vaultPath);
+    return (rooted ? paths.get(noteKey(rooted)) : undefined) ?? paths.get(noteKey(localPath))
+      ?? (explicit ? undefined : suffixes.get(noteKey(name)));
+  };
+  const cached = linkIndex?.vault === vaultPath && linkIndex.expires > Date.now();
+  let match = await lookup();
+  if (cached && (!match || !fileExists(match))) {
+    if (linkIndex?.vault === vaultPath) linkIndex = undefined;
+    match = await lookup();
+  }
+  return match && fileExists(match) ? match : null;
 }
 
 /**

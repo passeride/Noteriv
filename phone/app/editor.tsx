@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import BoardView from '@/components/BoardView';
 import { rename as renameFile, listAllMarkdownFiles } from '@/lib/file-system';
 import { lintMarkdown, LintWarning } from '@/lib/markdown-lint';
 import { isBoardContent, isBoardFile } from '@/lib/board-utils';
-import { resolveWikiLink } from '@/lib/wiki-links';
+import { resolveWikiLink, warmWikiLinks } from '@/lib/wiki-links';
 
 export default function EditorScreen() {
   const router = useRouter();
@@ -159,13 +159,20 @@ export default function EditorScreen() {
     setRenameVisible(true);
   }, []);
 
+  const vaultPath = vault?.path;
+  useEffect(() => {
+    if (!vaultPath) return;
+    const timer = setTimeout(() => warmWikiLinks(vaultPath), 250);
+    return () => clearTimeout(timer);
+  }, [vaultPath]);
+
   const openNoteLink = useCallback(async (name: string, markdown = false) => {
     if (!vault) return;
     const request = ++linkRequest.current;
-    setOpeningLink(true);
+    const indicator = setTimeout(() => {
+      if (request === linkRequest.current) setOpeningLink(true);
+    }, 180);
     try {
-      await new Promise<void>(resolve => setTimeout(resolve, 0));
-      if (request !== linkRequest.current) return;
       const resolved = await resolveWikiLink(name, vault.path, currentFile, markdown);
       if (request !== linkRequest.current) return;
       if (!resolved) {
@@ -174,7 +181,10 @@ export default function EditorScreen() {
       }
       if (resolved === currentFile || !flushFile()) return;
       router.push({ pathname: '/editor', params: { path: resolved } });
+    } catch {
+      if (request === linkRequest.current) Alert.alert('Could not open note', name);
     } finally {
+      clearTimeout(indicator);
       if (request === linkRequest.current) setOpeningLink(false);
     }
   }, [vault, currentFile, flushFile, router]);
@@ -208,6 +218,15 @@ export default function EditorScreen() {
   const displayedPath = path || currentFile;
   const fileName = displayedPath ? Paths.basename(displayedPath) : 'Note';
   const loadingNote = Boolean(path && currentFile !== path);
+  const [showNoteSpinner, setShowNoteSpinner] = useState(false);
+  useEffect(() => {
+    if (!loadingNote) {
+      setShowNoteSpinner(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowNoteSpinner(true), 180);
+    return () => clearTimeout(timer);
+  }, [loadingNote]);
 
   const isBookmarked =
     currentFile && (workspace.bookmarks ?? []).includes(currentFile);
@@ -402,7 +421,7 @@ export default function EditorScreen() {
         />
       )}
 
-      {(openingLink || loadingNote) && (
+      {(openingLink || (loadingNote && showNoteSpinner)) && (
         <View accessibilityRole="progressbar" style={{ flexDirection: 'row', gap: 8, padding: 12 }}>
           <ActivityIndicator color={colors.accent} />
           <Text style={{ color: colors.textSecondary }}>Opening note…</Text>

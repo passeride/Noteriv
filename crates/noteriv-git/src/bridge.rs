@@ -116,25 +116,63 @@ pub extern "system" fn Java_expo_modules_noterivgit_NativeGit_execute(
 }
 
 #[cfg(target_os = "android")]
+fn register_android_roots(
+    env: &mut jni::JNIEnv,
+    roots: &jni::objects::JObjectArray,
+) -> std::result::Result<(), String> {
+    use jni::objects::JByteArray;
+    use libgit2_sys as raw;
+    use openssl_sys as ssl;
+    use std::ptr::null_mut;
+
+    let count = env.get_array_length(roots).map_err(|err| err.to_string())?;
+    if count == 0 {
+        return Err("Android supplied no trusted CA certificates".into());
+    }
+
+    raw::init();
+    for index in 0..count {
+        let root = env
+            .get_object_array_element(roots, index)
+            .map_err(|err| err.to_string())?;
+        let root = JByteArray::from(root);
+        let der = env.convert_byte_array(&root);
+        env.delete_local_ref(root).map_err(|err| err.to_string())?;
+        let der = der.map_err(|err| err.to_string())?;
+        let mut bytes = der.as_ptr();
+        // The Android OpenSSL build has no stdio. Decode DER in memory and
+        // let libgit2's certificate store retain its own reference.
+        unsafe {
+            let cert = ssl::d2i_X509(null_mut(), &mut bytes, der.len() as std::ffi::c_long);
+            if cert.is_null() {
+                return Err("OpenSSL could not decode an Android CA certificate".into());
+            }
+            let result = raw::git_libgit2_opts(raw::GIT_OPT_ADD_SSL_X509_CERT as _, cert);
+            ssl::X509_free(cert);
+            if result < 0 {
+                return Err(git2::Error::last_error(result).message().into());
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "system" fn Java_expo_modules_noterivgit_NativeGit_initialize(
     mut env: jni::JNIEnv,
     _class: jni::objects::JClass,
-    ca_file: jni::objects::JString,
-) -> jni::sys::jboolean {
-    // Called exactly once under the Kotlin module's process-wide monitor,
-    // before executing any repository operation. OpenSSL uses Android's trust
-    // manager roots rather than a nonexistent desktop CA directory.
-    static READY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    let path: String = match env.get_string(&ca_file) {
-        Ok(s) => s.into(),
-        Err(_) => return 0,
-    };
-    let ready =
-        READY.get_or_init(|| unsafe { git2::opts::set_ssl_cert_file(Path::new(&path)).is_ok() });
-    if *ready {
-        1
-    } else {
-        0
+    roots: jni::objects::JObjectArray,
+) -> jni::sys::jstring {
+    // Kotlin serializes initialization before any repository operation.
+    match register_android_roots(&mut env, &roots) {
+        Ok(()) => std::ptr::null_mut(),
+        Err(error) => match env.new_string(&error) {
+            Ok(message) => message.into_raw(),
+            Err(_) => {
+                let _ = env.throw_new("java/lang/IllegalStateException", "Cannot initialize Git TLS");
+                std::ptr::null_mut()
+            }
+        },
     }
 }

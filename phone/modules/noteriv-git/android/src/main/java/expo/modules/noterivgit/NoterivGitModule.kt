@@ -7,12 +7,11 @@ import java.io.File
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
-import android.util.Base64
 
 object NativeGit {
   init { System.loadLibrary("noteriv_git") }
   @JvmStatic external fun execute(request: String): String
-  @JvmStatic external fun initialize(caFile: String): Boolean
+  @JvmStatic external fun initialize(roots: Array<ByteArray>): String?
   var ready = false
 }
 class NoterivGitModule : Module() {
@@ -30,9 +29,8 @@ class NoterivGitModule : Module() {
           factory.init(null as KeyStore?)
           val roots = factory.trustManagers.filterIsInstance<X509TrustManager>().flatMap { it.acceptedIssuers.toList() }
           require(roots.isNotEmpty()) { "No trusted CA certificates are available" }
-          val file = File(context.filesDir, "noteriv-git-ca.pem")
-          file.writeText(roots.joinToString("\n") { cert -> "-----BEGIN CERTIFICATE-----\n" + Base64.encodeToString(cert.encoded, Base64.NO_WRAP).chunked(64).joinToString("\n") + "\n-----END CERTIFICATE-----\n" })
-          require(NativeGit.initialize(file.absolutePath)) { "Cannot initialize TLS certificate validation" }
+          val failure = NativeGit.initialize(roots.distinct().map { it.encoded }.toTypedArray())
+          check(failure == null) { "Cannot initialize Git TLS: $failure" }
           NativeGit.ready = true
         }
       }

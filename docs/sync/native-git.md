@@ -21,8 +21,7 @@ The old phone per-file REST synchronization implementation has been removed.
 Credentials are bound to the remote's scheme, host and port. Changing servers
 requires saving credentials again. GitHub App tokens are used only on
 `https://github.com`. TLS certificates remain verified; HTTPS redirects are
-not followed with Git credentials. Android exports its TrustManager CA roots
-into app-private storage before initializing OpenSSL. Apple uses SecureTransport;
+not followed with Git credentials. Android loads its TrustManager CA roots directly into the native Git TLS certificate store. Apple uses SecureTransport;
 Windows uses WinHTTP.
 
 Local edits are committed before fetching. Fast-forwards use safe checkout.

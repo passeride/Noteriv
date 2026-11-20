@@ -2950,6 +2950,8 @@ dependencies = [
  "fs2",
  "git2",
  "jni",
+ "libgit2-sys",
+ "openssl-sys",
  "serde",
  "serde_json",
  "url",

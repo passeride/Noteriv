@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +13,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import { WebView } from 'react-native-webview';
 import { listAllMarkdownFiles, readFile } from '@/lib/file-system';
+import { findWikiLinks } from '@/lib/wiki-links';
+import { vaultRelativePath } from '@/lib/sync-state';
 
 interface GraphNode {
   id: string;
@@ -32,65 +33,66 @@ export default function GraphScreen() {
   const { colors } = useTheme();
   const { vault } = useApp();
 
-  const [loading, setLoading] = useState(true);
-  const [html, setHtml] = useState('');
+  const vaultPath = vault?.path;
+  const [graph, setGraph] = useState<{ path: string; nodes: GraphNode[]; edges: GraphEdge[] } | null>(null);
+  const [failedPath, setFailedPath] = useState<string>();
 
   useEffect(() => {
-    if (!vault) return;
-    (async () => {
-      const files = await listAllMarkdownFiles(vault.path);
-      const nodes: GraphNode[] = [];
-      const directedEdges: { source: string; target: string }[] = [];
-      const nameMap = new Map<string, string>(); // lowercase name -> id
-
-      for (const f of files) {
-        nodes.push({ id: f.fileName, label: f.fileName, path: f.filePath });
-        nameMap.set(f.fileName.toLowerCase(), f.fileName);
+    if (!vaultPath) return;
+    let cancelled = false;
+    const yieldToUI = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+    void (async () => {
+      await yieldToUI();
+      if (cancelled) return;
+      const files = await listAllMarkdownFiles(vaultPath);
+      const nodes = files.map(f => ({ id: f.filePath, path: f.filePath, label: f.fileName }));
+      const key = (name: string) => name.replace(/\.(md|markdown)$/i, '').normalize('NFC').toLowerCase();
+      const paths = new Map<string, string>();
+      const names = new Map<string, string>();
+      for (const file of files) {
+        paths.set(key(vaultRelativePath(vaultPath, file.filePath)), file.filePath);
+        if (!names.has(key(file.fileName))) names.set(key(file.fileName), file.filePath);
+      }
+      const targets = new Map<string, Set<string>>();
+      for (let i = 0; i < files.length; i += 12) {
+        if (cancelled) return;
+        const batch = files.slice(i, i + 12);
+        const contents = await Promise.all(batch.map(f => readFile(f.filePath)));
+        if (cancelled) return;
+        batch.forEach((file, index) => {
+          const links = new Set<string>();
+          for (const { target } of findWikiLinks(contents[index] ?? '')) {
+            const name = key(target.trim().replace(/^\//, ''));
+            const destination = paths.get(name) ?? names.get(name);
+            if (destination && destination !== file.filePath) links.add(destination);
+          }
+          if (links.size) targets.set(file.filePath, links);
+        });
+        await yieldToUI();
       }
 
-      // Find wiki links
-      const wikiRegex = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
-      for (const f of files) {
-        const content = await readFile(f.filePath);
-        if (!content) continue;
-        let m;
-        wikiRegex.lastIndex = 0;
-        const seen = new Set<string>();
-        while ((m = wikiRegex.exec(content)) !== null) {
-          const target = m[1].trim().toLowerCase();
-          const targetId = nameMap.get(target);
-          if (targetId && targetId !== f.fileName && !seen.has(targetId)) {
-            directedEdges.push({ source: f.fileName, target: targetId });
-            seen.add(targetId);
-          }
+      const connected = new Set<string>();
+      const edges: GraphEdge[] = [];
+      for (const [source, destinations] of targets) {
+        for (const target of destinations) {
+          const reciprocal = targets.get(target)?.has(source) ?? false;
+          if (reciprocal && source > target) continue;
+          connected.add(source);
+          connected.add(target);
+          edges.push({ source, target, reciprocal });
         }
       }
+      if (!cancelled) setGraph({ path: vaultPath, nodes: nodes.filter(n => connected.has(n.id)), edges });
+    })().catch(() => {
+      if (!cancelled) setFailedPath(vaultPath);
+    });
+    return () => { cancelled = true; };
+  }, [vaultPath]);
 
-      const directedKeys = new Set(directedEdges.map((edge) => `${edge.source}\0${edge.target}`));
-      const relationshipKeys = new Set<string>();
-      const edges: GraphEdge[] = [];
-      for (const edge of directedEdges) {
-        const key = [edge.source, edge.target].sort().join('\0');
-        if (relationshipKeys.has(key)) continue;
-        relationshipKeys.add(key);
-        edges.push({
-          ...edge,
-          reciprocal: directedKeys.has(`${edge.target}\0${edge.source}`),
-        });
-      }
-
-      // Filter to only nodes that have connections
-      const connected = new Set<string>();
-      for (const e of edges) {
-        connected.add(e.source);
-        connected.add(e.target);
-      }
-      const filteredNodes = nodes.filter((n) => connected.has(n.id));
-
-      setHtml(buildGraphHTML(filteredNodes, edges, colors));
-      setLoading(false);
-    })();
-  }, [vault, colors]);
+  const current = graph?.path === vaultPath ? graph : null;
+  const source = useMemo(() => current?.nodes.length
+    ? { html: buildGraphHTML(current.nodes, current.edges, colors) }
+    : null, [current, colors]);
 
   const handleMessage = useCallback((event: any) => {
     try {
@@ -111,19 +113,24 @@ export default function GraphScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={{ color: colors.textMuted, marginTop: 12 }}>Building graph...</Text>
-        </View>
-      ) : (
+      {source ? (
         <WebView
-          source={{ html }}
+          source={source}
           style={{ backgroundColor: colors.bgPrimary }}
           originWhitelist={['*']}
           onMessage={handleMessage}
           scrollEnabled={false}
         />
+      ) : (
+        <View style={styles.center}>
+          {vaultPath && !current && failedPath !== vaultPath && (
+            <ActivityIndicator size="large" color={colors.accent} />
+          )}
+          <Text style={{ color: colors.textMuted, marginTop: 12 }}>
+            {!vaultPath ? 'No vault selected' : current ? 'No linked notes' :
+              failedPath === vaultPath ? 'Could not build the graph' : 'Building graph...'}
+          </Text>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -134,7 +141,7 @@ function buildGraphHTML(
   edges: GraphEdge[],
   colors: ReturnType<typeof useTheme>['colors']
 ): string {
-  const { width, height } = Dimensions.get('window');
+  const serialize = (data: unknown) => JSON.stringify(data).replace(/</g, '\\u003c');
 
   return `<!DOCTYPE html>
 <html>
@@ -143,7 +150,7 @@ function buildGraphHTML(
 <style>
   * { margin: 0; padding: 0; }
   body { background: ${colors.bgPrimary}; overflow: hidden; touch-action: none; }
-  canvas { display: block; }
+  canvas { display: block; width: 100vw; height: 100vh; }
   .legend { position: fixed; left: 12px; bottom: 12px; display: flex; gap: 12px; padding: 5px 9px; border: 1px solid ${colors.border}; border-radius: 6px; background: ${colors.bgSecondary}; color: ${colors.textMuted}; font: 11px -apple-system, sans-serif; }
   .legend b { color: ${colors.accent}; font-size: 14px; }
 </style>
@@ -152,21 +159,35 @@ function buildGraphHTML(
 <canvas id="c"></canvas>
 <div class="legend"><span><b>→</b> one-way</span><span><b>↔</b> reciprocal</span></div>
 <script>
-const W = ${width}, H = ${height - 100};
+let W = 0, H = 0;
 const canvas = document.getElementById('c');
-canvas.width = W; canvas.height = H;
 const ctx = canvas.getContext('2d');
 
-const nodes = ${JSON.stringify(nodes.map((n, i) => ({
-    ...n,
-    x: width / 2 + (Math.random() - 0.5) * width * 0.6,
-    y: (height - 100) / 2 + (Math.random() - 0.5) * (height - 100) * 0.6,
-    vx: 0, vy: 0,
-  })))};
+const nodes = ${serialize(nodes)};
+const edges = ${serialize(edges)};
+const nodeMap = Object.create(null);
+nodes.forEach((n) => { nodeMap[n.id] = n; });
 
-const edges = ${JSON.stringify(edges)};
-const nodeMap = {};
-nodes.forEach(n => nodeMap[n.id] = n);
+function resize() {
+  const { width, height } = canvas.getBoundingClientRect();
+  if (!width || !height) return;
+  const scale = Math.min(window.devicePixelRatio || 1, Math.sqrt(5000000 / (width * height)));
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+  nodes.forEach(n => {
+    if (!W || !H) {
+      n.x = width * (0.2 + Math.random() * 0.6);
+      n.y = height * (0.2 + Math.random() * 0.6);
+      n.vx = 0; n.vy = 0;
+    } else {
+      n.x *= width / W;
+      n.y *= height / H;
+    }
+  });
+  W = width; H = height;
+  draw();
+}
 
 // Connection count for sizing
 const conns = {};
@@ -181,17 +202,18 @@ function simulate() {
   const damping = 0.85;
   const centerPull = 0.002;
 
-  // Repulsion between all nodes
+  // Sample repulsion for large vaults. Every node is updated, without
+  // computing every pair on each animation frame.
+  const samples = Math.min(nodes.length - 1, 24);
   for (let i = 0; i < nodes.length; i++) {
-    for (let j = i + 1; j < nodes.length; j++) {
-      let dx = nodes[j].x - nodes[i].x;
-      let dy = nodes[j].y - nodes[i].y;
-      let dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      let f = repulsion / (dist * dist);
-      let fx = (dx / dist) * f;
-      let fy = (dy / dist) * f;
-      nodes[i].vx -= fx; nodes[i].vy -= fy;
-      nodes[j].vx += fx; nodes[j].vy += fy;
+    const a = nodes[i];
+    for (let j = 0; j < samples; j++) {
+      const offset = 1 + Math.floor((j + (frames % 5) / 5) * (nodes.length - 1) / samples);
+      const b = nodes[(i + offset) % nodes.length];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const distance = Math.sqrt(Math.max(25, dx * dx + dy * dy));
+      const f = repulsion / (distance * distance * distance);
+      a.vx -= dx * f; a.vy -= dy * f;
     }
   }
 
@@ -255,30 +277,39 @@ function draw() {
     if (e.reciprocal) drawArrow(startX, startY, angle + Math.PI);
   }
 
-  // Nodes
+  // Batch circles and configure text once per frame.
+  ctx.beginPath();
   for (const n of nodes) {
-    const c = conns[n.id] || 1;
-    const r = Math.min(3 + c * 1.5, 12);
-    ctx.beginPath();
-    ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = '${colors.accent}';
-    ctx.fill();
+    const radius = Math.min(3 + (conns[n.id] || 1) * 1.5, 12);
+    ctx.moveTo(n.x + radius, n.y);
+    ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+  }
+  ctx.fillStyle = '${colors.accent}';
+  ctx.fill();
 
-    ctx.font = '10px -apple-system, sans-serif';
-    ctx.fillStyle = '${colors.textSecondary}';
-    ctx.textAlign = 'center';
-    ctx.fillText(n.label, n.x, n.y + r + 12);
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.fillStyle = '${colors.textSecondary}';
+  ctx.textAlign = 'center';
+  for (const n of nodes) {
+    if (nodes.length > 70 && !labelNodes.has(n.id)) continue;
+    const radius = Math.min(3 + (conns[n.id] || 1) * 1.5, 12);
+    ctx.fillText(n.label, n.x, n.y + radius + 12);
   }
 }
 
+const labelNodes = new Set([...nodes].sort((a, b) => conns[b.id] - conns[a.id]).slice(0, 24).map(n => n.id));
 let frames = 0;
 function loop() {
-  simulate();
-  draw();
+  if (W && H) {
+    simulate();
+    draw();
+  }
   frames++;
-  if (frames < 300) requestAnimationFrame(loop);
+  if (frames < 80) requestAnimationFrame(loop);
 }
-loop();
+resize();
+new ResizeObserver(resize).observe(canvas);
+requestAnimationFrame(loop);
 
 // Tap to navigate
 canvas.addEventListener('click', (e) => {

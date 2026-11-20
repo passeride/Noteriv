@@ -80,6 +80,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // A sync downloads every note and can outlast the 5s tick; never run two at once.
   const syncInFlight = useRef(false);
   // The sync timers outlive renders, so they read the open folder through a ref.
+  const fileReadRequest = useRef(0);
   const currentDirRef = useRef(currentDir);
   currentDirRef.current = currentDir;
 
@@ -280,6 +281,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (v) {
       hasPulledOnOpen.current = false; // Reset so new vault triggers pull
       flushFile();
+      fileReadRequest.current++;
       note.open(null, '');
       setVault(v);
       setCurrentDirState(initialFolder(v));
@@ -329,11 +331,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // The note being left is saved first. Opening the note that is already
     // open means "read it again" (a snapshot was just restored over it), so
     // its unsaved text must not be written back over the file.
-    if (path !== note.file) flushFile();
+    if (path !== note.file && !flushFile()) return;
 
-    setCurrentFileState(path);
+    const request = ++fileReadRequest.current;
     if (path) {
       const fileContent = await FS.readFile(path);
+      if (request !== fileReadRequest.current) return;
+      setCurrentFileState(path);
       note.open(path, fileContent ?? '');
       setContentState(note.content);
       setIsDirty(false);
@@ -345,6 +349,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, openTabs: tabs, activeTab: path };
       });
     } else {
+      setCurrentFileState(null);
       note.open(null, '');
       setContentState('');
       setIsDirty(false);

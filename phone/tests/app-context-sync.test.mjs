@@ -95,3 +95,18 @@ test('unsaved text meets a remote change: both are kept', async () => {
   assert.ok(kept.includes('first version typed on the phone'), JSON.stringify(notes()));
   assert.ok(kept.includes('changed on the desktop'), JSON.stringify(notes()));
 });
+
+test('leaving and reopening a note restores its content after a pending read', async () => {
+  const other = vaultFileUri(VAULT, 'Linked.md');
+  FS.writeFile(other, 'Linked note');
+  await act(async () => {
+    const pending = app.setCurrentFile(other);
+    await app.setCurrentFile(null);
+    await pending;
+  });
+  assert.equal(app.currentFile, null);
+
+  await act(async () => { await app.setCurrentFile(NOTE); });
+  assert.equal(app.currentFile, NOTE);
+  assert.equal(app.content, 'first version');
+});

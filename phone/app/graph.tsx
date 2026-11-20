@@ -28,13 +28,17 @@ interface GraphEdge {
   reciprocal: boolean;
 }
 
+type VaultGraph = { path: string; nodes: GraphNode[]; edges: GraphEdge[] };
+let lastGraph: VaultGraph | null = null;
+
 export default function GraphScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { vault } = useApp();
 
   const vaultPath = vault?.path;
-  const [graph, setGraph] = useState<{ path: string; nodes: GraphNode[]; edges: GraphEdge[] } | null>(null);
+  const [graph, setGraph] = useState<VaultGraph | null>(() => lastGraph?.path === vaultPath ? lastGraph : null);
+  const [progress, setProgress] = useState<{ path: string; read: number; total: number }>();
   const [failedPath, setFailedPath] = useState<string>();
 
   useEffect(() => {
@@ -45,6 +49,8 @@ export default function GraphScreen() {
       await yieldToUI();
       if (cancelled) return;
       const files = await listAllMarkdownFiles(vaultPath);
+      if (cancelled) return;
+      setProgress({ path: vaultPath, read: 0, total: files.length });
       const nodes = files.map(f => ({ id: f.filePath, path: f.filePath, label: f.fileName }));
       const key = (name: string) => name.replace(/\.(md|markdown)$/i, '').normalize('NFC').toLowerCase();
       const paths = new Map<string, string>();
@@ -68,6 +74,7 @@ export default function GraphScreen() {
           }
           if (links.size) targets.set(file.filePath, links);
         });
+        setProgress({ path: vaultPath, read: i + batch.length, total: files.length });
         await yieldToUI();
       }
 
@@ -82,7 +89,15 @@ export default function GraphScreen() {
           edges.push({ source, target, reciprocal });
         }
       }
-      if (!cancelled) setGraph({ path: vaultPath, nodes: nodes.filter(n => connected.has(n.id)), edges });
+      if (!cancelled) {
+        const next = { path: vaultPath, nodes: nodes.filter(n => connected.has(n.id)), edges };
+        if (lastGraph?.path !== vaultPath ||
+          JSON.stringify([lastGraph.nodes, lastGraph.edges]) !== JSON.stringify([next.nodes, next.edges])) {
+          lastGraph = next;
+        }
+        setGraph(lastGraph);
+        setProgress(undefined);
+      }
     })().catch(() => {
       if (!cancelled) setFailedPath(vaultPath);
     });
@@ -120,6 +135,13 @@ export default function GraphScreen() {
           originWhitelist={['*']}
           onMessage={handleMessage}
           scrollEnabled={false}
+          startInLoadingState
+          renderLoading={() => (
+            <View style={[styles.loadingOverlay, { backgroundColor: colors.bgPrimary }]}>
+              <ActivityIndicator size="large" color={colors.accent} />
+              <Text style={{ color: colors.textMuted, marginTop: 12 }}>Drawing graph…</Text>
+            </View>
+          )}
         />
       ) : (
         <View style={styles.center}>
@@ -128,7 +150,8 @@ export default function GraphScreen() {
           )}
           <Text style={{ color: colors.textMuted, marginTop: 12 }}>
             {!vaultPath ? 'No vault selected' : current ? 'No linked notes' :
-              failedPath === vaultPath ? 'Could not build the graph' : 'Building graph...'}
+              failedPath === vaultPath ? 'Could not build the graph' : progress && progress.path === vaultPath
+                ? `Reading notes… ${progress.read} / ${progress.total}` : 'Finding notes…'}
           </Text>
         </View>
       )}
@@ -341,5 +364,6 @@ const styles = StyleSheet.create({
   },
   headerBtn: { padding: 8, borderRadius: 8 },
   headerTitle: { fontSize: 17, fontWeight: '600' },
+  loadingOverlay: { ...StyleSheet.absoluteFill, justifyContent: 'center', alignItems: 'center' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

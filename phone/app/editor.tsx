@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   BackHandler,
+  ActivityIndicator,
   Modal,
   ScrollView,
   KeyboardAvoidingView,
@@ -14,7 +15,8 @@ import {
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { Paths } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
@@ -51,7 +53,10 @@ export default function EditorScreen() {
   const [focusMode, setFocusMode] = useState(false);
   const [lintVisible, setLintVisible] = useState(false);
   const [lintWarnings, setLintWarnings] = useState<LintWarning[]>([]);
-  const hasLoaded = useRef(false);
+  const activePath = useRef(currentFile);
+  activePath.current = currentFile;
+  const linkRequest = useRef(0);
+  const [openingLink, setOpeningLink] = useState(false);
 
   // A board is a file named *.board.md or one whose front matter says
   // "board: true", as on the desktop.
@@ -68,11 +73,9 @@ export default function EditorScreen() {
   }, [siblingNotes, currentFile]);
 
   const navigateToNote = useCallback(async (notePath: string) => {
-    flushFile();
-    hasLoaded.current = false;
-    setCurrentFile(null);
+    if (!flushFile()) return;
     router.replace({ pathname: '/editor', params: { path: notePath } });
-  }, [flushFile, setCurrentFile, router]);
+  }, [flushFile, router]);
 
   const swipeGesture = Gesture.Pan()
     .activeOffsetX([-30, 30])
@@ -87,34 +90,28 @@ export default function EditorScreen() {
     })
     .runOnJS(true);
 
-  // Load file on mount
-  useEffect(() => {
-    if (path && !hasLoaded.current) {
-      hasLoaded.current = true;
-      setCurrentFile(path);
+  const handleBack = useCallback(() => {
+    if (!flushFile()) {
+      Alert.alert('Error', 'Failed to save file.');
+      return;
     }
-  }, [path, setCurrentFile]);
-
-  // Leaving the note saves it. flushFile writes the text that is on the
-  // screen now; this used to save the text of an older render when it was
-  // reached through the system back button.
-  const handleBack = useCallback(async () => {
-    flushFile();
-    setCurrentFile(null);
-    router.back();
+    void setCurrentFile(null);
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
   }, [flushFile, setCurrentFile, router]);
 
-  // Handle hardware back button
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      'hardwareBackPress',
-      () => {
-        handleBack();
-        return true;
-      }
-    );
-    return () => subscription.remove();
-  }, [handleBack]);
+  useFocusEffect(useCallback(() => {
+    if (path && activePath.current !== path) void setCurrentFile(path);
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBack();
+      return true;
+    });
+    return () => {
+      subscription.remove();
+      linkRequest.current++;
+      setOpeningLink(false);
+    };
+  }, [path, setCurrentFile, handleBack]));
 
   const handleSave = useCallback(async () => {
     const ok = await saveFile();
@@ -164,15 +161,23 @@ export default function EditorScreen() {
 
   const openNoteLink = useCallback(async (name: string, markdown = false) => {
     if (!vault) return;
-    const resolved = await resolveWikiLink(name, vault.path, currentFile, markdown);
-    if (!resolved) {
-      Alert.alert('Note not found', name);
-      return;
+    const request = ++linkRequest.current;
+    setOpeningLink(true);
+    try {
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+      if (request !== linkRequest.current) return;
+      const resolved = await resolveWikiLink(name, vault.path, currentFile, markdown);
+      if (request !== linkRequest.current) return;
+      if (!resolved) {
+        Alert.alert('Note not found', name);
+        return;
+      }
+      if (resolved === currentFile || !flushFile()) return;
+      router.push({ pathname: '/editor', params: { path: resolved } });
+    } finally {
+      if (request === linkRequest.current) setOpeningLink(false);
     }
-    if (resolved === currentFile || !flushFile()) return;
-    setCurrentFile(null);
-    router.push({ pathname: '/editor', params: { path: resolved } });
-  }, [vault, currentFile, flushFile, setCurrentFile, router]);
+  }, [vault, currentFile, flushFile, router]);
 
   const handleMarkdownLink = useCallback((url: string) => {
     if (!/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith('//')) {
@@ -200,9 +205,9 @@ export default function EditorScreen() {
     router.back();
   }, [currentFile, renameValue, router]);
 
-  const fileName = currentFile
-    ? currentFile.split('/').pop() ?? 'Untitled'
-    : 'Untitled';
+  const displayedPath = path || currentFile;
+  const fileName = displayedPath ? Paths.basename(displayedPath) : 'Note';
+  const loadingNote = Boolean(path && currentFile !== path);
 
   const isBookmarked =
     currentFile && (workspace.bookmarks ?? []).includes(currentFile);
@@ -397,8 +402,15 @@ export default function EditorScreen() {
         />
       )}
 
+      {(openingLink || loadingNote) && (
+        <View accessibilityRole="progressbar" style={{ flexDirection: 'row', gap: 8, padding: 12 }}>
+          <ActivityIndicator color={colors.accent} />
+          <Text style={{ color: colors.textSecondary }}>Opening note…</Text>
+        </View>
+      )}
+
       {/* Word count bar + note position */}
-      {!focusMode && !isBoard && (
+      {!loadingNote && !focusMode && !isBoard && (
         <View style={[styles.statsBar, { backgroundColor: colors.bgSecondary, borderTopColor: colors.border }]}>
           <Text style={[styles.statsText, { color: colors.textMuted }]}>
             {content.trim() ? content.trim().split(/\s+/).length : 0} words
@@ -420,7 +432,7 @@ export default function EditorScreen() {
       {/* Editor / Preview / Board */}
       <GestureDetector gesture={swipeGesture}>
         <View style={styles.editorContainer}>
-          {isBoard ? (
+          {loadingNote ? null : isBoard ? (
             <BoardView content={content} onChange={setContent} />
           ) : workspace.viewMode === 'edit' ? (
             <MarkdownEditor

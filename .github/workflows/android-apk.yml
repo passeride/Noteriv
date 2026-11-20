@@ -1,0 +1,67 @@
+name: Android test APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'phone/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: phone
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: phone/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm test
+      - run: npx --no-install expo prebuild --clean --platform android --no-install
+      - name: Read the locked React Native Android toolchain
+        id: sdk
+        shell: python
+        run: |
+          import os, tomllib
+          with open('node_modules/react-native/gradle/libs.versions.toml', 'rb') as source:
+              versions = tomllib.load(source)['versions']
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for name in ('compileSdk', 'buildTools', 'ndkVersion'):
+                  print(f'{name}={versions[name]}', file=output)
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-${{ steps.sdk.outputs.compileSdk }} build-tools;${{ steps.sdk.outputs.buildTools }} ndk;${{ steps.sdk.outputs.ndkVersion }}
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build standalone APK
+        working-directory: phone/android
+        run: ./gradlew --no-daemon :app:assembleDebug -PreactNativeArchitectures=arm64-v8a
+      - name: Verify package and embedded JavaScript
+        env:
+          BUILD_TOOLS: ${{ steps.sdk.outputs.buildTools }}
+        run: |
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify "$apk"
+          unzip -t "$apk" 'assets/index.android.bundle' 'lib/arm64-v8a/libreactnative.so'
+          mkdir -p ../bundles
+          cp "$apk" ../bundles/Noteriv-android-arm64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noteriv-android-arm64
+          path: bundles/Noteriv-android-arm64.apk
+          if-no-files-found: error

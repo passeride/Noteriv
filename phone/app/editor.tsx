@@ -22,17 +22,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import MarkdownEditor from '@/components/MarkdownEditor';
+import SearchModal from '@/components/SearchModal';
 import MarkdownPreview from '@/components/MarkdownPreview';
 import BoardView from '@/components/BoardView';
 import EditorOverlay, { type EditorCommand } from '@/components/EditorOverlay';
 import { rename as renameFile, listAllMarkdownFiles } from '@/lib/file-system';
 import { lintMarkdown, LintWarning } from '@/lib/markdown-lint';
 import { isBoardContent, isBoardFile } from '@/lib/board-utils';
-import { resolveWikiLink, warmWikiLinks } from '@/lib/wiki-links';
+import { parseWikiLink, resolveWikiLink, warmWikiLinks } from '@/lib/wiki-links';
 
 export default function EditorScreen() {
   const router = useRouter();
-  const { path } = useLocalSearchParams<{ path: string }>();
+  const { path, heading } = useLocalSearchParams<{ path: string; heading?: string }>();
+  const [anchor, setAnchor] = useState<{ heading: string } | null>(() => heading ? { heading } : null);
   const { colors } = useTheme();
   const {
     currentFile,
@@ -49,6 +51,7 @@ export default function EditorScreen() {
     files,
   } = useApp();
 
+  const [searchVisible, setSearchVisible] = useState(false);
   const [overlay, setOverlay] = useState<'files' | 'commands' | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [renameVisible, setRenameVisible] = useState(false);
@@ -124,10 +127,15 @@ export default function EditorScreen() {
   }, [saveFile]);
 
   const toggleViewMode = useCallback(() => {
+    if (anchor) {
+      setAnchor(null);
+      updateWorkspace({ viewMode: 'edit' });
+      return;
+    }
     updateWorkspace({
       viewMode: workspace.viewMode === 'edit' ? 'preview' : 'edit',
     });
-  }, [workspace.viewMode, updateWorkspace]);
+  }, [anchor, workspace.viewMode, updateWorkspace]);
 
   const handleBookmark = useCallback(() => {
     if (!currentFile) return;
@@ -182,8 +190,13 @@ export default function EditorScreen() {
         Alert.alert('Note not found', name);
         return;
       }
-      if (resolved === currentFile || !flushFile()) return;
-      router.push({ pathname: '/editor', params: { path: resolved } });
+      const targetHeading = parseWikiLink(name).heading;
+      if (resolved === currentFile) {
+        if (targetHeading) setAnchor({ heading: targetHeading });
+        return;
+      }
+      if (!flushFile()) return;
+      router.push({ pathname: '/editor', params: { path: resolved, ...(targetHeading ? { heading: targetHeading } : {}) } });
     } catch {
       if (request === linkRequest.current) Alert.alert('Could not open note', name);
     } finally {
@@ -240,17 +253,24 @@ export default function EditorScreen() {
     setOverlay(mode);
   };
   const commands: EditorCommand[] = [
+    { label: 'Quick open note', run: () => setSearchVisible(true) },
     { label: 'Browse files', run: () => openOverlay('files') },
     { label: 'Save note', run: handleSave },
-    { label: workspace.viewMode === 'edit' ? 'Switch to reading mode' : 'Switch to editing mode', run: toggleViewMode },
+    { label: (workspace.viewMode === 'edit' && !anchor) ? 'Switch to reading mode' : 'Switch to editing mode', run: toggleViewMode },
     { label: focusMode ? 'Exit focus mode' : 'Enter focus mode', run: () => setFocusMode(value => !value) },
     { label: isBookmarked ? 'Remove bookmark' : 'Bookmark note', run: handleBookmark },
-    { label: 'Open graph', run: () => { if (flushFile()) router.push('/graph'); } },
+    { label: 'Open graph', run: () => { if (flushFile()) router.push({ pathname: '/graph', params: { note: currentFile ?? undefined } }); } },
     { label: 'Open settings', run: () => { if (flushFile()) router.push('/settings'); } },
   ];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      {vault && <SearchModal visible={searchVisible} vaultPath={vault.path}
+        onClose={() => setSearchVisible(false)} onFileSelect={notePath => {
+          if (notePath !== currentFile && flushFile()) {
+            router.push({ pathname: '/editor', params: { path: notePath } });
+          }
+        }} />}
       {overlay && vault && (
         <EditorOverlay key={overlay} mode={overlay} vaultPath={vault.path} notePath={displayedPath || vault.path}
           commands={commands} onClose={() => setOverlay(null)}
@@ -305,7 +325,7 @@ export default function EditorScreen() {
           >
             <Ionicons
               name={
-                workspace.viewMode === 'edit' ? 'eye-outline' : 'create-outline'
+                (workspace.viewMode === 'edit' && !anchor) ? 'eye-outline' : 'create-outline'
               }
               size={22}
               color={colors.textPrimary}
@@ -488,7 +508,7 @@ export default function EditorScreen() {
         <View style={styles.editorContainer}>
           {loadingNote ? null : isBoard ? (
             <BoardView content={content} onChange={setContent} />
-          ) : workspace.viewMode === 'edit' ? (
+          ) : workspace.viewMode === 'edit' && !anchor ? (
             <MarkdownEditor
               content={content}
               onChange={setContent}
@@ -501,6 +521,7 @@ export default function EditorScreen() {
               content={content}
               fontSize={settings.fontSize}
               vaultPath={vault?.path}
+              anchor={anchor ?? undefined}
               onWikiLinkPress={openNoteLink}
               onLinkPress={handleMarkdownLink}
             />

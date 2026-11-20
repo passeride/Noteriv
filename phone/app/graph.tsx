@@ -9,7 +9,7 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
@@ -36,6 +36,9 @@ let lastGraph: VaultGraph | null = null;
 
 export default function GraphScreen() {
   const router = useRouter();
+  const { note } = useLocalSearchParams<{ note?: string }>();
+  const [depth, setDepth] = useState(1);
+  const [global, setGlobal] = useState(false);
   const { colors } = useTheme();
   const { vault } = useApp();
 
@@ -84,19 +87,16 @@ export default function GraphScreen() {
         await yieldToUI();
       }
 
-      const connected = new Set<string>();
       const edges: GraphEdge[] = [];
       for (const [source, destinations] of targets) {
         for (const target of destinations) {
           const reciprocal = targets.get(target)?.has(source) ?? false;
           if (reciprocal && source > target) continue;
-          connected.add(source);
-          connected.add(target);
           edges.push({ source, target, reciprocal });
         }
       }
       if (!cancelled) {
-        const next = { path: vaultPath, nodes: nodes.filter(n => connected.has(n.id)), edges };
+        const next = { path: vaultPath, nodes: nodes, edges };
         if (lastGraph?.path !== vaultPath ||
           JSON.stringify([lastGraph.nodes, lastGraph.edges]) !== JSON.stringify([next.nodes, next.edges])) {
           lastGraph = next;
@@ -111,7 +111,24 @@ export default function GraphScreen() {
   }, [vaultPath]);
 
   const current = graph?.path === vaultPath ? graph : null;
-  const overview = useMemo(() => current && graphOverview(current.nodes, current.edges), [current]);
+  const local = note && !global ? note : undefined;
+  const overview = useMemo(() => {
+    if (!current) return null;
+    if (!local) return graphOverview(current.nodes, current.edges);
+    const neighbors = new Set([local]);
+    for (let level = 0; level < depth && neighbors.size < 80; level++) {
+      const frontier = new Set(neighbors);
+      for (const edge of current.edges) {
+        if (neighbors.size >= 80) break;
+        if (frontier.has(edge.source)) neighbors.add(edge.target);
+        if (frontier.has(edge.target)) neighbors.add(edge.source);
+      }
+    }
+    return graphOverview(
+      current.nodes.filter(node => neighbors.has(node.id)),
+      current.edges.filter(edge => neighbors.has(edge.source) && neighbors.has(edge.target)),
+    );
+  }, [current, local, depth]);
   const source = useMemo(() => overview?.nodes.length
     ? { html: buildGraphHTML(overview.nodes, overview.edges, colors) }
     : null, [overview, colors]);
@@ -136,7 +153,7 @@ export default function GraphScreen() {
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Graph View</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{local ? 'Local graph' : 'Graph view'}</Text>
         <TouchableOpacity accessibilityRole="button" disabled={!source}
           accessibilityLabel={showNotes ? 'Show graph' : 'Search linked notes'}
           onPress={() => setShowNotes(value => !value)} style={styles.headerBtn}>
@@ -144,11 +161,20 @@ export default function GraphScreen() {
         </TouchableOpacity>
       </View>
 
-      {source && overview && current && !showNotes && failedRenderer !== source &&
+      {note && <TouchableOpacity accessibilityRole="button" onPress={() => setGlobal(value => !value)} style={{ padding: 12 }}>
+        <Text style={{ color: colors.accent }}>{local ? 'Show vault graph' : 'Show local graph'}</Text>
+      </TouchableOpacity>}
+
+      {local && source && !showNotes && <TouchableOpacity accessibilityRole="button"
+        onPress={() => setDepth(value => value === 1 ? 2 : 1)} style={{ padding: 12 }}>
+        <Text style={{ color: colors.accent }}>{depth === 1 ? 'Show two degrees of links' : 'Show direct links only'}</Text>
+      </TouchableOpacity>}
+
+      {source && overview && current && !local && !showNotes && failedRenderer !== source &&
         (overview.nodes.length < current.nodes.length || overview.edges.length < current.edges.length) && (
           <TouchableOpacity accessibilityRole="button" onPress={() => setShowNotes(true)} style={{ padding: 10 }}>
             <Text style={{ color: colors.textSecondary }}>
-              Overview · {overview.nodes.length}/{current.nodes.length} notes · Search all linked notes
+              Overview · {overview.nodes.length}/{current.nodes.length} notes · Search all notes
             </Text>
           </TouchableOpacity>
         )}

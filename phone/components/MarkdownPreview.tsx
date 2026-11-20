@@ -19,6 +19,7 @@ import { getInstalledPlugins, getEnabledPluginIds } from '@/lib/plugins';
 
 interface MarkdownPreviewProps {
   content: string;
+  anchor?: { heading: string };
   fontSize: number;
   vaultPath?: string;
   onLinkPress?: (url: string) => void;
@@ -1018,6 +1019,7 @@ function CalloutBlock({
 
 export default function MarkdownPreview({
   content,
+  anchor,
   fontSize,
   vaultPath,
   onLinkPress,
@@ -1028,6 +1030,21 @@ export default function MarkdownPreview({
   const lineHeight = fontSize * 1.65;
   const scrollRef = useRef<ScrollViewInstance>(null);
   const headingYMap = useRef<Map<number, number>>(new Map());
+  const anchorLine = useMemo(() => {
+    if (!anchor) return undefined;
+    const normalize = (text: string) => text.trim().normalize('NFC').toLowerCase();
+    return blocks.find(block => block.type === 'heading' &&
+      normalize(block.text) === normalize(anchor.heading))?.line;
+  }, [anchor, blocks]);
+  const completedAnchor = useRef<typeof anchor>(undefined);
+  useEffect(() => {
+    if (anchorLine === undefined || completedAnchor.current === anchor) return;
+    const y = headingYMap.current.get(anchorLine);
+    if (y === undefined) return;
+    completedAnchor.current = anchor;
+    scrollRef.current?.scrollTo({ y, animated: false });
+  }, [anchor, anchorLine]);
+
 
   // Maps a fenced code-block language (lowercased) to the absolute path of
   // the enabled plugin's main.js that declared it via `codeBlockLanguages`
@@ -1090,7 +1107,14 @@ export default function MarkdownPreview({
             <View
               key={index}
               style={[styles.block, { marginTop: block.level <= 2 ? 20 : 14 }]}
-              onLayout={(e) => { headingYMap.current.set(block.line, e.nativeEvent.layout.y); }}
+              onLayout={(e) => {
+                const { y } = e.nativeEvent.layout;
+                headingYMap.current.set(block.line, y);
+                if (block.line === anchorLine && completedAnchor.current !== anchor) {
+                  completedAnchor.current = anchor;
+                  scrollRef.current?.scrollTo({ y, animated: false });
+                }
+              }}
             >
               <InlineText
                 text={block.text}

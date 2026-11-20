@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { readDir } from '@/lib/file-system';
 
+let recentCommands: string[] = [];
+
 export type EditorCommand = { label: string; run: () => void };
 type Props = {
   mode: 'files' | 'commands';
@@ -28,8 +30,25 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, onC
   const items = useMemo(() => isFiles
     ? readDir(folder).filter(entry => entry.isDirectory || /\.(md|markdown)$/i.test(entry.name))
     : [], [folder, isFiles]);
-  const matched = commands.filter(command => command.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const term = query.trim().toLowerCase();
+  const ranked = commands.map(command => {
+    const label = command.label.toLowerCase();
+    let position = 0;
+    for (const character of label) {
+      if (character === term[position]) position++;
+    }
+    const score = label.startsWith(term) ? 3 : label.includes(term) ? 2 : position === term.length ? 1 : 0;
+    const recent = recentCommands.indexOf(command.label);
+    return { command, score, recent: recent < 0 ? Infinity : recent };
+  });
+  const matched = ranked.filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.recent - b.recent)
+    .map(item => item.command);
   const exit = (run: () => void) => { onClose(); run(); };
+  const execute = (command: EditorCommand) => {
+    recentCommands = [command.label, ...recentCommands.filter(label => label !== command.label)].slice(0, 8);
+    exit(command.run);
+  };
   const goUp = () => {
     const parent = Paths.dirname(folder);
     const normalized = parent.endsWith('/') ? parent : parent + '/';
@@ -80,12 +99,12 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, onC
               <TextInput autoFocus accessibilityLabel="Search commands" placeholder="Search commands"
                 placeholderTextColor={colors.textMuted} value={query} onChangeText={setQuery}
                 autoCapitalize="none" autoCorrect={false} returnKeyType="go"
-                onSubmitEditing={() => { if (matched.length === 1) exit(matched[0].run); }}
+                onSubmitEditing={() => { if (matched.length) execute(matched[0]); }}
                 style={[styles.input, { color: colors.textPrimary, borderColor: colors.border }]} />
               <FlatList keyboardShouldPersistTaps="handled" data={matched} keyExtractor={item => item.label}
                 ListEmptyComponent={<Text style={[styles.empty, { color: colors.textMuted }]}>No matching commands</Text>}
                 renderItem={({ item }) => (
-                  <Pressable accessibilityRole="button" style={styles.row} onPress={() => exit(item.run)}>
+                  <Pressable accessibilityRole="button" style={styles.row} onPress={() => execute(item)}>
                     <Text style={{ color: colors.textPrimary }}>{item.label}</Text>
                   </Pressable>
                 )} />

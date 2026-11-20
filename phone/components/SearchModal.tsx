@@ -82,28 +82,33 @@ export default function SearchModal({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [filesLoaded, setFilesLoaded] = useState(false);
+  const cachedFiles = useRef<{ path: string; files: FileInfo[] } | undefined>(undefined);
   const inputRef = useRef<TextInputInstance>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load all files when modal opens
   useEffect(() => {
-    if (visible && vaultPath) {
-      loadFiles();
-      // Focus input after a short delay for animation
-      setTimeout(() => inputRef.current?.focus(), 200);
-    } else {
-      // Reset state when closing
+    if (!visible || !vaultPath) {
       setQuery('');
       setSearchResults([]);
       setFilesLoaded(false);
+      return;
     }
+    let active = true;
+    const cached = cachedFiles.current;
+    setAllFiles(cached?.path === vaultPath ? cached.files : []);
+    setFilesLoaded(cached?.path === vaultPath);
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 200);
+    void listAllMarkdownFiles(vaultPath).then(files => {
+      if (!active) return;
+      cachedFiles.current = { path: vaultPath, files };
+      setAllFiles(files);
+      setFilesLoaded(true);
+    });
+    return () => {
+      active = false;
+      clearTimeout(focusTimer);
+    };
   }, [visible, vaultPath]);
-
-  const loadFiles = useCallback(async () => {
-    const files = await listAllMarkdownFiles(vaultPath);
-    setAllFiles(files);
-    setFilesLoaded(true);
-  }, [vaultPath]);
 
   // Filtered files for Quick Open
   const filteredFiles = useMemo(() => {
@@ -120,24 +125,27 @@ export default function SearchModal({
 
   // Vault search with debounce
   useEffect(() => {
-    if (activeTab !== 'vaultSearch' || !query.trim()) {
+    if (!visible || activeTab !== 'vaultSearch' || !query.trim()) {
       setSearchResults([]);
       return;
     }
 
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    let active = true;
     setIsSearching(true);
 
     searchTimeout.current = setTimeout(async () => {
       const results = await searchInFiles(vaultPath, query);
+      if (!active) return;
       setSearchResults(results);
       setIsSearching(false);
     }, 300);
 
     return () => {
+      active = false;
       if (searchTimeout.current) clearTimeout(searchTimeout.current);
     };
-  }, [query, activeTab, vaultPath]);
+  }, [query, activeTab, vaultPath, visible]);
 
   const handleTabSwitch = useCallback((tab: TabId) => {
     setActiveTab(tab);

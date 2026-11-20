@@ -56,13 +56,14 @@ jobs:
         with:
           workspaces: crates/noteriv-git -> target
       - name: Build native Git for Android
+        working-directory: crates/noteriv-git
         env:
           NDK_VERSION: ${{ steps.sdk.outputs.ndkVersion }}
         run: |
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
           cargo install cargo-ndk --locked
-          cargo ndk -t arm64-v8a -o modules/noteriv-git/android/src/main/jniLibs \
-            build --manifest-path ../crates/noteriv-git/Cargo.toml --release --locked
+          cargo ndk -t arm64-v8a -o ../../phone/modules/noteriv-git/android/src/main/jniLibs \
+            build --release --locked
       - uses: gradle/actions/setup-gradle@v4
       - name: Build standalone APK
         working-directory: phone/android

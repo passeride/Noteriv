@@ -20,8 +20,6 @@ jobs:
         working-directory: phone
     env:
       CI: 'true'
-      ANDROID_COMPILE_SDK: '36'
-      ANDROID_BUILD_TOOLS: '36.0.0'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,23 +42,18 @@ jobs:
           with open('node_modules/react-native/gradle/libs.versions.toml', 'rb') as source:
               versions = tomllib.load(source)['versions']
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              for name in ('ndkVersion',):
+              for name in ('compileSdk', 'buildTools', 'ndkVersion'):
                   print(f'{name}={versions[name]}', file=output)
       - uses: android-actions/setup-android@v3
         with:
-          packages: platform-tools platforms;android-${{ env.ANDROID_COMPILE_SDK }} build-tools;${{ env.ANDROID_BUILD_TOOLS }} ndk;${{ steps.sdk.outputs.ndkVersion }}
+          packages: platform-tools platforms;android-${{ steps.sdk.outputs.compileSdk }}.0 build-tools;${{ steps.sdk.outputs.buildTools }} ndk;${{ steps.sdk.outputs.ndkVersion }}
       - uses: gradle/actions/setup-gradle@v4
       - name: Build standalone APK
         working-directory: phone/android
-        run: |
-          ./gradlew --no-daemon :app:assembleDebug \
-            -Pandroid.compileSdkVersion="$ANDROID_COMPILE_SDK" \
-            -Pandroid.targetSdkVersion="$ANDROID_COMPILE_SDK" \
-            -Pandroid.buildToolsVersion="$ANDROID_BUILD_TOOLS" \
-            -PreactNativeArchitectures=arm64-v8a
+        run: ./gradlew --no-daemon :app:assembleDebug -PreactNativeArchitectures=arm64-v8a
       - name: Verify package and embedded JavaScript
         env:
-          BUILD_TOOLS: ${{ env.ANDROID_BUILD_TOOLS }}
+          BUILD_TOOLS: ${{ steps.sdk.outputs.buildTools }}
         run: |
           apk=android/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify "$apk"

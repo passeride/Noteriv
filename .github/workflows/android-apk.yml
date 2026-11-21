@@ -70,15 +70,22 @@ jobs:
         working-directory: phone/android
         run: ./gradlew --no-daemon :app:assembleRelease -PreactNativeArchitectures=arm64-v8a
       - name: Verify release APK and embedded JavaScript
+        shell: bash
         env:
           BUILD_TOOLS: ${{ steps.sdk.outputs.buildTools }}
         run: |
           apk=android/app/build/outputs/apk/release/app-release.apk
           tools="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
+          # Both build variants use the signing key bundled in the Expo template.
           signer=$("$tools/apksigner" verify --print-certs "$apk")
-          # Same Expo template certificate as the existing debug test APKs.
-          expected_signer=fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c
-          grep -Fx "Signer #1 certificate SHA-256 digest: $expected_signer" <<< "$signer"
+          actual_signer=$(awk -F ': ' '/^Signer #1 certificate SHA-256 digest:/ {print tolower($2)}' <<< "$signer")
+          expected_signer=$(keytool -exportcert -keystore android/app/debug.keystore \
+            -alias androiddebugkey -storepass android | sha256sum | cut -d ' ' -f 1)
+          if [[ "$actual_signer" != "$expected_signer" ]]; then
+            echo "Expected signing certificate $expected_signer"
+            echo "$signer"
+            exit 1
+          fi
           badging=$("$tools/aapt" dump badging "$apk")
           if grep -q '^application-debuggable' <<< "$badging"; then
             echo 'Expected a non-debuggable release APK'

@@ -395,10 +395,10 @@ function Home() {
   // A short message in the status bar, such as how many links a rename updated.
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const statusNoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showStatusNote = useCallback((message: string) => {
+  const showStatusNote = useCallback((message: string, duration = 8000) => {
     if (statusNoteTimerRef.current) clearTimeout(statusNoteTimerRef.current);
     setStatusNote(message);
-    statusNoteTimerRef.current = setTimeout(() => setStatusNote(null), 8000);
+    statusNoteTimerRef.current = setTimeout(() => setStatusNote(null), duration);
   }, []);
   // Notes that sync kept two versions of, until the notice is dismissed.
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
@@ -712,51 +712,6 @@ function Home() {
           refreshSnippets(snips);
         } catch {}
 
-        // Initialize plugin manager
-        try {
-          const pm = new PluginManager(vault.path, () => {
-            const view = editorViewRef.current;
-            return {
-              content: contentRef.current,
-              currentFile: activeTabRef.current,
-              insertAtCursor: (text: string) => {
-                if (!view) return;
-                const pos = view.state.selection.main.head;
-                view.dispatch({ changes: { from: pos, insert: text } });
-              },
-              getSelection: () => {
-                if (!view) return "";
-                return view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to);
-              },
-              replaceSelection: (text: string) => {
-                if (!view) return;
-                view.dispatch(view.state.replaceSelection(text));
-              },
-              getCursorPosition: () => {
-                if (!view) return { line: 0, ch: 0 };
-                const pos = view.state.selection.main.head;
-                const line = view.state.doc.lineAt(pos);
-                return { line: line.number, ch: pos - line.from };
-              },
-              setContent: (newContent: string) => {
-                if (!view) return;
-                view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: newContent } });
-              },
-            };
-          });
-          pm.setUIChangeHandler(() =>
-            setPluginUI({
-              commands: pm.getCommands(),
-              statusBarItems: pm.getStatusBarItems(),
-              sidebarPanels: pm.getSidebarPanels(),
-              settingsTabs: pm.getSettingsTabs(),
-            })
-          );
-          pluginManagerRef.current = pm;
-          await pm.loadAllEnabled();
-          setPluginInstances(pm.getPlugins());
-        } catch {}
-
         // Load custom themes and apply if active theme is custom
         try {
           const customs = await loadCustomThemes(vault.path);
@@ -801,15 +756,94 @@ function Home() {
     if (cssSnippets.length > 0) {
       refreshSnippets(cssSnippets);
     }
-    // Re-load enabled plugins
-    const pm = pluginManagerRef.current;
-    if (pm) {
-      pm.loadAllEnabled().then(() => {
-        setPluginInstances(pm.getPlugins());
-      }).catch(() => {});
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appState]);
+
+  const pluginVaultPath = activeVault?.path;
+  const pluginLifecycle = useRef(Promise.resolve());
+  const emitPluginFile = useCallback((event: 'file-open' | 'file-save' | 'file-create' | 'file-delete', path: string) => {
+    pluginManagerRef.current?.emitFile(event, path);
+  }, []);
+
+  useEffect(() => {
+    if (appState !== "app" || !pluginVaultPath) return;
+    let current = true;
+    const pm = new PluginManager(pluginVaultPath, () => {
+      const file = activeTabRef.current;
+      if (!current || !file || !relativePathFromVault(pluginVaultPath, file)) return null;
+      const view = editorViewRef.current;
+      return {
+        content: contentRef.current,
+        currentFile: file,
+        insertAtCursor: (text: string) => {
+          if (!view) return;
+          const pos = view.state.selection.main.head;
+          view.dispatch({ changes: { from: pos, insert: text } });
+        },
+        getSelection: () => {
+          if (!view) return "";
+          return view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to);
+        },
+        replaceSelection: (text: string) => {
+          if (!view) return;
+          view.dispatch(view.state.replaceSelection(text));
+        },
+        getCursorPosition: () => {
+          if (!view) return { line: 0, ch: 0 };
+          const pos = view.state.selection.main.head;
+          const line = view.state.doc.lineAt(pos);
+          return { line: line.number, ch: pos - line.from };
+        },
+        setContent: (newContent: string) => {
+          if (!view) return;
+          view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: newContent } });
+        },
+      };
+    });
+    const refresh = () => {
+      if (!current) return;
+      setPluginUI({
+        commands: pm.getCommands(),
+        statusBarItems: pm.getStatusBarItems(),
+        sidebarPanels: pm.getSidebarPanels(),
+        settingsTabs: pm.getSettingsTabs(),
+      });
+    };
+    pm.setUIChangeHandler(refresh);
+    pm.setNoticeHandler((message, duration = 4000) => { if (current) showStatusNote(message, duration); });
+    pluginLifecycle.current = pluginLifecycle.current.then(async () => {
+      if (!current) return;
+      pluginManagerRef.current = pm;
+      await pm.loadAllEnabled();
+      if (!current) return;
+      setPluginInstances(pm.getPlugins());
+      refresh();
+      pm.emit("vault-change", pluginVaultPath);
+      if (activeTabRef.current) pm.emitFile("file-open", activeTabRef.current);
+      pm.emit("layout-change");
+    }).catch(() => {});
+    return () => {
+      current = false;
+      if (pluginManagerRef.current === pm) pluginManagerRef.current = null;
+      setPluginUI({ commands: [], statusBarItems: [], sidebarPanels: [], settingsTabs: [] });
+      setPluginInstances([]);
+      pluginLifecycle.current = pluginLifecycle.current.then(() => pm.unloadAll()).catch(() => {});
+    };
+  }, [appState, pluginVaultPath, showStatusNote]);
+
+  useEffect(() => {
+    if (activeTab) emitPluginFile("file-open", activeTab);
+  }, [activeTab, emitPluginFile]);
+
+  useEffect(() => {
+    if (!activeTab) return;
+    const timer = setTimeout(() => pluginManagerRef.current?.emit("editor-change", content), 150);
+    return () => clearTimeout(timer);
+  }, [activeTab, content]);
+
+  useEffect(() => {
+    pluginManagerRef.current?.emit("layout-change");
+  }, [viewMode, splitTab, expandedFolders, sidebarCollapsed]);
 
   // ============================================================
   // Auto-save every 30s
@@ -823,6 +857,7 @@ function Home() {
         if (isTabDirty(tab) && !tab.externalConflict) {
           const result = await writeTabGuarded(tab, tab.content);
           if (result.status === "written") {
+            emitPluginFile("file-save", tab.filePath);
             setTabs((prev) =>
               prev.map((t) =>
                 t.filePath === tab.filePath
@@ -844,7 +879,7 @@ function Home() {
       }
     }, settings.autoSaveInterval * 1000);
     return () => { if (autoSaveRef.current) clearInterval(autoSaveRef.current); };
-  }, [appState, showKnowledgeIngest, tabs, settings.autoSaveInterval]);
+  }, [appState, showKnowledgeIngest, tabs, settings.autoSaveInterval, emitPluginFile]);
 
   // ============================================================
   // Board auto-save (every 5s for .board.md files)
@@ -858,6 +893,7 @@ function Home() {
         if (isTabDirty(tab) && !tab.externalConflict && (isBoardFile(tab.filePath) || isBoardContent(tab.content))) {
           const result = await writeTabGuarded(tab, tab.content);
           if (result.status === "written") {
+            emitPluginFile("file-save", tab.filePath);
             setTabs((prev) =>
               prev.map((t) =>
                 t.filePath === tab.filePath
@@ -879,7 +915,7 @@ function Home() {
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, [appState, showKnowledgeIngest, tabs]);
+  }, [appState, showKnowledgeIngest, tabs, emitPluginFile]);
 
   // ============================================================
   // Vault file watcher — react to external changes (e.g. MCP server)
@@ -1052,6 +1088,7 @@ function Home() {
           return false;
         }
       }
+      emitPluginFile("file-save", tab.filePath);
       savedContents.set(tab.filePath, written);
     }
     if (dirtyTabs.length > 0) {
@@ -1062,7 +1099,7 @@ function Home() {
       ));
     }
     return true;
-  }, [tabs]);
+  }, [tabs, emitPluginFile]);
 
   const handleSetupComplete = useCallback(async (vault: Vault) => {
     setActiveVault(vault);
@@ -1863,6 +1900,7 @@ function Home() {
       ? { status: await window.electronAPI.writeFile(currentTab.filePath, written) ? "written" : "error" }
       : await writeTabGuarded(currentTab, contentToSave);
     if (result.status === "written") {
+      emitPluginFile("file-save", currentTab.filePath);
       setTabs((prev) =>
         prev.map((t) =>
           t.filePath === currentTab.filePath
@@ -1881,7 +1919,7 @@ function Home() {
           : t
       ));
     }
-  }, [currentTab, settings.syncOnSave, settings.extraSyncProvider, activeVault, performSync]);
+  }, [currentTab, settings.syncOnSave, settings.extraSyncProvider, activeVault, performSync, emitPluginFile]);
 
   const handleSaveAs = useCallback(async () => {
     if (!window.electronAPI) return;
@@ -1892,8 +1930,10 @@ function Home() {
     const contentToSave = currentTab?.content || "";
     // The copy keeps the line endings of the note it is a copy of.
     const written = currentTab ? textForDisk(currentTab, contentToSave) : contentToSave;
+    const existed = (await window.electronAPI.readFile(filePath)) !== null;
     const success = await window.electronAPI.writeFile(filePath, written);
     if (success) {
+      emitPluginFile(existed ? "file-save" : "file-create", filePath);
       // Replace current tab or add new
       if (currentTab) {
         setTabs((prev) =>
@@ -1906,7 +1946,7 @@ function Home() {
         setActiveTab(filePath);
       }
     }
-  }, [currentTab, activeVault]);
+  }, [currentTab, activeVault, emitPluginFile]);
 
   // Create an empty note where the settings say new notes go, and open it.
   // `pickName` is given the names already in that folder.
@@ -1918,10 +1958,11 @@ function Home() {
     const name = pickName((candidate) => existing.has(`${candidate}.md`.toLowerCase()));
     const filePath = childPath(folder, `${name}.md`);
     await window.electronAPI.createFile(filePath);
+    emitPluginFile("file-create", filePath);
     setTabs((prev) => [...prev, { filePath, content: "", savedContent: "" }]);
     setActiveTab(filePath);
     setSidebarRefresh((k) => k + 1);
-  }, [activeVault, activeTab, settings.newNoteLocation, settings.newNoteFolder]);
+  }, [activeVault, activeTab, settings.newNoteLocation, settings.newNoteFolder, emitPluginFile]);
 
   const handleNewFile = useCallback(
     () =>
@@ -1948,11 +1989,12 @@ function Home() {
     const clean = title.replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 100) || "Web page";
     const name = freeNoteName(`${clean}.md`, (candidate) => existing.has(candidate.toLowerCase()));
     if (!await window.electronAPI.writeFile(`${folder}/${name}`, markdown)) return false;
+    emitPluginFile("file-create", `${folder}/${name}`);
     invalidateVaultIndex();
     setSidebarRefresh((k) => k + 1);
     showStatusNote(`Saved the page as "${name.replace(/\.md$/, "")}"`);
     return true;
-  }, [activeVault, activeTab, settings.newNoteLocation, settings.newNoteFolder, showStatusNote]);
+  }, [activeVault, activeTab, settings.newNoteLocation, settings.newNoteFolder, showStatusNote, emitPluginFile]);
 
   // The open note in a window of its own. Moving it there closes its tab here.
   const openPopout = useCallback(async (move: boolean) => {
@@ -1978,10 +2020,11 @@ function Home() {
     for (let counter = 2; existing.has(`${name}.base`.toLowerCase()); counter++) name = `Untitled ${counter}`;
     const filePath = childPath(folder, `${name}.base`);
     if (!await window.electronAPI.writeFile(filePath, NEW_BASE)) return;
+    emitPluginFile("file-create", filePath);
     setTabs((prev) => [...prev, { filePath, content: "", savedContent: "", kind: "base" }]);
     setActiveTab(filePath);
     setSidebarRefresh((k) => k + 1);
-  }, [activeVault, activeTab, settings.newNoteLocation, settings.newNoteFolder]);
+  }, [activeVault, activeTab, settings.newNoteLocation, settings.newNoteFolder, emitPluginFile]);
 
   // A note named by the time, to the minute: a Zettelkasten-style id.
   const handleUniqueNote = useCallback(
@@ -2096,10 +2139,11 @@ function Home() {
       success = await trashFile(activeVault.path, filePath);
     }
     if (success) {
+      emitPluginFile("file-delete", filePath);
       handleFileDelete(filePath);
       setSidebarRefresh((k) => k + 1);
     }
-  }, [activeVault, handleFileDelete, settings.deletedFiles, showStatusNote]);
+  }, [activeVault, handleFileDelete, settings.deletedFiles, showStatusNote, emitPluginFile]);
   useEffect(() => {
     trashFromSidebarRef.current = handleTrashFileFromSidebar;
   }, [handleTrashFileFromSidebar]);
@@ -2307,12 +2351,13 @@ function Home() {
     if (existing === null) {
       // Create with template
       const template = `# ${dateStr}\n\n`;
-      await window.electronAPI.writeFile(filePath, template);
+      if (!await window.electronAPI.writeFile(filePath, template)) return;
+      emitPluginFile("file-create", filePath);
     }
 
     openFile(filePath);
     setSidebarRefresh((k) => k + 1);
-  }, [activeVault, openFile]);
+  }, [activeVault, openFile, emitPluginFile]);
 
   // Create daily note for a specific date (from calendar)
   const handleCreateDailyNote = useCallback(async (dateStr: string) => {
@@ -2322,11 +2367,12 @@ function Home() {
     await window.electronAPI.createDir(dailyDir);
     const existing = await window.electronAPI.readFile(filePath);
     if (existing === null) {
-      await window.electronAPI.writeFile(filePath, `# ${dateStr}\n\n`);
+      if (!await window.electronAPI.writeFile(filePath, `# ${dateStr}\n\n`)) return;
+      emitPluginFile("file-create", filePath);
     }
     openFile(filePath);
     setSidebarRefresh((k) => k + 1);
-  }, [activeVault, openFile]);
+  }, [activeVault, openFile, emitPluginFile]);
 
   // Create new task board
   const handleNewBoard = useCallback(async () => {

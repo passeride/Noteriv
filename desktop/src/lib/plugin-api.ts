@@ -1,3 +1,4 @@
+import { relativePathFromVault } from "@/lib/knowledge/path-safety";
 // ─── Plugin System for Noteriv ───
 // Plugins live in {vaultPath}/.noteriv/plugins/{plugin-id}/
 // Each plugin has a manifest.json and a main.js entry file.
@@ -23,10 +24,7 @@ export interface PluginManifest {
   minAppVersion?: string;
   main: string;         // entry JS file relative to plugin dir
   // Fenced code-block languages this plugin renders (e.g. ["chessboard"]).
-  // Not read by desktop (which registers languages dynamically at runtime via
-  // api.markdown.registerCodeBlockProcessor), but the Noteriv mobile app reads
-  // it statically to know which plugin to load for a given fence language
-  // without having to execute every installed plugin's code up front.
+  // Optional hint used on mobile before the plugin registers its renderers.
   codeBlockLanguages?: string[];
 }
 
@@ -458,7 +456,10 @@ export class PluginManager {
         write: async (path: string, content: string): Promise<boolean> => {
           if (!window.electronAPI) return false;
           const fullPath = `${manager.vaultPath}/${path}`;
-          return window.electronAPI.writeFile(fullPath, content);
+          const existed = (await window.electronAPI.readFile(fullPath)) !== null;
+          const result = await window.electronAPI.writeFile(fullPath, content);
+          if (result) manager.emitFile(existed ? "file-save" : "file-create", fullPath);
+          return result;
         },
         list: async (dir?: string): Promise<{ path: string; name: string; isDir: boolean }[]> => {
           if (!window.electronAPI) return [];
@@ -483,7 +484,9 @@ export class PluginManager {
         delete: async (path: string): Promise<boolean> => {
           if (!window.electronAPI) return false;
           const fullPath = `${manager.vaultPath}/${path}`;
-          return window.electronAPI.deleteFile(fullPath);
+          const result = await window.electronAPI.deleteFile(fullPath);
+          if (result) manager.emitFile("file-delete", fullPath);
+          return result;
         },
       },
 
@@ -593,7 +596,10 @@ export class PluginManager {
       app: {
         version: APP_VERSION,
         vaultPath: manager.vaultPath,
-        currentFile: manager.getEditorState()?.currentFile ?? null,
+        get currentFile() {
+          const path = manager.getEditorState()?.currentFile;
+          return path ? relativePathFromVault(manager.vaultPath, path) : null;
+        },
       },
     };
   }
@@ -626,6 +632,11 @@ export class PluginManager {
 
   // ── Events ──
 
+  emitFile(event: "file-open" | "file-save" | "file-create" | "file-delete", absolutePath: string): void {
+    const path = relativePathFromVault(this.vaultPath, absolutePath);
+    if (path && !path.split("/").some(part => part.startsWith("."))) this.emit(event, path);
+  }
+
   emit(event: PluginEvent, ...args: any[]): void {
     const handlers = this.eventHandlers.get(event);
     if (!handlers) return;
@@ -652,6 +663,7 @@ export class PluginManager {
 
     // Pre-populate the plugins map with all installed plugins
     for (const manifest of manifests) {
+      if (this.plugins.get(manifest.id)?.loaded) continue;
       const isEnabled = enabledIds.includes(manifest.id);
       this.plugins.set(manifest.id, {
         manifest,
@@ -662,7 +674,7 @@ export class PluginManager {
 
     // Load enabled plugins
     for (const id of enabledIds) {
-      if (manifests.some((m) => m.id === id)) {
+      if (!this.plugins.get(id)?.loaded && manifests.some((m) => m.id === id)) {
         await this.loadPlugin(id);
       }
     }

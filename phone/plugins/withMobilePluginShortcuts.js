@@ -19,8 +19,8 @@ module.exports = function withMobilePluginShortcuts(config) {
     if (source.includes('class NoterivApplication')) return mod;
     const next = source.replace(/@main\s*\n(class AppDelegate:)/, '$1');
     if (next === source || mod.modResults.language !== 'swift') throw new Error('Expected a Swift Expo AppDelegate');
-    mod.modResults.contents = `import UIKit
-import NoterivGit
+    mod.modResults.contents = `internal import UIKit
+internal import NoterivGit
 
 @main
 enum NoterivEntryPoint {

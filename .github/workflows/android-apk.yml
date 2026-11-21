@@ -66,15 +66,24 @@ jobs:
           cargo ndk -t arm64-v8a -o ../../phone/modules/noteriv-git/android/src/main/jniLibs \
             build --release --locked
       - uses: gradle/actions/setup-gradle@v6
-      - name: Build standalone APK
+      - name: Build standalone release APK
         working-directory: phone/android
-        run: ./gradlew --no-daemon :app:assembleDebug -PreactNativeArchitectures=arm64-v8a
-      - name: Verify package and embedded JavaScript
+        run: ./gradlew --no-daemon :app:assembleRelease -PreactNativeArchitectures=arm64-v8a
+      - name: Verify release APK and embedded JavaScript
         env:
           BUILD_TOOLS: ${{ steps.sdk.outputs.buildTools }}
         run: |
-          apk=android/app/build/outputs/apk/debug/app-debug.apk
-          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify "$apk"
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          tools="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
+          signer=$("$tools/apksigner" verify --print-certs "$apk")
+          # Same Expo template certificate as the existing debug test APKs.
+          expected_signer=fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c
+          grep -Fx "Signer #1 certificate SHA-256 digest: $expected_signer" <<< "$signer"
+          badging=$("$tools/aapt" dump badging "$apk")
+          if grep -q '^application-debuggable' <<< "$badging"; then
+            echo 'Expected a non-debuggable release APK'
+            exit 1
+          fi
           unzip -t "$apk" 'assets/index.android.bundle' 'lib/arm64-v8a/libreactnative.so' 'lib/arm64-v8a/libnoteriv_git.so'
           mkdir -p ../bundles
           cp "$apk" ../bundles/Noteriv-android-arm64.apk

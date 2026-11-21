@@ -20,10 +20,31 @@ import { useApp } from '@/context/AppContext';
 import { migrateDecorations, readDecorations, saveDecoration } from '@/lib/file-decoration';
 import { vaultRelativePath } from '@/lib/sync-state';
 import { FileEntry } from '@/types';
-import { rename, deleteFile, deleteDir, trashFile } from '@/lib/file-system';
+import { readProperties } from '@/lib/properties';
+import { readFile, rename, deleteFile, deleteDir, trashFile } from '@/lib/file-system';
 
 const ICONS = ['📁', '📝', '⭐', '📚', '🏠', '💡', '📅', '✅', '🎯', '🛠️', '🔬', '🎵', '💻', '🌱', '💼', '📌'];
 const ICON_COLORS = ['#6278B5', '#953F70', '#AA632D', '#378257', '#566575'];
+
+function NoteIcon({ path, symbol, color }: { path: string; symbol?: string; color?: string }) {
+  const { colors } = useTheme();
+  const [metadata, setMetadata] = useState<{ path: string; symbol: string }>();
+  useEffect(() => {
+    if (!/\.(md|markdown)$/i.test(path)) return;
+    let active = true;
+    void readFile(path).then(content => {
+      if (!active || !content) return;
+      const icon = readProperties(content).find(property => property.key === 'icon')?.value;
+      setMetadata(typeof icon === 'string' && icon.trim() ? { path, symbol: icon.trim() } : undefined);
+    });
+    return () => { active = false; };
+  }, [path]);
+  const resolved = symbol ?? (metadata?.path === path ? metadata.symbol : undefined);
+  return <View style={[styles.fileIcon, { backgroundColor: resolved ? (color ?? ICON_COLORS[0]) + '38' : colors.bgTertiary }]}>
+    {resolved ? <Text numberOfLines={1} style={{ color: colors.textPrimary, fontSize: 19 }}>{resolved}</Text>
+      : <Ionicons name="document-text-outline" size={20} color={colors.textSecondary} />}
+  </View>;
+}
 
 interface NotesListProps {
   files: FileEntry[];
@@ -173,11 +194,6 @@ export default function NotesList({
   const renderItem = useCallback(
     ({ item }: { item: FileEntry }) => {
       const icon = fileIcons?.[vaultRelativePath(vaultPath, item.path).replace(/\/$/, '')];
-      const customIcon = icon?.symbol && (
-        <View style={[styles.fileIcon, { backgroundColor: (icon.color ?? ICON_COLORS[0]) + '38' }]}>
-          <Text style={{ color: colors.textPrimary, fontSize: 19 }}>{icon.symbol}</Text>
-        </View>
-      );
       if (item.isDirectory) {
         return (
           <TouchableOpacity
@@ -187,9 +203,10 @@ export default function NotesList({
           onLongPress={() => handleLongPress(item)}
             activeOpacity={0.6}
           >
-            {customIcon || <View style={[styles.folderIcon, { backgroundColor: colors.blue + '15' }]}>
-              <Ionicons name="folder" size={20} color={colors.blue} />
-            </View>}
+            <View style={[styles.folderIcon, { backgroundColor: colors.blue + '15' }]}>
+              <Ionicons name={icon?.symbol ? 'folder-outline' : 'folder'} size={icon?.symbol ? 30 : 20} color={colors.blue} />
+              {!!icon?.symbol && <Text numberOfLines={1} style={{ position: 'absolute', top: 12, fontSize: 12, maxWidth: 20, color: colors.textPrimary }}>{icon.symbol}</Text>}
+            </View>
             <Text style={[styles.itemName, { color: colors.textPrimary }]} numberOfLines={1}>
               {item.name}
             </Text>
@@ -207,9 +224,7 @@ export default function NotesList({
           onLongPress={() => handleLongPress(item)}
           activeOpacity={0.6}
         >
-          {customIcon || <View style={[styles.fileIcon, { backgroundColor: colors.bgTertiary }]}>
-            <Ionicons name="document-text-outline" size={20} color={colors.textSecondary} />
-          </View>}
+          <NoteIcon path={item.path} symbol={icon?.symbol || undefined} color={icon?.color} />
           <Text style={[styles.itemName, { color: colors.textPrimary }]} numberOfLines={1}>
             {displayName}
           </Text>

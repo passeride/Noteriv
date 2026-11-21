@@ -407,6 +407,9 @@ export default function SettingsScreen() {
           settings.autoSaveInterval,
           (val) => updateSettings({ autoSaveInterval: val as number })
         )}
+        {renderToggle('Hide metadata in reading view', !!settings.hideReadingMetadata, (val) =>
+          updateSettings({ hideReadingMetadata: val })
+        )}
         {renderToggle('Spell check', settings.spellCheck, (val) =>
           updateSettings({ spellCheck: val })
         )}

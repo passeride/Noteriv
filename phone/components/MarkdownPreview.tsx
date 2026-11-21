@@ -11,7 +11,7 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { readProperties } from '@/lib/properties';
+import { frontmatterLineCount, readProperties } from '@/lib/properties';
 import { readDecorations } from '@/lib/file-decoration';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 import { parseWikiLink } from '@/lib/wiki-links';
@@ -26,6 +26,7 @@ interface MarkdownPreviewProps {
   fontSize: number;
   vaultPath?: string;
   notePath?: string;
+  hideReadingMetadata?: boolean;
   onLinkPress?: (url: string) => void;
   onWikiLinkPress?: (name: string) => void;
 }
@@ -267,10 +268,10 @@ type BlockNode =
   | { type: 'footnote_def'; id: string; text: string; line: number }
   | { type: 'definition_list'; items: { term: string; definition: string }[]; line: number };
 
-function parseBlocks(content: string): BlockNode[] {
+function parseBlocks(content: string, firstLine = 0): BlockNode[] {
   const lines = content.split('\n');
   const blocks: BlockNode[] = [];
-  let i = 0;
+  let i = firstLine;
 
   while (i < lines.length) {
     const line = lines[i];
@@ -1027,11 +1028,12 @@ export default function MarkdownPreview({
   fontSize,
   vaultPath,
   notePath,
+  hideReadingMetadata,
   onLinkPress,
   onWikiLinkPress,
 }: MarkdownPreviewProps) {
   const { colors } = useTheme();
-  const blocks = useMemo(() => parseBlocks(content), [content]);
+  const blocks = useMemo(() => parseBlocks(content, hideReadingMetadata ? frontmatterLineCount(content) : 0), [content, hideReadingMetadata]);
   const bannerUri = useMemo(() => {
     const configured = readProperties(content).find(property => property.key === 'banner')?.value;
     const banner = configured ?? (vaultPath && notePath

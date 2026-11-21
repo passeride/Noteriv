@@ -60,6 +60,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     flushFile,
     isDirty,
     settings,
+    updateSettings,
     workspace,
     updateWorkspace,
     vault,
@@ -353,6 +354,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   ];
   const commands: EditorCommand[] = [
     ...libraryCommands,
+    { label: settings.hideReadingMetadata ? 'Show metadata in reading view' : 'Hide metadata in reading view',
+      run: () => updateSettings({ hideReadingMetadata: !settings.hideReadingMetadata }) },
     ...(displayedPath && displayedPath === currentFile ? [
       { label: 'Set file icon', run: () => { setEditIconPath(displayedPath); setOverlay('files'); } },
       { label: 'Set banner from local image', run: () => void chooseBanner() },
@@ -640,6 +643,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               fontSize={settings.fontSize}
               vaultPath={vault?.path}
               notePath={displayedPath}
+              hideReadingMetadata={settings.hideReadingMetadata}
               anchor={anchor ?? undefined}
               onWikiLinkPress={openNoteLink}
               onLinkPress={handleMarkdownLink}

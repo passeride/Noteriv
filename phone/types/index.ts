@@ -17,6 +17,7 @@ export type GitProvider = 'github' | 'gitlab' | 'gitea';
 export interface AppSettings {
   autoSaveInterval: number;
   spellCheck: boolean;
+  hideReadingMetadata?: boolean;
   accentColor: string;
   fontSize: number;
   lineHeight: number;

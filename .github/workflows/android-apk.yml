@@ -78,7 +78,7 @@ jobs:
           tools="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
           # Both build variants use the signing key bundled in the Expo template.
           signer=$("$tools/apksigner" verify --print-certs "$apk")
-          actual_signer=$(awk -F ': ' '/^Signer #1 certificate SHA-256 digest:/ {print tolower($2)}' <<< "$signer")
+          actual_signer=$(awk -F ': ' '/^(Signer #[0-9]+|V[0-9]+(\.[0-9]+)? Signer):? certificate SHA-256 digest:/ {print tolower($NF)}' <<< "$signer" | sort -u)
           expected_signer=$(keytool -exportcert -keystore android/app/debug.keystore \
             -alias androiddebugkey -storepass android | sha256sum | cut -d ' ' -f 1)
           if [[ "$actual_signer" != "$expected_signer" ]]; then

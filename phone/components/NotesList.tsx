@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { Paths } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
+import { migrateDecorations, readDecorations, saveDecoration } from '@/lib/file-decoration';
 import { vaultRelativePath } from '@/lib/sync-state';
 import { FileEntry } from '@/types';
 import { rename, deleteFile, deleteDir, trashFile } from '@/lib/file-system';
@@ -27,6 +28,7 @@ const ICON_COLORS = ['#6278B5', '#953F70', '#AA632D', '#378257', '#566575'];
 interface NotesListProps {
   files: FileEntry[];
   selectedPath?: string;
+  editIconPath?: string;
   currentDir: string;
   vaultPath: string;
   onFilePress: (file: FileEntry) => void;
@@ -40,6 +42,7 @@ interface NotesListProps {
 export default function NotesList({
   files,
   selectedPath,
+  editIconPath,
   currentDir,
   vaultPath,
   onFilePress,
@@ -51,17 +54,29 @@ export default function NotesList({
 }: NotesListProps) {
   const { colors } = useTheme();
   const { workspace, updateWorkspace } = useApp();
-  const fileIcons = workspace.fileIcons;
+  const [syncedIcons, setSyncedIcons] = useState(() => readDecorations(vaultPath));
+  const fileIcons = useMemo(() => ({ ...workspace.fileIcons, ...syncedIcons }), [workspace.fileIcons, syncedIcons]);
+  useEffect(() => {
+    if (workspace.fileIcons && Object.keys(workspace.fileIcons).length &&
+      migrateDecorations(vaultPath, workspace.fileIcons)) {
+      updateWorkspace({ fileIcons: {} });
+    }
+    setSyncedIcons(readDecorations(vaultPath));
+  }, [vaultPath, workspace.fileIcons, updateWorkspace, files]);
   const [iconTarget, setIconTarget] = useState<FileEntry | null>(null);
   const [symbol, setSymbol] = useState('');
   const [iconColor, setIconColor] = useState(ICON_COLORS[0]);
   const saveIcon = (value: string) => {
     if (!iconTarget) return;
-    const key = vaultRelativePath(vaultPath, iconTarget.path);
-    const icons = { ...fileIcons };
-    if (value) icons[key] = { symbol: value, color: iconColor };
-    else delete icons[key];
-    updateWorkspace({ fileIcons: icons });
+    const key = vaultRelativePath(vaultPath, iconTarget.path).replace(/\/$/, '');
+    if (!saveDecoration(vaultPath, key, { symbol: value, color: iconColor })) {
+      Alert.alert('Could not save icon');
+      return;
+    }
+    setSyncedIcons(readDecorations(vaultPath));
+    const legacy = { ...workspace.fileIcons };
+    delete legacy[key];
+    updateWorkspace({ fileIcons: legacy });
     setIconTarget(null);
   };
   const [renameTarget, setRenameTarget] = useState<FileEntry | null>(null);
@@ -91,6 +106,14 @@ export default function NotesList({
     onRefresh();
     setTimeout(() => setRefreshing(false), 300);
   }, [onRefresh]);
+
+  useEffect(() => {
+    if (!editIconPath) return;
+    const icon = readDecorations(vaultPath)[vaultRelativePath(vaultPath, editIconPath)];
+    setSymbol(icon?.symbol ?? '');
+    setIconColor(icon?.color ?? ICON_COLORS[0]);
+    setIconTarget({ path: editIconPath, name: Paths.basename(editIconPath), isDirectory: false });
+  }, [editIconPath, vaultPath]);
 
   const handleLongPress = useCallback((entry: FileEntry) => {
     Alert.alert(
@@ -130,7 +153,7 @@ export default function NotesList({
           },
         },
         { text: 'Change icon', onPress: () => {
-          const icon = fileIcons?.[vaultRelativePath(vaultPath, entry.path)];
+          const icon = fileIcons?.[vaultRelativePath(vaultPath, entry.path).replace(/\/$/, '')];
           setSymbol(icon?.symbol ?? '');
           setIconColor(icon?.color ?? ICON_COLORS[0]);
           setIconTarget(entry);
@@ -149,9 +172,9 @@ export default function NotesList({
 
   const renderItem = useCallback(
     ({ item }: { item: FileEntry }) => {
-      const icon = fileIcons?.[vaultRelativePath(vaultPath, item.path)];
-      const customIcon = icon && (
-        <View style={[styles.fileIcon, { backgroundColor: icon.color + '38' }]}>
+      const icon = fileIcons?.[vaultRelativePath(vaultPath, item.path).replace(/\/$/, '')];
+      const customIcon = icon?.symbol && (
+        <View style={[styles.fileIcon, { backgroundColor: (icon.color ?? ICON_COLORS[0]) + '38' }]}>
           <Text style={{ color: colors.textPrimary, fontSize: 19 }}>{icon.symbol}</Text>
         </View>
       );

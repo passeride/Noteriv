@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Paths } from 'expo-file-system';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
+import { Image } from 'react-native';
+import { readDecorations } from '@/lib/file-decoration';
+import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 import NotesList from '@/components/NotesList';
 import { readDir } from '@/lib/file-system';
 
@@ -18,6 +21,7 @@ type Props = {
   fileCommands: EditorCommand[];
   vaultName: string;
   initialFolder?: string;
+  editIconPath?: string;
   onSwitchVault: () => void;
   onCreate: (folder: string) => void;
   onRefresh: () => void;
@@ -25,7 +29,7 @@ type Props = {
   onOpenNote: (path: string) => void;
 };
 
-export default function EditorOverlay({ mode, vaultPath, notePath, commands, fileCommands, vaultName, initialFolder, onSwitchVault, onCreate, onRefresh, onClose, onOpenNote }: Props) {
+export default function EditorOverlay({ mode, vaultPath, notePath, commands, fileCommands, vaultName, initialFolder, editIconPath, onSwitchVault, onCreate, onRefresh, onClose, onOpenNote }: Props) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const [folder, setFolder] = useState(() => {
@@ -46,6 +50,9 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
     animation.start();
     return () => animation.stop();
   }, [fabOffset, isFiles]);
+  const banner = useMemo(() => isFiles
+    ? readDecorations(vaultPath)[vaultRelativePath(vaultPath, folder).replace(/\/$/, '')]?.banner
+    : undefined, [folder, isFiles, vaultPath, revision]);
   const term = query.trim().toLowerCase();
   const ranked = commands.map(command => {
     const label = command.label.toLowerCase();
@@ -97,13 +104,15 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
                   <Text style={{ color: colors.accent }}>{showActions ? 'Files' : 'Actions'}</Text>
                 </Pressable>
               </View>
+              {banner && <Image source={{ uri: vaultFileUri(vaultPath, banner) }}
+                resizeMode="cover" style={{ width: '100%', height: 90 }} />}
               {showActions ? <FlatList data={fileCommands} keyExtractor={item => item.label}
                 renderItem={({ item }) => (
                   <Pressable accessibilityRole="button" style={styles.row} onPress={() => exit(item.run)}>
                     <Text style={{ color: colors.textPrimary }}>{item.label}</Text>
                   </Pressable>
                 )} /> : <NotesList files={items} currentDir={folder} vaultPath={vaultPath}
-                selectedPath={notePath} isAtRoot={folder === vaultPath} onNavigateUp={goUp}
+                selectedPath={notePath} editIconPath={editIconPath} isAtRoot={folder === vaultPath} onNavigateUp={goUp}
                 onFolderPress={entry => setFolder(entry.path)}
                 onFilePress={entry => exit(() => onOpenNote(entry.path))}
                 onRefresh={() => { setRevision(value => value + 1); onRefresh(); }} />}

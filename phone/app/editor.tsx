@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Keyboard,
   Modal,
+  FlatList,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -22,6 +23,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import MarkdownEditor from '@/components/MarkdownEditor';
+import { Directory, File } from 'expo-file-system';
+import * as DocumentPicker from 'expo-document-picker';
+import * as Git from '@/lib/provider-sync';
+import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
+import { hasInvalidProperties, setProperty } from '@/lib/properties';
 import CreateModal from '@/components/CreateModal';
 import VaultSwitcher from '@/components/VaultSwitcher';
 import { getOrCreateDailyNote } from '@/lib/daily-note';
@@ -283,7 +289,59 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     const notePath = await (kind === 'daily' ? getOrCreateDailyNote(vault.path) : getRandomNote(vault.path));
     if (notePath) openNote(notePath);
   };
+  const [editIconPath, setEditIconPath] = useState<string>();
+  const [gitBusy, setGitBusy] = useState(false);
+  const [history, setHistory] = useState<{ hash: string; date: string; author: string; message: string }[]>();
+  const syncVault = async () => {
+    if (!vault?.gitRemote || gitBusy || !flushFile()) return;
+    setGitBusy(true);
+    try {
+      const token = await Git.getVaultToken(vault.id);
+      const result = await Git.sync(vault.path, token ?? '', vault.gitRemote, vault.gitBranch || undefined, vault.gitProvider);
+      Alert.alert('Git sync', result.errors.join('\n') || (result.conflicts?.length
+        ? 'Conflicts need attention in Git settings.'
+        : `Pulled ${result.pulled}, pushed ${result.pushed}.`));
+    } catch (error) {
+      Alert.alert('Git sync', String(error));
+    } finally {
+      setGitBusy(false);
+    }
+  };
+  const showFileHistory = async () => {
+    if (!vault || !currentFile) return;
+    try {
+      setHistory(await Git.native<NonNullable<typeof history>>({
+        action: 'fileHistory', dir: Git.nativeDir(vault.path), path: vaultRelativePath(vault.path, currentFile),
+      }));
+    } catch (error) {
+      Alert.alert('File history', String(error));
+    }
+  };
+  const chooseBanner = async () => {
+    if (!vault || !currentFile || !flushFile()) return;
+    if (hasInvalidProperties(content)) {
+      Alert.alert('Set banner', 'Fix the invalid YAML frontmatter first.');
+      return;
+    }
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({ type: 'image/*', copyToCacheDirectory: true });
+      if (picked.canceled) return;
+      const asset = picked.assets[0];
+      const ext = asset.name.match(/\.(png|jpe?g|webp|gif|heic)$/i)?.[0];
+      if (!ext) throw new Error('Choose a PNG, JPEG, WebP, GIF or HEIC image.');
+      const relative = `_attachments/banners/banner-${Date.now()}${ext.toLowerCase()}`;
+      const dir = new Directory(vaultFileUri(vault.path, '_attachments/banners'));
+      if (!dir.exists) dir.create({ intermediates: true });
+      new File(asset.uri).copy(new File(vaultFileUri(vault.path, relative)));
+      setContent(setProperty(content, 'banner', relative));
+      if (await saveFile()) updateWorkspace({ viewMode: 'preview' });
+      else Alert.alert('Set banner', 'Could not save the note.');
+    } catch (error) {
+      Alert.alert('Set banner', String(error));
+    }
+  };
   const libraryCommands: EditorCommand[] = [
+    ...(vault?.gitRemote && !gitBusy ? [{ label: 'Git: Sync now', run: () => void syncVault() }] : []),
     { label: 'Daily note', run: () => void openLibraryNote('daily') },
     { label: 'Calendar', run: () => { if (flushFile()) router.push('/calendar'); } },
     { label: 'Flashcards', run: () => { if (flushFile()) router.push('/flashcards'); } },
@@ -295,6 +353,11 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   ];
   const commands: EditorCommand[] = [
     ...libraryCommands,
+    ...(displayedPath && displayedPath === currentFile ? [
+      { label: 'Set file icon', run: () => { setEditIconPath(displayedPath); setOverlay('files'); } },
+      { label: 'Set banner from local image', run: () => void chooseBanner() },
+      { label: 'Git: File history and changelog', run: () => void showFileHistory() },
+    ] : []),
     { label: 'Browse files', run: () => openOverlay('files') },
     { label: 'Save note', run: handleSave },
     { label: (workspace.viewMode === 'edit' && !anchor) ? 'Switch to reading mode' : 'Switch to editing mode', run: toggleViewMode },
@@ -315,11 +378,24 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       </>}
       {overlay && vault && (
         <EditorOverlay key={overlay} mode={overlay} vaultPath={vault.path} notePath={displayedPath || vault.path}
-          initialFolder={browseDir} vaultName={vault.name} commands={commands} fileCommands={libraryCommands}
+          editIconPath={editIconPath} initialFolder={browseDir} vaultName={vault.name} commands={commands} fileCommands={libraryCommands}
           onSwitchVault={() => { if (flushFile()) setVaultSwitcherVisible(true); }}
           onCreate={folder => { setBrowseDir(folder); setCreateDir(folder); }} onRefresh={refreshFiles}
-          onClose={() => setOverlay(null)} onOpenNote={openNote} />
+          onClose={() => { setOverlay(null); setEditIconPath(undefined); }} onOpenNote={openNote} />
       )}
+      <Modal visible={history !== undefined} onRequestClose={() => setHistory(undefined)} animationType="slide">
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary, padding: 16 }}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => setHistory(undefined)}>
+            <Text style={{ color: colors.accent, paddingVertical: 12 }}>Close file history</Text>
+          </TouchableOpacity>
+          <FlatList data={history ?? []} keyExtractor={item => item.hash}
+            ListEmptyComponent={<Text style={{ color: colors.textSecondary }}>No commits for this file.</Text>}
+            renderItem={({ item }) => <View style={{ paddingVertical: 12 }}>
+              <Text style={{ color: colors.textPrimary }}>{item.message}</Text>
+              <Text style={{ color: colors.textSecondary }}>{item.author} · {item.date} · {item.hash.slice(0, 8)}</Text>
+            </View>} />
+        </SafeAreaView>
+      </Modal>
       {/* Header */}
       {!focusMode && <View style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.bgTertiary }]}>
         <TouchableOpacity
@@ -563,6 +639,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               content={content}
               fontSize={settings.fontSize}
               vaultPath={vault?.path}
+              notePath={displayedPath}
               anchor={anchor ?? undefined}
               onWikiLinkPress={openNoteLink}
               onLinkPress={handleMarkdownLink}

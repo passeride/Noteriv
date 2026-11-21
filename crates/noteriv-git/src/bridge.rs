@@ -49,6 +49,7 @@ fn execute(request: &str) -> Result<Value> {
         }
         "status" => Ok(json!(status(path)?)),
         "history" => Ok(json!(history(path, 100)?)),
+        "fileHistory" => Ok(json!(file_history(path, req.path.as_deref().unwrap_or(""), 100)?)),
         "show" => Ok(json!(show(
             path,
             req.revision.as_deref().unwrap_or(""),

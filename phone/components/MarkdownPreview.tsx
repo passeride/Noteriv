@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { readProperties } from '@/lib/properties';
-import { vaultFileUri } from '@/lib/sync-state';
+import { readDecorations } from '@/lib/file-decoration';
+import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 import { parseWikiLink } from '@/lib/wiki-links';
 import { useTheme } from '@/context/ThemeContext';
 import { parseQuery, executeQuery, parseNoteData, QueryResult } from '@/lib/dataview';
@@ -24,6 +25,7 @@ interface MarkdownPreviewProps {
   anchor?: { heading: string };
   fontSize: number;
   vaultPath?: string;
+  notePath?: string;
   onLinkPress?: (url: string) => void;
   onWikiLinkPress?: (name: string) => void;
 }
@@ -1024,13 +1026,16 @@ export default function MarkdownPreview({
   anchor,
   fontSize,
   vaultPath,
+  notePath,
   onLinkPress,
   onWikiLinkPress,
 }: MarkdownPreviewProps) {
   const { colors } = useTheme();
   const blocks = useMemo(() => parseBlocks(content), [content]);
   const bannerUri = useMemo(() => {
-    const banner = readProperties(content).find(property => property.key === 'banner')?.value;
+    const configured = readProperties(content).find(property => property.key === 'banner')?.value;
+    const banner = configured ?? (vaultPath && notePath
+      ? readDecorations(vaultPath)[vaultRelativePath(vaultPath, notePath)]?.banner : undefined);
     if (typeof banner !== 'string') return undefined;
     const value = banner.trim();
     if (/^https:\/\//i.test(value)) return value;
@@ -1039,7 +1044,7 @@ export default function MarkdownPreview({
     if (parts.some(part => !part || part === '.' || part === '..' || part.includes('\\'))) return undefined;
     const uri = vaultFileUri(vaultPath, parts.join('/'));
     return fileExists(uri) ? uri : undefined;
-  }, [content, vaultPath]);
+  }, [content, vaultPath, notePath]);
   const [failedBanner, setFailedBanner] = useState<string>();
 
   const lineHeight = fontSize * 1.65;

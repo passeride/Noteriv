@@ -1,3 +1,4 @@
+import { usePluginCommands } from '@/components/MobilePluginHost';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
@@ -404,7 +405,9 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     { label: 'Settings', run: () => { if (flushFile()) router.push('/settings'); } },
     ...(vault?.homeFile && !root ? [{ label: 'Start note', run: () => { if (flushFile()) router.dismissTo('/'); } }] : []),
   ];
+  const pluginCommands = usePluginCommands();
   const commands: EditorCommand[] = [
+    ...pluginCommands,
     ...libraryCommands,
     { label: settings.hideReadingMetadata ? 'Show metadata in reading view' : 'Hide metadata in reading view',
       run: () => updateSettings({ hideReadingMetadata: !settings.hideReadingMetadata }) },

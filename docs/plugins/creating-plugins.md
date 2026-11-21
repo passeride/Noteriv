@@ -235,7 +235,15 @@ The Noteriv mobile app can run `registerCodeBlockProcessor` plugins too, but nee
 
 Add this array to your `manifest.json` listing every language your plugin registers a processor for. Without it, the mobile app has no way to know your plugin should run for a given fence language, even if it's installed and enabled.
 
-Mobile also runs your `main.js` in a different sandbox than desktop: each code block gets its own disposable WebView (there's no `document`/DOM-safe eval inside the React Native app itself), your `onLoad` is called fresh for every block that needs it, and only a reduced API surface is available inside that WebView — `api.markdown`, a no-op `api.ui.showNotice`, and a static, read-only `api.app`. `api.vault`, `api.events`, and `api.editor` are **not** available on mobile.
+Each code block runs in a disposable WebView with the Markdown renderer API. This runtime remains dedicated to rendering.
+
+### Mobile command plugins
+
+Set `"mobileHost": true` in the plugin manifest to opt into the mobile command host. Community entries can declare the same field. Enable the plugin in **Settings → Plugins**. Mobile runs enabled command plugins in a dedicated WebView for the active vault.
+
+The host supports `api.ui.addCommand`, `removeCommand`, and `showNotice`. The command palette lists each command under its plugin name. Use `api.editor.getContent()` to read the active note and `api.editor.setContent(text)` within a command callback to replace its content. The host applies that edit after the command completes if the original note and content are still current. Plugins can subscribe to `file-open` and `file-save` using `api.events.on`.
+
+The mobile host currently covers commands and active-note workflows. The full vault filesystem API, cursor and selection methods, desktop panels, and other lifecycle hooks are desktop features.
 
 ### api.app
 

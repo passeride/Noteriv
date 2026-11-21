@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
+import { MobilePluginHost } from '@/components/MobilePluginHost';
 
 function AppThemeWrapper({ children }: { children: React.ReactNode }) {
   const { settings, vault } = useApp();
@@ -208,7 +209,7 @@ export default function RootLayout() {
       <AppProvider>
         <SaveOnBackground />
         <AppThemeWrapper>
-          <ThemedNavigation />
+          <MobilePluginHost><ThemedNavigation /></MobilePluginHost>
         </AppThemeWrapper>
       </AppProvider>
     </GestureHandlerRootView>

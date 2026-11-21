@@ -1,3 +1,4 @@
+import { pluginEvents } from './plugin-events';
 import { readDir, readFile, writeFile, createDir, deleteDir, fileExists } from '@/lib/file-system';
 
 // --- Types ---
@@ -11,6 +12,7 @@ export interface PluginManifest {
   main: string;
   /** Fenced code-block languages this plugin renders (e.g. ["chessboard"]). */
   codeBlockLanguages?: string[];
+  mobileHost?: boolean;
 }
 
 export interface PluginInstance {
@@ -31,6 +33,8 @@ export interface CommunityPluginEntry {
   author: string;
   version: string;
   dir: string;
+  mobileHost?: boolean;
+  codeBlockLanguages?: string[];
 }
 
 // --- Constants ---
@@ -61,7 +65,7 @@ async function loadConfig(vaultPath: string): Promise<PluginConfig> {
 
 function saveConfig(vaultPath: string, config: PluginConfig): void {
   createDir(`${vaultPath}/.noteriv`);
-  writeFile(configPath(vaultPath), JSON.stringify(config, null, 2));
+  if (writeFile(configPath(vaultPath), JSON.stringify(config, null, 2))) pluginEvents.emit('config', vaultPath);
 }
 
 // --- Public API ---
@@ -115,6 +119,7 @@ export async function setPluginEnabled(
 export function uninstallPlugin(vaultPath: string, id: string): void {
   const dir = `${pluginsPath(vaultPath)}/${id}`;
   deleteDir(dir);
+  pluginEvents.emit('config', vaultPath);
 
   // Also remove from config
   const cfgPath = configPath(vaultPath);
@@ -158,6 +163,8 @@ export async function installCommunityPlugin(
     description: entry.description,
     author: entry.author,
     main: 'main.js',
+    mobileHost: entry.mobileHost === true,
+    codeBlockLanguages: entry.codeBlockLanguages,
   };
   writeFile(`${pluginDir}/manifest.json`, JSON.stringify(manifest, null, 2));
 

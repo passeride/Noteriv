@@ -1,3 +1,4 @@
+import { pluginEvents } from '@/lib/plugin-events';
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppSettings, Vault, WorkspaceState, FileEntry } from '@/types';
 import { loadSettings, saveSettings, DEFAULT_SETTINGS } from '@/lib/settings';
@@ -91,7 +92,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [note] = useState(() => new NoteSession(FS.writeFile));
 
   const flushFile = useCallback((): boolean => {
+    const changed = note.dirty;
     const ok = note.flush();
+    if (ok && changed && note.file) pluginEvents.emit('saved', note.file);
     setIsDirty(note.dirty);
     return ok;
   }, [note]);
@@ -364,6 +367,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const saveFile = useCallback(async (): Promise<boolean> => {
     const ok = note.save();
+    if (ok && note.file) pluginEvents.emit('saved', note.file);
     setIsDirty(note.dirty);
     return ok;
   }, [note]);

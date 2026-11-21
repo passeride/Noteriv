@@ -25,9 +25,12 @@ fn execute(request: &str) -> Result<Value> {
     let path = Path::new(&req.dir);
     match req.action.as_str() {
         "pluginVault" => plugin_vault::operation(
-            path, req.operation.as_deref().unwrap_or(""),
-            req.path.as_deref().unwrap_or(""), req.content.as_deref().unwrap_or(""),
-        ).map_err(|error| fail(&error.to_string())),
+            path,
+            req.operation.as_deref().unwrap_or(""),
+            req.path.as_deref().unwrap_or(""),
+            req.content.as_deref().unwrap_or(""),
+        )
+        .map_err(|error| fail(&error.to_string())),
         "init" => {
             init(path)?;
             if let Some(branch) = req.branch.as_deref() {
@@ -55,7 +58,11 @@ fn execute(request: &str) -> Result<Value> {
         }
         "status" => Ok(json!(status(path)?)),
         "history" => Ok(json!(history(path, 100)?)),
-        "fileHistory" => Ok(json!(file_history(path, req.path.as_deref().unwrap_or(""), 100)?)),
+        "fileHistory" => Ok(json!(file_history(
+            path,
+            req.path.as_deref().unwrap_or(""),
+            100
+        )?)),
         "show" => Ok(json!(show(
             path,
             req.revision.as_deref().unwrap_or(""),
@@ -177,7 +184,10 @@ pub extern "system" fn Java_expo_modules_noterivgit_NativeGit_initialize(
         Err(error) => match env.new_string(&error) {
             Ok(message) => message.into_raw(),
             Err(_) => {
-                let _ = env.throw_new("java/lang/IllegalStateException", "Cannot initialize Git TLS");
+                let _ = env.throw_new(
+                    "java/lang/IllegalStateException",
+                    "Cannot initialize Git TLS",
+                );
                 std::ptr::null_mut()
             }
         },

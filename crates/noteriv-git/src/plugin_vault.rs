@@ -10,7 +10,10 @@ fn resolve(root: &Path, relative: &str) -> Result<PathBuf> {
         return Err(fail("Invalid plugin vault path").into());
     }
     let mut current = root.canonicalize()?;
-    for part in relative.split('/').filter(|_| !relative.is_empty()) {
+    if relative.is_empty() {
+        return Ok(current);
+    }
+    for part in relative.split('/') {
         if part.is_empty() || part.starts_with('.') {
             return Err(fail("Invalid plugin vault path").into());
         }
@@ -62,8 +65,10 @@ pub fn operation(root: &Path, action: &str, relative: &str, content: &str) -> Re
             let name = path.file_name().ok_or_else(|| fail("Invalid file name"))?;
             let stamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .map_err(|_| fail("Invalid system time"))?.as_nanos();
-            fs::rename(path, trash.join(format!("{stamp}-{}", name.to_string_lossy())))?;
+                .map_err(|_| fail("Invalid system time"))?
+                .as_nanos();
+            let destination = trash.join(format!("{stamp}-{}", name.to_string_lossy()));
+            fs::rename(path, destination)?;
             Ok(json!(true))
         }
         "list" => {
@@ -79,7 +84,11 @@ pub fn operation(root: &Path, action: &str, relative: &str, content: &str) -> Re
                 if name.starts_with('.') || kind.is_symlink() {
                     continue;
                 }
-                let path = if prefix.is_empty() { name.clone() } else { format!("{prefix}/{name}") };
+                let path = if prefix.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{prefix}/{name}")
+                };
                 entries.push(json!({ "path": path, "name": name, "isDir": kind.is_dir() }));
             }
             Ok(json!(entries))

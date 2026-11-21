@@ -18,8 +18,7 @@ const RESOURCE = 'network_security_config';
 // the owner of the phone chose to install.
 //
 // A network security config makes Android ignore `usesCleartextTraffic`, which
-// the debug manifests set so a development build can load its bundle from
-// Metro over http. The debug build types therefore get their own copy that
+// the Expo template sets in its debug manifests. The debug build types get their own copy that
 // keeps plain http allowed, exactly as it was before. Release stays https only.
 function configXml({ cleartext }) {
   const base = cleartext ? '<base-config cleartextTrafficPermitted="true">' : '<base-config>';
@@ -50,12 +49,30 @@ function withAndroidUserCertificates(config) {
 
   return withDangerousMod(config, [
     'android',
-    (config) => {
+    async (config) => {
       const src = path.join(config.modRequest.platformProjectRoot, 'app', 'src');
       for (const { sourceSet, cleartext } of VARIANTS) {
         const dir = path.join(src, sourceSet, 'res', 'xml');
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(path.join(dir, `${RESOURCE}.xml`), configXml({ cleartext }));
+        if (!cleartext) continue;
+
+        const manifestPath = path.join(src, sourceSet, 'AndroidManifest.xml');
+        if (!fs.existsSync(manifestPath)) continue;
+        const manifest = await AndroidConfig.Manifest.readAndroidManifestAsync(manifestPath);
+        const application = manifest.manifest.application?.[0];
+        if (!application) continue;
+        // Android reads the variant-specific network config above. Remove the
+        // redundant flag and its unused merger directive from Expo's overlay.
+        delete application.$['android:usesCleartextTraffic'];
+        const replace = application.$['tools:replace'];
+        if (replace) {
+          const remaining = replace.split(',').map(entry => entry.trim())
+            .filter(entry => entry && entry !== 'android:usesCleartextTraffic');
+          if (remaining.length) application.$['tools:replace'] = remaining.join(',');
+          else delete application.$['tools:replace'];
+        }
+        await AndroidConfig.Manifest.writeAndroidManifestAsync(manifestPath, manifest);
       }
       return config;
     },

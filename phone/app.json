@@ -38,6 +38,7 @@
         }
       ],
       "./plugins/withAndroidDebugBundle.js",
+      "./plugins/withAndroidActivityDelegate.js",
       "./plugins/withAndroidImeInsets.js",
       "./plugins/withAndroidUserCertificates.js",
       "expo-secure-store"

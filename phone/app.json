@@ -40,6 +40,7 @@
       "./plugins/withAndroidDebugBundle.js",
       "./plugins/withAndroidActivityDelegate.js",
       "./plugins/withAndroidImeInsets.js",
+      "./plugins/withMobilePluginShortcuts.js",
       "./plugins/withAndroidUserCertificates.js",
       "expo-secure-store"
     ],

@@ -1,4 +1,5 @@
 import { File, Directory, Paths } from 'expo-file-system';
+import { pluginEvents } from './plugin-events';
 import { FileEntry, SearchResult } from '@/types';
 
 const VAULTS_DIR_NAME = 'vaults';
@@ -37,7 +38,9 @@ export function writeFile(filePath: string, content: string): boolean {
     if (!parentDir.exists) {
       parentDir.create({ intermediates: true });
     }
+    const existed = file.exists;
     file.writeSync(content);
+    if (!existed) pluginEvents.emit('created', filePath);
     return true;
   } catch {
     return false;
@@ -51,7 +54,10 @@ export function createFile(filePath: string): boolean {
 export function deleteFile(filePath: string): boolean {
   try {
     const file = new File(filePath);
-    if (file.exists) file.delete();
+    if (file.exists) {
+      file.delete();
+      pluginEvents.emit('deleted', filePath);
+    }
     return true;
   } catch {
     return false;
@@ -233,6 +239,7 @@ export function trashFile(filePath: string, vaultPath: string): boolean {
     const base = vaultPath.replace(/\/$/, '') + '/.trash/';
     const destName = Date.now() + '_' + file.name;
     file.moveSync(new File(base + destName));
+    pluginEvents.emit('deleted', filePath);
     return true;
   } catch {
     return false;

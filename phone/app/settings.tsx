@@ -34,6 +34,7 @@ import {
   loadCustomThemes,
 } from '@/lib/community';
 import Constants from 'expo-constants';
+import { usePluginEntries } from '@/components/MobilePluginHost';
 
 const AUTO_SAVE_OPTIONS = [
   { label: 'Off', value: 0 },
@@ -49,6 +50,7 @@ export default function SettingsScreen() {
   const { settings, updateSettings, vault, refreshVaults } = useApp();
   const { colors } = useTheme();
   const router = useRouter();
+  const pluginSettings = usePluginEntries().filter(entry => entry.kind === 'settings');
   const [homeFile, setHomeFile] = useState('');
   useEffect(() => setHomeFile(vault?.homeFile ?? ''), [vault?.id, vault?.homeFile]);
 
@@ -398,6 +400,19 @@ export default function SettingsScreen() {
       style={[s.container, { backgroundColor: colors.bgPrimary }]}
       contentContainerStyle={s.contentContainer}
     >
+      {pluginSettings.length > 0 && (
+        <>
+          {renderSectionHeader('Plugin settings', 'extension-puzzle-outline')}
+          <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+            {pluginSettings.map(entry => (
+              <TouchableOpacity key={entry.label + entry.id} accessibilityRole="button" onPress={entry.run}
+                style={{ padding: 14 }}>
+                <Text style={{ color: colors.textPrimary }}>{entry.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
       {/* General */}
       {renderSectionHeader('General', 'settings-outline')}
       <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>

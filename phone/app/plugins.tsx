@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,6 +22,7 @@ import {
   uninstallPlugin,
   fetchCommunityPlugins,
   installCommunityPlugin,
+  installLocalPlugin,
 } from '@/lib/plugins';
 
 type Tab = 'installed' | 'community';
@@ -127,6 +129,26 @@ export default function PluginsScreen() {
     [vaultPath, refreshPlugins]
   );
 
+  const { action } = useLocalSearchParams<{ action?: string }>();
+  const requestedInstall = useRef(false);
+  const importPlugin = useCallback(async () => {
+    if (!vaultPath) return;
+    try {
+      await installLocalPlugin(vaultPath);
+      await refreshPlugins();
+      setActiveTab('installed');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/cancel/i.test(message)) Alert.alert('Unable to import plugin', message);
+    }
+  }, [vaultPath, refreshPlugins]);
+
+  useEffect(() => {
+    if (action !== 'install' || !vaultPath || requestedInstall.current) return;
+    requestedInstall.current = true;
+    void importPlugin();
+  }, [action, vaultPath, importPlugin]);
+
   const installedIds = new Set(plugins.map((p) => p.manifest.id));
 
   return (
@@ -153,6 +175,10 @@ export default function PluginsScreen() {
 
       {activeTab === 'installed' ? (
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => void importPlugin()}
+            style={{ paddingVertical: 14 }}>
+            <Text style={{ color: colors.accent }}>Install plugin from folder</Text>
+          </TouchableOpacity>
           {plugins.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="extension-puzzle-outline" size={48} color={colors.textMuted} />

@@ -1,4 +1,4 @@
-import { pluginEvents } from '@/lib/plugin-events';
+import { pluginEvents, stopVaultPlugins } from '@/lib/plugin-events';
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppSettings, Vault, WorkspaceState, FileEntry } from '@/types';
 import { loadSettings, saveSettings, DEFAULT_SETTINGS } from '@/lib/settings';
@@ -38,6 +38,8 @@ interface AppContextType {
   content: string;
   setCurrentFile: (path: string | null) => void;
   setContent: (content: string) => void;
+  closeDeletedPluginNote: (file: string) => void;
+  applyPluginEdit: (file: string, expected: string, content: string) => boolean;
   saveFile: () => Promise<boolean>;
   /** Write the open note if it has unsaved text. True when nothing is left unsaved. */
   flushFile: () => boolean;
@@ -275,6 +277,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const switchVault = useCallback(async (id: string) => {
+    if (vault?.id === id) return;
+    if (vault) await stopVaultPlugins(vault.path);
     // Save current workspace
     if (vault) {
       await VaultOps.saveWorkspace(vault.id, workspace);
@@ -297,6 +301,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [vault, workspace, note, flushFile]);
 
   const createVaultFn = useCallback(async (name: string) => {
+    if (vault) {
+      flushFile();
+      await stopVaultPlugins(vault.path);
+    }
     const v = await VaultOps.createVault(name);
     await refreshVaults();
     setVault(v);
@@ -304,9 +312,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const ws = await VaultOps.loadWorkspace(v.id);
     setWorkspace(ws);
     return v;
-  }, []);
+  }, [vault, flushFile, refreshVaults]);
 
   const deleteVaultFn = useCallback(async (id: string) => {
+    if (vault?.id === id) await stopVaultPlugins(vault.path);
     await VaultOps.deleteVault(id);
     await refreshVaults();
     if (vault?.id === id) {
@@ -365,6 +374,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsDirty(true);
   }, [note]);
 
+  const applyPluginEdit = useCallback((file: string, expected: string, content: string) => {
+    if (file !== note.file || expected !== note.content) return false;
+    if (content !== expected) setContent(content);
+    return true;
+  }, [note, setContent]);
+
+  const closeDeletedPluginNote = useCallback((file: string) => {
+    if (note.file === file && !note.dirty) void setCurrentFile(null);
+  }, [note, setCurrentFile]);
+
   const saveFile = useCallback(async (): Promise<boolean> => {
     const ok = note.save();
     if (ok && note.file) pluginEvents.emit('saved', note.file);
@@ -401,6 +420,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         content,
         setCurrentFile,
         setContent,
+        applyPluginEdit,
+        closeDeletedPluginNote,
         saveFile,
         flushFile,
         files,

@@ -1,3 +1,5 @@
+import { Directory, File } from 'expo-file-system';
+import { vaultFileUri } from '@/lib/sync-state';
 import { pluginEvents } from './plugin-events';
 import { readDir, readFile, writeFile, createDir, deleteDir, fileExists } from '@/lib/file-system';
 
@@ -70,6 +72,13 @@ function saveConfig(vaultPath: string, config: PluginConfig): void {
 
 // --- Public API ---
 
+export function pluginMainPath(vaultPath: string, plugin: PluginManifest): string | null {
+  if (!plugin.id || !/^[a-z0-9_.-]+$/i.test(plugin.id) || plugin.id.startsWith('.')) return null;
+  const main = plugin.main || 'main.js';
+  if (typeof main !== 'string' || main.split('/').some(part => !part || part.startsWith('.') || /[\\:\0]/.test(part))) return null;
+  return vaultFileUri(vaultPath, `${PLUGINS_DIR}/${plugin.id}/${main}`);
+}
+
 export async function getInstalledPlugins(vaultPath: string): Promise<PluginManifest[]> {
   const dir = pluginsPath(vaultPath);
   createDir(dir);
@@ -88,7 +97,7 @@ export async function getInstalledPlugins(vaultPath: string): Promise<PluginMani
 
     try {
       const manifest = JSON.parse(raw) as PluginManifest;
-      plugins.push(manifest);
+      if (manifest && typeof manifest.name === 'string') plugins.push({ ...manifest, id: entry.name });
     } catch {
       // Skip malformed manifests
     }
@@ -133,6 +142,36 @@ export function uninstallPlugin(vaultPath: string, id: string): void {
       } catch {}
     });
   }
+}
+
+/** Import the same manifest-and-JavaScript folder used by the desktop app. */
+export async function installLocalPlugin(vaultPath: string): Promise<PluginManifest> {
+  const folder = await Directory.pickDirectoryAsync();
+  const files = folder.list().filter((entry): entry is File => entry instanceof File);
+  const file = files.find(entry => entry.name === 'manifest.json');
+  if (!file) throw new Error('The selected folder has no manifest.json.');
+  const manifest = JSON.parse(await file.text()) as PluginManifest;
+  const main = pluginMainPath(vaultPath, manifest);
+  const entry = files.find(item => item.name === (manifest.main || 'main.js'));
+  if (!main || !entry || typeof manifest.name !== 'string' || !manifest.name.trim()) {
+    throw new Error('The manifest must name a plugin ID, a plugin name and a JavaScript entry in the selected folder.');
+  }
+  const code = await entry.text();
+  if (code.length > 500_000) throw new Error('The plugin script exceeds the size limit.');
+  const target = vaultFileUri(vaultPath, `${PLUGINS_DIR}/${manifest.id}`);
+  if (!createDir(target)) throw new Error('Unable to create the plugin folder.');
+  for (const item of files) {
+    if (item === file || item === entry || item.name.startsWith('.')) continue;
+    if (!writeFile(vaultFileUri(vaultPath, `${PLUGINS_DIR}/${manifest.id}/${item.name}`), await item.text())) {
+      throw new Error(`Unable to import ${item.name}.`);
+    }
+  }
+  if (!writeFile(main, code) ||
+      !writeFile(vaultFileUri(vaultPath, `${PLUGINS_DIR}/${manifest.id}/manifest.json`), JSON.stringify(manifest, null, 2))) {
+    throw new Error('Unable to save the plugin.');
+  }
+  pluginEvents.emit('config', vaultPath);
+  return manifest;
 }
 
 // --- Community ---

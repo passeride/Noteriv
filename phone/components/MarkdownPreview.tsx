@@ -19,7 +19,7 @@ import { parseWikiLink } from '@/lib/wiki-links';
 import { useTheme } from '@/context/ThemeContext';
 import { parseQuery, executeQuery, parseNoteData, QueryResult } from '@/lib/dataview';
 import { fileExists, listAllMarkdownFiles, readFile } from '@/lib/file-system';
-import { getInstalledPlugins, getEnabledPluginIds } from '@/lib/plugins';
+import { MobilePluginBlock, usePluginRenderers } from '@/components/MobilePluginHost';
 
 interface MarkdownPreviewProps {
   content: string;
@@ -733,95 +733,6 @@ function MermaidBlock({ code, bgColor }: { code: string; bgColor: string }) {
   );
 }
 
-// Renders a fenced code block via a plugin's `main.js`, loaded fresh into a
-// disposable WebView sandbox (phone has no safe way to eval plugin code
-// inside the app's own JS runtime — React Native has no `document` and no
-// sandboxed eval model, unlike desktop's `new Function`). The harness below
-// mirrors PluginManager.loadPlugin()'s module.exports/onLoad sequence, but
-// calls the registered processor immediately instead of keeping a
-// long-lived registry, since each WebView is single-use. Only
-// `api.markdown` (+ a no-op `api.ui.showNotice` and a static `api.app`) is
-// exposed — no vault/events/editor access from inside the WebView.
-function PluginCodeBlock({
-  code,
-  language,
-  mainJsPath,
-  bgColor,
-}: {
-  code: string;
-  language: string;
-  mainJsPath: string;
-  bgColor: string;
-}) {
-  const [html, setHtml] = useState<string | null>(null);
-  const [height, setHeight] = useState(80);
-
-  useEffect(() => {
-    let cancelled = false;
-    readFile(mainJsPath).then((mainCode) => {
-      if (cancelled) return;
-      if (!mainCode) {
-        setHtml(`<!DOCTYPE html><html><body style="margin:0;padding:12px;background:${bgColor};color:#f44336;font-family:monospace;font-size:12px;">Plugin file not found: ${mainJsPath}</body></html>`);
-        return;
-      }
-      // HTML-embedding concern (not JS-string escaping): a literal `</script`
-      // inside the plugin source would otherwise close our <script> tag early.
-      const escapedMain = mainCode.replace(/<\/script/gi, '<\\/script');
-      const payload = JSON.stringify({ code, language });
-      setHtml(`<!DOCTYPE html><html><head>
-        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-        <style>body{margin:0;padding:12px;background:${bgColor};}</style>
-      </head><body>
-        <div id="root"></div>
-        <script>
-        (function(){
-          var __input = ${payload};
-          var module = { exports: {} };
-          var exports = module.exports;
-          try { ${escapedMain} } catch (e) {
-            document.getElementById('root').textContent = 'Plugin load error: ' + e.message;
-          }
-          var registeredFn = null;
-          var api = {
-            markdown: {
-              registerCodeBlockProcessor: function(lang, fn) { if (lang === __input.language) registeredFn = fn; },
-              unregisterCodeBlockProcessor: function(){},
-            },
-            ui: { showNotice: function(){} },
-            app: { version: '1.3.0', vaultPath: null, currentFile: null },
-          };
-          try { if (module.exports.onLoad) module.exports.onLoad(api); } catch (e) {}
-          var root = document.getElementById('root');
-          try {
-            if (registeredFn) registeredFn(__input.code, root, { source: __input.code, language: __input.language, sourcePath: null });
-            else root.textContent = 'Plugin did not register a processor for "' + __input.language + '"';
-          } catch (e) { root.textContent = 'Render error: ' + e.message; }
-          window.ReactNativeWebView.postMessage(JSON.stringify({height: document.body.scrollHeight + 24}));
-        })();
-        </script>
-      </body></html>`);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [mainJsPath, code, language, bgColor]);
-
-  if (!html) return null;
-  return (
-    <WebView
-      style={{ height, backgroundColor: 'transparent' }}
-      source={{ html }}
-      scrollEnabled={false}
-      onMessage={(e) => {
-        try {
-          const d = JSON.parse(e.nativeEvent.data);
-          if (d.height) setHeight(d.height);
-        } catch {}
-      }}
-    />
-  );
-}
-
 function EmbedBlock({
   name,
   vaultPath,
@@ -1073,37 +984,7 @@ export default function MarkdownPreview({
   }, [anchor, anchorLine]);
 
 
-  // Maps a fenced code-block language (lowercased) to the absolute path of
-  // the enabled plugin's main.js that declared it via `codeBlockLanguages`
-  // in its manifest.json. See PluginCodeBlock for why this is manifest-
-  // declared rather than discovered by running plugin code.
-  const [pluginLangMap, setPluginLangMap] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (!vaultPath) {
-      setPluginLangMap({});
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const [manifests, enabledIds] = await Promise.all([
-        getInstalledPlugins(vaultPath),
-        getEnabledPluginIds(vaultPath),
-      ]);
-      if (cancelled) return;
-      const map: Record<string, string> = {};
-      for (const m of manifests) {
-        if (!enabledIds.includes(m.id)) continue;
-        for (const lang of m.codeBlockLanguages ?? []) {
-          map[lang.toLowerCase()] = `${vaultPath}/.noteriv/plugins/${m.id}/${m.main}`;
-        }
-      }
-      setPluginLangMap(map);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [vaultPath]);
+  const pluginRenderers = usePluginRenderers();
 
   // Callout color map
   const calloutColors: Record<string, string> = {
@@ -1190,12 +1071,15 @@ export default function MarkdownPreview({
             );
           }
           {
-            const pluginMainPath = block.language ? pluginLangMap[block.language.toLowerCase()] : undefined;
-            if (pluginMainPath) {
+            const lang = block.language.toLowerCase();
+            const pluginRenderer = pluginRenderers[lang];
+            if (pluginRenderer && vaultPath) {
               return (
                 <View key={index} style={[styles.codeBlock, { backgroundColor: colors.bgTertiary }]}>
                   <Text style={[styles.codeLang, { color: colors.textMuted }]}>{block.language}</Text>
-                  <PluginCodeBlock code={block.code} language={block.language} mainJsPath={pluginMainPath} bgColor={colors.bgTertiary} />
+                  <MobilePluginBlock renderer={pluginRenderer} vaultPath={vaultPath}
+                    block={{ code: block.code, language: lang, color: colors.bgTertiary,
+                      sourcePath: notePath ? vaultRelativePath(vaultPath, notePath) : null }} />
                 </View>
               );
             }
@@ -1471,7 +1355,7 @@ export default function MarkdownPreview({
           return null;
       }
     },
-    [blocks, colors, fontSize, lineHeight, vaultPath, onLinkPress, onWikiLinkPress, pluginLangMap]
+    [blocks, colors, fontSize, lineHeight, vaultPath, onLinkPress, onWikiLinkPress, pluginRenderers, notePath]
   );
 
   return (

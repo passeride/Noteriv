@@ -17,6 +17,17 @@ object NativeGit {
 class NoterivGitModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("NoterivGit")
+    Events("onPluginShortcut")
+    OnStartObserving("onPluginShortcut") {
+      NoterivPluginKeys.listener = { binding -> sendEvent("onPluginShortcut", mapOf("binding" to binding)) }
+    }
+    OnStopObserving("onPluginShortcut") {
+      NoterivPluginKeys.listener = null
+      NoterivPluginKeys.bindings = emptySet()
+    }
+    Function("setPluginShortcuts") { bindings: List<String> ->
+      NoterivPluginKeys.bindings = bindings.toSet()
+    }
     AsyncFunction("execute") { request: String ->
       val context = appContext.reactContext ?: error("Application context unavailable")
       val json = JSONObject(request)
@@ -24,7 +35,7 @@ class NoterivGitModule : Module() {
       val root = context.filesDir.canonicalFile
       require(dir.path.startsWith(root.path + File.separator)) { "Git directory must be inside app storage" }
       synchronized(NativeGit) {
-        if (!NativeGit.ready) {
+        if (!NativeGit.ready && json.optString("action") != "pluginVault") {
           val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
           factory.init(null as KeyStore?)
           val roots = factory.trustManagers.filterIsInstance<X509TrustManager>().flatMap { it.acceptedIssuers.toList() }

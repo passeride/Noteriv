@@ -70,7 +70,7 @@ let hooks: { before: () => Promise<void>; after: () => Promise<void> } | undefin
 let oauthIO: OAuthIO | undefined;
 let editorBusy = false;
 export async function withEditor<T>(work: () => Promise<T>): Promise<T> {
-  if (editorBusy) throw new Error('Another Git operation is running');
+  if (editorBusy || running.size) throw new Error('Another Git operation is running');
   editorBusy = true;
   let prepared = false;
   try { await hooks?.before(); prepared = true; return await work(); }

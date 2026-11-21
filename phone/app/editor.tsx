@@ -1,4 +1,5 @@
-import { usePluginCommands } from '@/components/MobilePluginHost';
+import { pluginEvents } from '@/lib/plugin-events';
+import { PluginStatusBar, usePluginCommands } from '@/components/MobilePluginHost';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
@@ -148,6 +149,16 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       setOpeningLink(false);
     };
   }, [path, root, setCurrentFile, handleBack]));
+
+  useFocusEffect(useCallback(() => {
+    if (!path || root) return;
+    const listener = pluginEvents.addListener('deleted', deleted => {
+      if (deleted !== path) return;
+      if (router.canGoBack()) router.back();
+      else router.replace('/');
+    });
+    return () => listener.remove();
+  }, [path, root, router]));
 
   const handleSave = useCallback(async () => {
     const ok = await saveFile();
@@ -408,6 +419,9 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const pluginCommands = usePluginCommands();
   const commands: EditorCommand[] = [
     ...pluginCommands,
+    ...(vault ? [{ label: 'Install plugin from folder', run: () => {
+      if (flushFile()) router.push({ pathname: '/plugins', params: { action: 'install' } });
+    } }] : []),
     ...libraryCommands,
     { label: settings.hideReadingMetadata ? 'Show metadata in reading view' : 'Hide metadata in reading view',
       run: () => updateSettings({ hideReadingMetadata: !settings.hideReadingMetadata }) },
@@ -673,6 +687,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
             <BoardView content={content} onChange={setContent} />
           ) : workspace.viewMode === 'edit' && !anchor ? (
             <MarkdownEditor
+              notePath={displayedPath}
               content={content}
               onChange={setContent}
               fontSize={settings.fontSize}
@@ -695,6 +710,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
           )}
         </View>
       </GestureDetector>
+      {!focusMode && <PluginStatusBar />}
 
       {/* Lint Modal */}
       <Modal

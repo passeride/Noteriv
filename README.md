@@ -324,7 +324,7 @@ The mobile app aims for parity with desktop, adapted for touch. Notes live in th
 | Git sync | Native git binary | GitHub REST API + fresh clone |
 | File storage | Any filesystem path | App document directory |
 | Themes | 10 built-in + custom creator | 10 built-in + community install |
-| Plugins | Sandbox execution | Install + enable/disable |
+| Plugins | Commands, panels, settings, status items, vault and editor API | Same plugin package and API on Android and iOS |
 | Navigation | Sidebar + tabs + split editor | Stack navigation + swipe between notes |
 | Graph view | Force-directed canvas | Force-directed WebView canvas |
 | Board view | Drag-drop columns | Horizontal scroll columns with move actions |

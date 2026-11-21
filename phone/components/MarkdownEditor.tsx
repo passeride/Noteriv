@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
   View,
   TextInput,
@@ -12,10 +12,11 @@ import {
   type TextInputInstance,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { pluginSelection } from '@/components/MobilePluginHost';
+import { pluginEvents, setPluginSelection } from '@/lib/plugin-events';
 import { useTheme } from '@/context/ThemeContext';
 
 interface MarkdownEditorProps {
+  notePath: string;
   content: string;
   onChange: (text: string) => void;
   fontSize: number;
@@ -136,18 +137,27 @@ const toolbarActions: ToolbarAction[] = [
   { icon: 'calculator-outline' as keyof typeof Ionicons.glyphMap, label: '$', action: (t, s) => wrapSelection(t, s, '$', '$') },
 ];
 
-export default function MarkdownEditor({ content, onChange, fontSize, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
+export default function MarkdownEditor({ notePath, content, onChange, fontSize, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
   const { colors } = useTheme();
   const inputRef = useRef<TextInputInstance>(null);
   const [selection, setSelection] = useState<Selection>({ start: 0, end: 0 });
 
   const handleSelectionChange = useCallback(
     (e: TextInputSelectionChangeEvent) => {
-      Object.assign(pluginSelection, e.nativeEvent.selection);
+      setPluginSelection(notePath, e.nativeEvent.selection);
       setSelection(e.nativeEvent.selection);
     },
-    []
+    [notePath]
   );
+
+  useEffect(() => {
+    const listener = pluginEvents.addListener('selection', ({ path, range }) => {
+      if (path !== notePath) return;
+      setSelection(range);
+      requestAnimationFrame(() => inputRef.current?.setNativeProps({ selection: range }));
+    });
+    return () => listener.remove();
+  }, [notePath]);
 
   const handleToolbarPress = useCallback(
     (action: ToolbarAction['action']) => {
@@ -155,11 +165,11 @@ export default function MarkdownEditor({ content, onChange, fontSize, focusMode,
       onChange(result.text);
       setTimeout(() => {
         inputRef.current?.setNativeProps({ selection: result.selection });
-        Object.assign(pluginSelection, result.selection);
+        setPluginSelection(notePath, result.selection);
         setSelection(result.selection);
       }, 10);
     },
-    [content, selection, onChange]
+    [content, notePath, selection, onChange]
   );
 
   return (

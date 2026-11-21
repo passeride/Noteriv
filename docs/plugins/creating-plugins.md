@@ -184,7 +184,7 @@ Interact with the active editor.
 | `insertAtCursor` | `(text: string) => void` | Insert text at the current cursor position. |
 | `getSelection` | `() => string` | Get the currently selected text. Returns empty string if nothing is selected. |
 | `replaceSelection` | `(text: string) => void` | Replace the current selection with new text. |
-| `getCursorPosition` | `() => {line: number, ch: number}` | Get the cursor position (0-indexed line and character). |
+| `getCursorPosition` | `() => {line: number, ch: number}` | Get the cursor position (line starts at 1, character starts at 0). |
 
 **Example -- insert a timestamp**:
 ```javascript
@@ -223,29 +223,21 @@ api.markdown.registerCodeBlockProcessor("shout", (source, el) => {
 
 See the Chessboard plugin example (`desktop/examples/plugins/chessboard/` in this repository) for a complete example that parses FEN and draws an SVG chess diagram.
 
-#### Mobile support
+#### Android and iOS
 
-The Noteriv mobile app can run `registerCodeBlockProcessor` plugins too, but needs one extra manifest field since it can't execute every installed plugin's code just to discover which languages it handles the way desktop does at startup:
+Use the same `manifest.json` and `main.js` on desktop and mobile. In **Settings → Plugins**, install a community plugin or import the plugin's folder. Enable it for the active vault. The mobile host discovers code block processors registered by `onLoad`. An existing `codeBlockLanguages` manifest entry can still identify a renderer before its host finishes loading.
 
-```json
-{
-  "codeBlockLanguages": ["my-lang"]
-}
-```
+| API | Where it appears on mobile |
+|---|---|
+| Commands and shortcuts | The command palette lists plugin commands. A connected keyboard can run their declared shortcuts. |
+| Sidebar panels | Open them from the command palette as a full-screen panel. |
+| Settings tabs | Open them from **Settings → Plugin settings** or from the command palette. |
+| Status bar | Plugin items appear below the note on a horizontal bar. Tap an item to run its callback. |
+| Vault and editor | Plugins can work with text files and the active note, including the native selection and cursor. |
+| File, editor and lifecycle events | The host publishes file opens, saves, creates and deletes, editor and layout changes, vault changes and plugin load/unload. Custom events can cross plugin runtimes in the same vault. |
+| Markdown processors | Plugin blocks render inside an inline WebView with the source note passed in the processor context. |
 
-Add this array to your `manifest.json` listing every language your plugin registers a processor for. Without it, the mobile app has no way to know your plugin should run for a given fence language, even if it's installed and enabled.
-
-Each code block runs in a disposable WebView with the Markdown renderer API. This runtime remains dedicated to rendering.
-
-### Mobile command plugins
-
-Set `"mobileHost": true` in the plugin manifest to opt into the mobile command host. Community entries can declare the same field. Enable the plugin in **Settings → Plugins**. Mobile runs enabled command plugins in a dedicated WebView for the active vault.
-
-The host supports `api.ui.addCommand`, `removeCommand`, and `showNotice`. The command palette lists each command under its plugin name. Use `api.editor.getContent()` to read the active note and `api.editor.setContent(text)` within a command callback to replace its content. The host applies that edit after the command completes if the original note and content are still current. Plugins can subscribe to `file-open` and `file-save` using `api.events.on`.
-
-The mobile command host also exposes vault read, write, list, exists and delete. Paths are relative to the vault. Hidden entries and symlinks are excluded. Delete moves the file into `Plugin Trash`. Use the editor API to update the active note. Cursor and selection methods use the latest selection from the native Markdown editor.
-
-Sidebar panels and settings tabs open from the mobile command palette. Status-bar callbacks are also available there. Mobile publishes debounced `editor-change` events. Desktop and mobile still differ in global hotkeys, status-bar placement and the remaining lifecycle events.
+The mobile vault API is limited to regular files inside the active vault and excludes hidden paths and symlinks. Plugin deletion moves a file to `Plugin Trash`. Each rendered code block has its own document and invokes the plugin's `onLoad` to create the renderer. Persist data that needs to be available to commands and renderers through the vault API.
 
 ### api.app
 

@@ -96,3 +96,54 @@ pub fn operation(root: &Path, action: &str, relative: &str, content: &str) -> Re
         _ => Err(fail("Unknown plugin vault operation").into()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_operations_stay_inside_the_vault() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        assert_eq!(
+            operation(root, "write", "notes/a.md", "hello").unwrap(),
+            json!(true)
+        );
+        assert_eq!(
+            operation(root, "read", "notes/a.md", "").unwrap(),
+            json!("hello")
+        );
+        assert_eq!(
+            operation(root, "list", "notes", "").unwrap(),
+            json!([{ "path": "notes/a.md", "name": "a.md", "isDir": false }])
+        );
+        for path in ["../outside.md", ".git/config", "/tmp/file", "notes/../a.md"] {
+            assert!(operation(root, "write", path, "no").is_err());
+        }
+        assert_eq!(
+            operation(root, "delete", "notes/a.md", "").unwrap(),
+            json!(true)
+        );
+        assert_eq!(
+            operation(root, "exists", "notes/a.md", "").unwrap(),
+            json!(false)
+        );
+        assert_eq!(fs::read_dir(root.join("Plugin Trash")).unwrap().count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_symlinks_to_files_and_directories() {
+        use std::os::unix::fs::symlink;
+        let vault = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let secret = outside.path().join("secret.txt");
+        fs::write(&secret, "private").unwrap();
+        symlink(&secret, vault.path().join("link.txt")).unwrap();
+        symlink(outside.path(), vault.path().join("folder")).unwrap();
+        assert!(operation(vault.path(), "read", "link.txt", "").is_err());
+        assert!(operation(vault.path(), "write", "folder/secret.txt", "edit").is_err());
+        assert_eq!(fs::read_to_string(secret).unwrap(), "private");
+        assert_eq!(operation(vault.path(), "list", "", "").unwrap(), json!([]));
+    }
+}

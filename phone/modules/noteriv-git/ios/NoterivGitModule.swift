@@ -9,6 +9,23 @@ private func gitFree(_ response: UnsafeMutablePointer<CChar>)
 public class NoterivGitModule: Module {
   public func definition() -> ModuleDefinition {
     Name("NoterivGit")
+    Events("onPluginShortcut")
+    OnStartObserving("onPluginShortcut") {
+      DispatchQueue.main.async {
+        NoterivPluginKeys.listener = { [weak self] binding in
+          self?.sendEvent("onPluginShortcut", ["binding": binding])
+        }
+      }
+    }
+    OnStopObserving("onPluginShortcut") {
+      DispatchQueue.main.async {
+        NoterivPluginKeys.listener = nil
+        NoterivPluginKeys.bindings = []
+      }
+    }
+    AsyncFunction("setPluginShortcuts") { (bindings: [String]) in
+      NoterivPluginKeys.bindings = Set(bindings)
+    }.runOnQueue(.main)
     AsyncFunction("execute") { (request: String) -> String in
       let object = try JSONSerialization.jsonObject(with: Data(request.utf8)) as? [String: Any]
       guard let path = object?["dir"] as? String else { throw GitError.invalidPath }

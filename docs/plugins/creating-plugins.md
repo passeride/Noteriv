@@ -243,7 +243,9 @@ Set `"mobileHost": true` in the plugin manifest to opt into the mobile command h
 
 The host supports `api.ui.addCommand`, `removeCommand`, and `showNotice`. The command palette lists each command under its plugin name. Use `api.editor.getContent()` to read the active note and `api.editor.setContent(text)` within a command callback to replace its content. The host applies that edit after the command completes if the original note and content are still current. Plugins can subscribe to `file-open` and `file-save` using `api.events.on`.
 
-The mobile host currently covers commands and active-note workflows. The full vault filesystem API, cursor and selection methods, desktop panels, and other lifecycle hooks are desktop features.
+The mobile command host also exposes vault read, write, list, exists and delete. Paths are relative to the vault. Hidden entries and symlinks are excluded. Delete moves the file into `Plugin Trash`. Use the editor API to update the active note. Cursor and selection methods use the latest selection from the native Markdown editor.
+
+Sidebar panels and settings tabs open from the mobile command palette. Status-bar callbacks are also available there. Mobile publishes debounced `editor-change` events. Desktop and mobile still differ in global hotkeys, status-bar placement and the remaining lifecycle events.
 
 ### api.app
 

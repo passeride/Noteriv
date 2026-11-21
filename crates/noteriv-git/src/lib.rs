@@ -1,5 +1,6 @@
 //! One Git implementation for Tauri and the local Expo module. No forge REST API.
 //! Conflicts stay in the Git index until the user explicitly resolves them.
+mod plugin_vault;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use fs2::FileExt;
 use git2::{

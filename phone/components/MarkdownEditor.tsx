@@ -12,6 +12,7 @@ import {
   type TextInputInstance,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { pluginSelection } from '@/components/MobilePluginHost';
 import { useTheme } from '@/context/ThemeContext';
 
 interface MarkdownEditorProps {
@@ -142,6 +143,7 @@ export default function MarkdownEditor({ content, onChange, fontSize, focusMode,
 
   const handleSelectionChange = useCallback(
     (e: TextInputSelectionChangeEvent) => {
+      Object.assign(pluginSelection, e.nativeEvent.selection);
       setSelection(e.nativeEvent.selection);
     },
     []
@@ -153,6 +155,7 @@ export default function MarkdownEditor({ content, onChange, fontSize, focusMode,
       onChange(result.text);
       setTimeout(() => {
         inputRef.current?.setNativeProps({ selection: result.selection });
+        Object.assign(pluginSelection, result.selection);
         setSelection(result.selection);
       }, 10);
     },

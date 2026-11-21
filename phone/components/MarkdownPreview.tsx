@@ -10,6 +10,7 @@ import {
   LayoutChangeEvent,
   type ScrollViewInstance,
 } from 'react-native';
+import Animated, { type useAnimatedScrollHandler } from 'react-native-reanimated';
 import { WebView } from 'react-native-webview';
 import { frontmatterLineCount, readProperties } from '@/lib/properties';
 import { readDecorations } from '@/lib/file-decoration';
@@ -26,6 +27,8 @@ interface MarkdownPreviewProps {
   fontSize: number;
   vaultPath?: string;
   notePath?: string;
+  headerInset?: number;
+  onScroll?: ReturnType<typeof useAnimatedScrollHandler>;
   hideReadingMetadata?: boolean;
   onLinkPress?: (url: string) => void;
   onWikiLinkPress?: (name: string) => void;
@@ -1028,6 +1031,8 @@ export default function MarkdownPreview({
   fontSize,
   vaultPath,
   notePath,
+  headerInset = 0,
+  onScroll,
   hideReadingMetadata,
   onLinkPress,
   onWikiLinkPress,
@@ -1470,17 +1475,19 @@ export default function MarkdownPreview({
   );
 
   return (
-    <ScrollView
+    <Animated.ScrollView
       ref={scrollRef}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: colors.bgPrimary }]}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, { paddingTop: 16 + headerInset }]}
       showsVerticalScrollIndicator
     >
       {bannerUri && failedBanner !== bannerUri && <Image accessibilityLabel="Note banner"
         source={{ uri: bannerUri }} resizeMode="cover" onError={() => setFailedBanner(bannerUri)}
         style={{ width: '100%', height: 156, borderRadius: 12, marginBottom: 14 }} />}
       {blocks.map(renderBlock)}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

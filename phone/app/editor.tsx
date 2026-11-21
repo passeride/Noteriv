@@ -15,6 +15,10 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Animated, {
+  useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -272,6 +276,54 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     return () => clearTimeout(timer);
   }, [loadingNote]);
 
+  const collapsibleHeader = !!displayedPath && !loadingNote && !focusMode && !isBoard &&
+    (workspace.viewMode === 'preview' || !!anchor);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const headerTravel = useSharedValue(0);
+  const previousScrollY = useSharedValue(0);
+  const scrollingUp = useSharedValue(false);
+
+  useEffect(() => {
+    headerTravel.value = 0;
+    previousScrollY.value = 0;
+    scrollingUp.value = false;
+  }, [collapsibleHeader, displayedPath, headerTravel, previousScrollY, scrollingUp]);
+
+  const readingScroll = useAnimatedScrollHandler({
+    onBeginDrag: event => {
+      previousScrollY.value = Math.max(0, event.contentOffset.y);
+    },
+    onScroll: event => {
+      const maximum = Math.max(0, event.contentSize.height - event.layoutMeasurement.height);
+      const y = Math.min(maximum, Math.max(0, event.contentOffset.y));
+      const delta = y - previousScrollY.value;
+      previousScrollY.value = y;
+      if (y === 0 || maximum < headerHeight) {
+        headerTravel.value = 0;
+      } else if (delta !== 0) {
+        scrollingUp.value = delta < 0;
+        // Reveal the actions after a small reverse scroll.
+        headerTravel.value = Math.min(headerHeight, Math.max(0, headerTravel.value + delta * (delta < 0 ? 3 : 1)));
+      }
+    },
+    onEndDrag: () => {
+      headerTravel.value = withTiming(!scrollingUp.value && headerTravel.value >= headerHeight / 2 ? headerHeight : 0, { duration: 140 });
+    },
+    onMomentumEnd: () => {
+      headerTravel.value = withTiming(!scrollingUp.value && headerTravel.value >= headerHeight / 2 ? headerHeight : 0, { duration: 140 });
+    },
+  });
+  const readingHeaderStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: collapsibleHeader ? -headerTravel.value : 0 }],
+  }));
+  useAnimatedReaction(
+    () => collapsibleHeader && headerHeight > 0 && headerTravel.value >= headerHeight,
+    (hidden, previous) => {
+      if (hidden !== previous) scheduleOnRN(setHeaderHidden, hidden);
+    }
+  );
+
   const isBookmarked =
     currentFile && (workspace.bookmarks ?? []).includes(currentFile);
 
@@ -372,6 +424,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      <View style={styles.container}>
       {vault && <>
         <SearchModal visible={searchVisible} vaultPath={vault.path}
           onClose={() => setSearchVisible(false)} onFileSelect={openNote} />
@@ -400,7 +453,12 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         </SafeAreaView>
       </Modal>
       {/* Header */}
-      {!focusMode && <View style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.bgTertiary }]}>
+      {!focusMode && <View style={collapsibleHeader ? [styles.headerOverlay, { height: headerHeight || undefined }] : undefined}
+        pointerEvents={collapsibleHeader && headerHidden ? 'none' : 'box-none'}
+        accessibilityElementsHidden={collapsibleHeader && headerHidden}
+        importantForAccessibility={collapsibleHeader && headerHidden ? 'no-hide-descendants' : 'auto'}>
+        <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}
+          style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.bgTertiary }, readingHeaderStyle]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleBack}
@@ -461,11 +519,12 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
             />
           </TouchableOpacity>
         </View>
+        </Animated.View>
       </View>}
 
       {/* More Menu */}
       {menuVisible && (
-        <View style={[styles.menu, { backgroundColor: colors.bgTertiary }]}>
+        <View style={[styles.menu, { top: headerHeight || 56, backgroundColor: colors.bgTertiary }]}>
           <TouchableOpacity style={styles.menuItem} onPress={handleBookmark}>
             <Ionicons
               name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
@@ -589,7 +648,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       {/* Dismiss menu on tap */}
       {menuVisible && (
         <TouchableOpacity
-          style={styles.menuOverlay}
+          style={[styles.menuOverlay, { top: headerHeight || 56 }]}
           onPress={() => setMenuVisible(false)}
           activeOpacity={1}
         />
@@ -599,26 +658,6 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         <View accessibilityRole="progressbar" style={{ flexDirection: 'row', gap: 8, padding: 12 }}>
           <ActivityIndicator color={colors.accent} />
           <Text style={{ color: colors.textSecondary }}>Opening note…</Text>
-        </View>
-      )}
-
-      {/* Word count bar + note position */}
-      {!!displayedPath && !loadingNote && !focusMode && !isBoard && (
-        <View style={[styles.statsBar, { backgroundColor: colors.bgSecondary, borderTopColor: colors.border }]}>
-          <Text style={[styles.statsText, { color: colors.textMuted }]}>
-            {content.trim() ? content.trim().split(/\s+/).length : 0} words
-          </Text>
-          <Text style={[styles.statsText, { color: colors.textMuted }]}>
-            {content.length} chars
-          </Text>
-          <Text style={[styles.statsText, { color: colors.textMuted }]}>
-            {content.split('\n').length} lines
-          </Text>
-          {siblingNotes.length > 1 && currentIndex >= 0 && (
-            <Text style={[styles.statsText, { color: colors.textMuted, marginLeft: 'auto' }]}>
-              {currentIndex + 1}/{siblingNotes.length} ← swipe →
-            </Text>
-          )}
         </View>
       )}
 
@@ -643,6 +682,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               fontSize={settings.fontSize}
               vaultPath={vault?.path}
               notePath={displayedPath}
+              headerInset={collapsibleHeader ? headerHeight : undefined}
+              onScroll={collapsibleHeader ? readingScroll : undefined}
               hideReadingMetadata={settings.hideReadingMetadata}
               anchor={anchor ?? undefined}
               onWikiLinkPress={openNoteLink}
@@ -735,6 +776,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         </View>
         </KeyboardAvoidingView>
       </Modal>
+      </View>
     </SafeAreaView>
   );
 }
@@ -742,6 +784,14 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
@@ -874,16 +924,6 @@ const styles = StyleSheet.create({
   renameConfirmText: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  statsBar: {
-    flexDirection: 'row',
-    gap: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  statsText: {
-    fontSize: 11,
   },
   lintOverlay: {
     flex: 1,

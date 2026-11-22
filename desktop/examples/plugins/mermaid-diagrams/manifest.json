@@ -1,0 +1,9 @@
+{
+  "id": "mermaid-diagrams",
+  "name": "Mermaid Diagrams",
+  "version": "0.1.0",
+  "description": "Render Mermaid diagrams offline and insert diagram templates.",
+  "author": "Noteriv",
+  "main": "main.js",
+  "codeBlockLanguages": ["mermaid-offline"]
+}

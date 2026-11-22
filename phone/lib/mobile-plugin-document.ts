@@ -4,7 +4,7 @@ export function mobilePluginDocument(code: string, block?: PluginBlock): string 
   const input = JSON.stringify({ code, block }).replace(/</g, '\\u003c');
   return `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; base-uri 'none'; form-action 'none'">
+      content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; frame-src about:; base-uri 'none'; form-action 'none'">
     <body style="margin:0;padding:12px"><main></main><script>
     (() => {
       const input = ${input};
@@ -78,6 +78,9 @@ export function mobilePluginDocument(code: string, block?: PluginBlock): string 
         finally { main.replaceChildren(); }
       }
       const api = {
+        assets: {
+          readText: name => request('readAsset', name),
+        },
         vault: {
           read: path => request('read', path), write: (path, text) => request('write', path, text),
           list: path => request('list', path), exists: path => request('exists', path),

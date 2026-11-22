@@ -85,3 +85,18 @@ test('normalizes keyboard shortcut syntax for native dispatch', () => {
   assert.equal(pluginShortcut('Mod+Option+Left', 'ios'), 'alt+meta+arrowleft');
   assert.equal(pluginShortcut('Unsupported+Q', 'android'), undefined);
 });
+
+test('requests bundled text assets through the mobile bridge', async () => {
+  const { messages, send } = open(`
+    module.exports.onLoad = async api => {
+      api.ui.showNotice(await api.assets.readText('engine-0.txt'));
+    };
+  `);
+  const loading = send({ type: 'start', snapshot });
+  const request = messages.find(item => item.type === 'vault');
+  assert.equal(request.operation, 'readAsset');
+  assert.equal(request.path, 'engine-0.txt');
+  await send({ type: 'response', request: request.request, value: 'engine text' });
+  await loading;
+  assert.ok(messages.some(item => item.type === 'notice' && item.value === 'engine text'));
+});

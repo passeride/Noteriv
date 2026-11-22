@@ -69,7 +69,11 @@ Both functions can be synchronous or return a Promise (async).
 
 ## Plugin API Reference
 
-The API object passed to `onLoad` has six namespaces: `vault`, `ui`, `events`, `editor`, `markdown`, and `app`.
+The API object passed to `onLoad` provides `assets`, `vault`, `ui`, `events`, `editor`, `markdown`, and `app`.
+
+### api.assets
+
+Use `await api.assets.readText(name)` to read a UTF-8 asset of up to 128 KiB from the installed plugin folder. It returns `null` when the asset is missing. Use a plain filename beginning with an ASCII letter or digit. Local folder installation copies top-level assets alongside the entry file. Keep the entry file small and load large resources in chunks only when needed.
 
 ### api.vault
 

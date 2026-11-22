@@ -18,12 +18,19 @@ struct Request {
     side: Option<String>,
     revision: Option<String>,
     operation: Option<String>,
+    plugin_id: Option<String>,
     content: Option<String>,
 }
 fn execute(request: &str) -> Result<Value> {
     let req: Request = serde_json::from_str(request).map_err(|_| fail("Invalid Git request"))?;
     let path = Path::new(&req.dir);
     match req.action.as_str() {
+        "pluginAsset" => plugin_vault::read_asset(
+            path,
+            req.plugin_id.as_deref().unwrap_or(""),
+            req.path.as_deref().unwrap_or(""),
+        )
+        .map_err(|error| fail(&error.to_string())),
         "pluginVault" => plugin_vault::operation(
             path,
             req.operation.as_deref().unwrap_or(""),

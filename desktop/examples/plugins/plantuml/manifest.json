@@ -1,0 +1,9 @@
+{
+  "id": "plantuml",
+  "name": "PlantUML",
+  "version": "0.1.0",
+  "description": "Render PlantUML diagrams offline and insert diagram templates.",
+  "author": "Noteriv",
+  "main": "main.js",
+  "codeBlockLanguages": ["plantuml"]
+}

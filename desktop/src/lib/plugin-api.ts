@@ -38,6 +38,7 @@ export interface PluginInstance {
 }
 
 export interface PluginAPI {
+  assets: { readText: (name: string) => Promise<string | null> };
   vault: {
     read: (path: string) => Promise<string | null>;
     write: (path: string, content: string) => Promise<boolean>;
@@ -447,6 +448,20 @@ export class PluginManager {
     const prefix = `${pluginId}:`;
 
     return {
+      assets: {
+        readText: async (name: string): Promise<string | null> => {
+          if (!window.electronAPI) return null;
+          const validName = /^[a-z0-9][a-z0-9._-]{0,100}$/i;
+          if (typeof name !== "string" || !validName.test(name) || !validName.test(pluginId)) {
+            throw new Error("Expected an asset name within the plugin folder.");
+          }
+          const text = await window.electronAPI.readFile(`${manager.vaultPath}/${PLUGINS_DIR}/${pluginId}/${name}`);
+          if (text !== null && new TextEncoder().encode(text).byteLength > 131_072) {
+            throw new Error("Plugin asset exceeds the size limit.");
+          }
+          return text;
+        },
+      },
       vault: {
         read: async (path: string): Promise<string | null> => {
           if (!window.electronAPI) return null;

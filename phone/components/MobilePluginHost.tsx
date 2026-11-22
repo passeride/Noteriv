@@ -282,8 +282,19 @@ function Runtime({ script, vaultPath, update, stopped, block }: {
         break;
       case 'vault': {
         if (typeof message.request !== 'number' || typeof message.path !== 'string' ||
-          !['read', 'write', 'list', 'exists', 'delete'].includes(message.operation)) break;
+          !['read', 'write', 'list', 'exists', 'delete', 'readAsset'].includes(message.operation)) break;
         const { operation, path, request } = message;
+        if (operation === 'readAsset') {
+          try {
+            const value = await native<string | null>({
+              action: 'pluginAsset', dir: nativeDir(vaultPath), pluginId: script.id, path,
+            });
+            if (canAccessVault()) send({ type: 'response', request, value });
+          } catch (error) {
+            if (canAccessVault()) send({ type: 'response', request, error: String(error) });
+          }
+          break;
+        }
         const cleanPath = path.replace(/\/$/, '');
         const state = latest.current;
         const active = state.currentFile && vaultRelativePath(vaultPath, state.currentFile) === cleanPath;
@@ -366,7 +377,8 @@ function Runtime({ script, vaultPath, update, stopped, block }: {
       </SafeAreaView>}
       <WebView<object> ref={web} source={source} javaScriptEnabled domStorageEnabled={false}
         allowFileAccess={false} allowFileAccessFromFileURLs={false} allowUniversalAccessFromFileURLs={false}
-        originWhitelist={['*']} onShouldStartLoadWithRequest={request => request.url === 'about:blank'}
+        originWhitelist={['*']} onShouldStartLoadWithRequest={request =>
+          request.url === 'about:blank' || (request.url === 'about:srcdoc' && request.isTopFrame !== true)}
         setSupportMultipleWindows={false} mixedContentMode="never"
         onMessage={event => { void handleMessage(event.nativeEvent.data); }} />
     </View>

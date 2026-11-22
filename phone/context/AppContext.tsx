@@ -168,6 +168,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  useEffect(() => {
+    const path = vault?.path ?? '';
+    FS.quickSearch.reset(path);
+    if (!path) return;
+    const warm = setTimeout(() => FS.quickSearch.warm(path), 400);
+    return () => clearTimeout(warm);
+  }, [vault?.path]);
+
   // Refresh files when vault or currentDir changes
   useEffect(() => {
     if (currentDir) {

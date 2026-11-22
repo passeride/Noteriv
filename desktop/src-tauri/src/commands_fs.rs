@@ -1079,6 +1079,8 @@ pub struct SearchVaultInput {
     /// The "Excluded files" patterns: notes they match are left out.
     #[serde(default)]
     pub exclude: Vec<String>,
+    #[serde(default)]
+    pub quick: bool,
 }
 
 /// Search the vault with the query language described in `search.rs`.
@@ -1090,13 +1092,20 @@ pub async fn fs_search_vault(
     if args.dir.is_empty() || !allowed(&app, &args.dir) {
         return crate::search::SearchResult::default();
     }
-    crate::search::search_vault(
-        Path::new(&args.dir),
-        &args.query,
-        args.case_sensitive,
-        crate::search::Sort::from_name(&args.sort),
-        &args.exclude,
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = Path::new(&args.dir);
+        if args.quick {
+            crate::search::quick_search_vault(dir, &args.query, &args.exclude)
+        } else {
+            crate::search::search_vault(
+                dir, &args.query, args.case_sensitive,
+                crate::search::Sort::from_name(&args.sort), &args.exclude,
+            )
+        }
+    }).await.unwrap_or_else(|_| crate::search::SearchResult {
+        error: Some("The search could not be run.".into()),
+        ..Default::default()
+    })
 }
 
 /// Every note's properties, tags, links and file details, in one call.

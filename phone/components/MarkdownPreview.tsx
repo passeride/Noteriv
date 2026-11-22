@@ -3,6 +3,7 @@ import {
   View,
   Text,
   ScrollView,
+  RefreshControl,
   StyleSheet,
   TouchableOpacity,
   Platform,
@@ -29,6 +30,7 @@ interface MarkdownPreviewProps {
   notePath?: string;
   headerInset?: number;
   onScroll?: ReturnType<typeof useAnimatedScrollHandler>;
+  onPullDown?: () => void;
   hideReadingMetadata?: boolean;
   onLinkPress?: (url: string) => void;
   onWikiLinkPress?: (name: string) => void;
@@ -944,6 +946,7 @@ export default function MarkdownPreview({
   notePath,
   headerInset = 0,
   onScroll,
+  onPullDown,
   hideReadingMetadata,
   onLinkPress,
   onWikiLinkPress,
@@ -1362,6 +1365,8 @@ export default function MarkdownPreview({
     <Animated.ScrollView
       ref={scrollRef}
       onScroll={onScroll}
+      refreshControl={onPullDown ? <RefreshControl refreshing={false} onRefresh={onPullDown}
+        tintColor={colors.accent} colors={[colors.accent]} /> : undefined}
       scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: colors.bgPrimary }]}
       contentContainerStyle={[styles.contentContainer, { paddingTop: 16 + headerInset }]}

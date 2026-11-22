@@ -5,17 +5,25 @@ order: 7
 
 # Search
 
-Noteriv provides two search tools: Quick Open for finding files by name, and Vault Search for finding text across all notes. Both are keyboard-driven. Vault Search also understands a query language with operators, and a search can be shown inside a note with a `query` block.
+On desktop, Quick Open finds file names and contents in one field. Vault Search supports queries with operators. You can also show a Vault Search query inside a note with a `query` block.
+
+## Mobile search
+
+Open **Quick open or search** from the command palette to search file names,
+paths and note text in one field. Pull down from the top of a note in reading
+view, or pull down on the editor toolbar, to open the command palette.
+Noteriv warms a bounded in-memory cache for the open vault and refreshes
+affected entries on note changes and Git pulls.
 
 ## Quick Open
 
-Quick Open is a file finder. Press `Ctrl+P` (or `Cmd+P` on macOS) to open it.
+Quick Open searches file names, paths, aliases and note text. Press `Ctrl+P` (or `Cmd+P` on macOS) to open it.
 
 ### How It Works
 
-When Quick Open activates, it loads a list of every file in your vault. As you type, the list filters in real time, matching your query against the filename, the relative path and the note's aliases. Matching is case-insensitive and substring-based: typing `meet` will match `Meeting-Notes.md`, `team-meeting.md`, and `notes/meetings/standup.md`.
+File name, path and alias matches appear first. Content matches follow with a line number and a snippet. The document icon identifies a file match and the text icon identifies an occurrence in the note. Matching is case-insensitive, so `meet` matches `Meeting-Notes.md`, `team-meeting.md`, and `notes/meetings/standup.md`.
 
-The list shows up to 50 results at a time. When the query is empty, the first 50 files are displayed.
+The list shows up to 30 file matches and 80 matching lines. When the query is empty, the first 30 files are displayed.
 
 Files matched by [Excluded files](./file-settings.md#excluded-files) are not listed.
 
@@ -27,24 +35,21 @@ If a note lists other names for itself under `aliases` in its frontmatter, Quick
 
 | Key | Action |
 |---|---|
-| Type | Filter the file list |
+| Type | Search file names and note contents |
 | `Up` / `Down` | Move the selection highlight |
-| `Enter` | Open the selected file |
+| `Enter` | Open the selected result |
 | `Esc` | Close Quick Open |
-| Click | Open the clicked file |
+| Click | Open the clicked result |
 
 Hovering over a result with the mouse moves the selection highlight to that item.
 
 ### Display
 
-Each result shows two pieces of information:
-
-- **File name.** The basename of the file, displayed in the primary text style.
-- **Relative path.** The full path from the vault root (without the `.md` extension), displayed in a smaller, muted style below the name. This helps you distinguish between files with the same name in different folders.
+Each result shows the file name and its path from the vault root. Opening a content match scrolls to its line in the note.
 
 ### When to Use
 
-Use Quick Open when you know (or approximately know) the name of the file you want to open. It is faster than navigating the folder tree for deep directory structures.
+Use Quick Open to jump to a file by name or to a remembered phrase inside a note.
 
 ## Vault Search
 

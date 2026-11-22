@@ -22,8 +22,11 @@
 
 use regex::{Regex, RegexBuilder};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::SystemTime;
 
 /// How many notes are returned, and how many lines per note.
 const MAX_FILES: usize = 500;
@@ -808,6 +811,100 @@ fn matching_notes(vault: &Path, node: &Node, case_sensitive: bool, exclude: &[St
     files
 }
 
+#[derive(Default)]
+struct QuickContentCache {
+    vault: PathBuf,
+    notes: HashMap<PathBuf, (SystemTime, u64, Arc<str>)>,
+    bytes: usize,
+}
+
+// Keep recently used vault contents in memory only. The on-disk stamp is
+// checked on each query, including changes made by Git or another program.
+fn quick_content(vault: &Path, path: &Path) -> Option<Arc<str>> {
+    const BUDGET: usize = 16 * 1024 * 1024;
+    static CACHE: OnceLock<Mutex<QuickContentCache>> = OnceLock::new();
+    let cache = CACHE.get_or_init(Default::default);
+    let metadata = fs::metadata(path).ok()?;
+    let stamp = metadata.modified().ok();
+    if let Ok(mut cache) = cache.lock() {
+        if cache.vault != vault {
+            *cache = QuickContentCache { vault: vault.to_owned(), ..Default::default() };
+        }
+        if let Some((modified, len, content)) = cache.notes.get(path) {
+            if Some(*modified) == stamp && *len == metadata.len() {
+                return Some(content.clone());
+            }
+        }
+        if let Some((_, _, stale)) = cache.notes.remove(path) {
+            cache.bytes -= stale.len();
+        }
+    }
+    let content: Arc<str> = fs::read_to_string(path).ok()?.into();
+    if let (Some(modified), Ok(mut cache)) = (stamp, cache.lock()) {
+        if cache.vault == vault && cache.notes.len() < 8_000 && !cache.notes.contains_key(path)
+            && cache.bytes + content.len() <= BUDGET
+        {
+            cache.bytes += content.len();
+            cache.notes.insert(path.to_owned(), (modified, metadata.len(), content.clone()));
+        }
+    }
+    Some(content)
+}
+
+/// A bounded literal search for the quick-open palette. Its filename matches
+/// are already available on the frontend, so only actual matching lines are returned.
+pub(crate) fn quick_search_vault(vault: &Path, term: &str, exclude: &[String]) -> SearchResult {
+    let term = term.trim();
+    if term.is_empty() {
+        return SearchResult::default();
+    }
+    let Ok(matcher) = RegexBuilder::new(&regex::escape(term))
+        .case_insensitive(true)
+        .size_limit(1 << 20)
+        .build()
+    else {
+        return SearchResult { error: Some("The search term is too long.".into()), ..SearchResult::default() };
+    };
+    let mut files = Vec::new();
+    let mut remaining = 80;
+    for relative in crate::links::list_vault(vault) {
+        let lower = relative.to_ascii_lowercase();
+        if !(lower.ends_with(".md") || lower.ends_with(".markdown")) || is_excluded(&relative, exclude) {
+            continue;
+        }
+        let path = vault.join(&relative);
+        let Some(text) = quick_content(vault, &path) else { continue };
+        if !matcher.is_match(&text) { continue; }
+
+        let mut lines = Vec::new();
+        for (index, line) in text.lines().enumerate() {
+            let Some(first) = matcher.find(line) else { continue };
+            // Include the match even when it comes late in a long line.
+            let start = line[..first.start()].char_indices().rev().nth(54).map_or(0, |(i, _)| i);
+            let end = first.end() + line[first.end()..].char_indices().nth(100)
+                .map_or(line.len() - first.end(), |(i, _)| i);
+            let snippet = &line[start..end];
+            let prefix = if start > 0 { "…" } else { "" };
+            let suffix = if end < line.len() { "…" } else { "" };
+            let offset = utf16_len(prefix);
+            let ranges = matcher.find_iter(snippet).map(|hit| (
+                offset + utf16_len(&snippet[..hit.start()]), offset + utf16_len(&snippet[..hit.end()]),
+            )).collect();
+            lines.push(LineHit { line: index + 1, text: format!("{prefix}{snippet}{suffix}"), ranges });
+            remaining -= 1;
+            if remaining == 0 { break; }
+        }
+        if lines.is_empty() { continue; }
+        let name = relative.rsplit('/').next().unwrap_or(&relative).to_owned();
+        files.push(FileHit {
+            file_path: path.to_string_lossy().into_owned(), relative_path: relative, name,
+            mtime: 0, ctime: 0, lines, more_lines: 0,
+        });
+        if remaining == 0 { break; }
+    }
+    SearchResult { total_files: files.len(), files, error: None }
+}
+
 /// Search every note in the vault.
 pub(crate) fn search_vault(
     vault: &Path,
@@ -901,6 +998,28 @@ A happy cat lives here. #kitchen
 Dog only in this block.
 Water is far from here.
 ";
+
+    #[test]
+    fn quick_search_finds_literal_content_and_refreshes_changed_files() {
+        let vault = std::env::temp_dir().join(format!("noteriv-quick-search-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&vault);
+        fs::create_dir_all(vault.join("Archive")).unwrap();
+        fs::write(vault.join("[Plan].md"), "Title only").unwrap();
+        fs::write(vault.join("Note.md"), "# Note\n🎉 [PLAN] today").unwrap();
+        fs::write(vault.join("Archive/Old.md"), "[plan]").unwrap();
+
+        let excluded = ["Archive".to_owned()];
+        let found = quick_search_vault(&vault, "[plan]", &excluded);
+        assert_eq!(found.total_files, 1);
+        assert_eq!(found.files[0].relative_path, "Note.md");
+        assert_eq!(found.files[0].lines[0].line, 2);
+        assert_eq!(found.files[0].lines[0].ranges, [(3, 9)]);
+
+        fs::write(vault.join("Note.md"), "Revised text").unwrap();
+        assert_eq!(quick_search_vault(&vault, "[plan]", &excluded).total_files, 0);
+        assert_eq!(quick_search_vault(&vault, "revised", &excluded).total_files, 1);
+        fs::remove_dir_all(vault).unwrap();
+    }
 
     fn hit(query: &str) -> bool {
         hit_in(query, "Recipes/Baking Day.md", NOTE, false)

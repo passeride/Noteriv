@@ -198,7 +198,7 @@ pub const SHIM_JS: &str = r#"
       importNotes: function (args) { return invoke("fs_import_notes", { args: args }); },
       searchVault: function (dir, query, options) {
         var o = options || {};
-        return invoke("fs_search_vault", { args: { dir: dir, query: query, caseSensitive: !!o.caseSensitive, sort: o.sort || "nameAsc", exclude: o.exclude || [] } });
+        return invoke("fs_search_vault", { args: { dir: dir, query: query, caseSensitive: !!o.caseSensitive, sort: o.sort || "nameAsc", exclude: o.exclude || [], quick: !!o.quick } });
       },
       getFileStats: function (dir) { return invoke("fs_get_file_stats", { dir: dir }); },
 

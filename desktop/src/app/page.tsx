@@ -3408,8 +3408,10 @@ function Home() {
       {/* Quick open (Ctrl+P) */}
       {showQuickOpen && activeVault && (
         <QuickOpen
+          key={activeVault.path}
           vaultPath={activeVault.path}
-          onSelect={openFile}
+          revision={vaultFilesTick + ":" + sidebarRefresh}
+          onSelect={openFileAtLine}
           onClose={() => setShowQuickOpen(false)}
         />
       )}

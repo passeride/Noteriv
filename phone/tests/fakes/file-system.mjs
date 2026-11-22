@@ -59,3 +59,5 @@ export function readDir() {
 }
 
 export function fileExists(path) { return files.has(path); }
+
+export const quickSearch = { reset() {}, warm() {}, invalidate() {} };

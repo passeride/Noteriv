@@ -1,6 +1,7 @@
 import { File, Directory, Paths } from 'expo-file-system';
 import { pluginEvents } from './plugin-events';
-import { FileEntry, SearchResult } from '@/types';
+import { FileEntry } from '@/types';
+import { QuickSearchCache } from './quick-search';
 
 const VAULTS_DIR_NAME = 'vaults';
 
@@ -40,6 +41,7 @@ export function writeFile(filePath: string, content: string): boolean {
     }
     const existed = file.exists;
     file.writeSync(content);
+    if (/\.(md|markdown)$/i.test(filePath)) quickSearch.invalidate(filePath, !existed);
     if (!existed) pluginEvents.emit('created', filePath);
     return true;
   } catch {
@@ -56,6 +58,7 @@ export function deleteFile(filePath: string): boolean {
     const file = new File(filePath);
     if (file.exists) {
       file.delete();
+      quickSearch.invalidate(filePath);
       pluginEvents.emit('deleted', filePath);
     }
     return true;
@@ -79,6 +82,7 @@ export function deleteDir(dirPath: string): boolean {
     }
     // Now delete the empty directory
     dir.delete();
+    quickSearch.invalidate(dirPath);
     return true;
   } catch {
     return false;
@@ -95,6 +99,7 @@ export function rename(oldPath: string, newName: string): boolean {
       const file = new File(oldPath);
       file.rename(newName);
     }
+    quickSearch.invalidate(oldPath);
     return true;
   } catch {
     return false;
@@ -111,6 +116,8 @@ export function movePath(oldPath: string, newPath: string): boolean {
       const file = new File(oldPath);
       file.moveSync(new File(newPath));
     }
+    quickSearch.invalidate(oldPath);
+    quickSearch.invalidate(newPath);
     return true;
   } catch {
     return false;
@@ -177,11 +184,11 @@ export async function listAllMarkdownFiles(
     for (const entry of entries) {
       if (entry.isDirectory) {
         await walk(entry.path);
-      } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown')) {
+      } else if (/\.(md|markdown)$/i.test(entry.name)) {
         files.push({
           filePath: entry.path,
           fileName: entry.name.replace(/\.(md|markdown)$/i, ''),
-          relativePath: entry.path.replace(dir, ''),
+          relativePath: relativeMarkdownPath(dir, entry.path),
         });
       }
     }
@@ -191,34 +198,12 @@ export async function listAllMarkdownFiles(
   return files;
 }
 
-export async function searchInFiles(dir: string, query: string): Promise<SearchResult[]> {
-  const results: SearchResult[] = [];
-  if (!query || !dir) return results;
-
-  const lowerQuery = query.toLowerCase();
-  const allFiles = await listAllMarkdownFiles(dir);
-
-  for (const file of allFiles) {
-    if (results.length >= 200) break;
-    const content = await readFile(file.filePath);
-    if (!content) continue;
-
-    const lines = content.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].toLowerCase().includes(lowerQuery)) {
-        results.push({
-          filePath: file.filePath,
-          fileName: file.fileName,
-          line: i + 1,
-          text: lines[i].trim(),
-        });
-        if (results.length >= 200) break;
-      }
-    }
-  }
-
-  return results;
+function relativeMarkdownPath(vault: string, path: string): string {
+  const relative = path.slice(vault.replace(/\/$/, '').length + 1);
+  try { return decodeURIComponent(relative); } catch { return relative; }
 }
+
+export const quickSearch = new QuickSearchCache({ list: listAllMarkdownFiles, read: readFile });
 
 export function fileExists(path: string): boolean {
   try {
@@ -239,6 +224,7 @@ export function trashFile(filePath: string, vaultPath: string): boolean {
     const base = vaultPath.replace(/\/$/, '') + '/.trash/';
     const destName = Date.now() + '_' + file.name;
     file.moveSync(new File(base + destName));
+    quickSearch.invalidate(filePath);
     pluginEvents.emit('deleted', filePath);
     return true;
   } catch {
@@ -252,7 +238,9 @@ export function restoreFromTrash(trashedPath: string, vaultPath: string): boolea
     if (!file.exists) return false;
     // Strip timestamp prefix (e.g. 1234567890_note.md -> note.md)
     const originalName = file.name.replace(/^\d+_/, '');
-    file.moveSync(new File(vaultPath.replace(/\/$/, '') + '/' + originalName));
+    const restored = new File(vaultPath.replace(/\/$/, '') + '/' + originalName);
+    file.moveSync(restored);
+    quickSearch.invalidate(restored.uri);
     return true;
   } catch {
     return false;

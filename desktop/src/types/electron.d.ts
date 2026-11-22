@@ -127,7 +127,7 @@ interface ElectronAPI {
   searchVault: (
     dir: string,
     query: string,
-    options?: { caseSensitive?: boolean; sort?: import("@/lib/vault-search").SearchSort; exclude?: string[] }
+    options?: { caseSensitive?: boolean; sort?: import("@/lib/vault-search").SearchSort; exclude?: string[]; quick?: boolean }
   ) => Promise<import("@/lib/vault-search").VaultSearchResult>;
   /** Import notes exported from another app. The source must have been picked with showOpenDialog. */
   importNotes: (args: import("@/lib/importers").ImportRequest) => Promise<import("@/lib/importers").ImportOutcome>;

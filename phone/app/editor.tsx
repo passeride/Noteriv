@@ -339,11 +339,21 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const isBookmarked =
     currentFile && (workspace.bookmarks ?? []).includes(currentFile);
 
-  const openOverlay = (mode: 'files' | 'commands') => {
+  const openOverlay = useCallback((mode: 'files' | 'commands') => {
     Keyboard.dismiss();
     setMenuVisible(false);
     setOverlay(mode);
-  };
+  }, []);
+  const openCommands = useCallback(() => openOverlay('commands'), [openOverlay]);
+  const pullHeader = Gesture.Pan()
+    .enabled(!!vault && !overlay && !searchVisible)
+    .activeOffsetY(18)
+    .failOffsetX([-20, 20])
+    .failOffsetY([-12, 10000])
+    .onEnd(event => {
+      if (event.translationY >= 52 && event.translationY > Math.abs(event.translationX) * 1.5) openCommands();
+    })
+    .runOnJS(true);
   const openNote = (notePath: string) => {
     if (notePath !== currentFile && flushFile()) {
       router.push({ pathname: '/editor', params: { path: notePath } });
@@ -446,7 +456,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       <View style={styles.container}>
       {vault && <>
         <SearchModal visible={searchVisible} vaultPath={vault.path}
-          onClose={() => setSearchVisible(false)} onFileSelect={openNote} />
+          onClose={() => setSearchVisible(false)} onFileSelect={openNote}
+          draft={isDirty && currentFile ? { path: currentFile, text: content } : undefined} />
         <VaultSwitcher visible={vaultSwitcherVisible} onClose={() => setVaultSwitcherVisible(false)} />
         <CreateModal visible={!!createDir} currentDir={createDir ?? vault.path}
           onClose={() => { setCreateDir(undefined); setOverlay('files'); }} onCreated={refreshFiles} />
@@ -476,6 +487,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         pointerEvents={collapsibleHeader && headerHidden ? 'none' : 'box-none'}
         accessibilityElementsHidden={collapsibleHeader && headerHidden}
         importantForAccessibility={collapsibleHeader && headerHidden ? 'no-hide-descendants' : 'auto'}>
+        <GestureDetector gesture={pullHeader}>
         <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}
           style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.bgTertiary }, readingHeaderStyle]}>
         <TouchableOpacity
@@ -503,7 +515,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
 
         <View style={styles.headerActions}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Command palette"
-            style={styles.headerButton} onPress={() => openOverlay('commands')}>
+            style={styles.headerButton} onPress={openCommands}>
             <Ionicons name="terminal-outline" size={21} color={colors.textPrimary} />
           </TouchableOpacity>
           {isDirty && (
@@ -539,6 +551,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
           </TouchableOpacity>
         </View>
         </Animated.View>
+        </GestureDetector>
       </View>}
 
       {/* More Menu */}
@@ -704,6 +717,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               notePath={displayedPath}
               headerInset={collapsibleHeader ? headerHeight : undefined}
               onScroll={collapsibleHeader ? readingScroll : undefined}
+              onPullDown={vault ? openCommands : undefined}
               hideReadingMetadata={settings.hideReadingMetadata}
               anchor={anchor ?? undefined}
               onWikiLinkPress={openNoteLink}

@@ -2,6 +2,7 @@
 import { GitProvider } from '@/types';
 import { getItem, setItem, KEYS } from './storage';
 import { getVaults } from './vault';
+import { quickSearch } from '@/lib/file-system';
 import { refresh, type OAuthConfig, type OAuthToken, type OAuthIO } from '../../packages/git-client/oauth';
 
 export type SyncProvider = GitProvider;
@@ -100,6 +101,10 @@ async function run(action: string, vaultPath: string, token: string, remote: str
       await native({ action: 'remote', dir, remote });
     }
     const status = await native({ action, dir, credentials });
+    if (status.pulled > 0) {
+      quickSearch.invalidate(vaultPath);
+      quickSearch.warm(vaultPath);
+    }
     return { pulled: status.pulled, pushed: status.pushed, conflicts: status.conflicts,
       errors: status.conflicts.length ? [`Sync paused: ${status.conflicts.length} file(s) have conflicts. Resolve them in Settings.`] : [] };
   } catch (error) { return { pulled: 0, pushed: 0, errors: [error instanceof Error ? error.message : String(error)] }; }

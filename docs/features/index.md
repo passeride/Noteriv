@@ -41,7 +41,7 @@ Bookmark notes, folders, searches and headings so they appear in a dedicated boo
 
 ### [Search](./search.md)
 
-Two search tools: Quick Open (`Ctrl+P`) for finding a file by name or alias, and Vault Search (`Ctrl+Shift+F`) for full-text search across every note in the vault. Vault Search has a query language with operators such as `tag:`, `path:` and `line:()`, regular expressions and sorting. Results include line numbers and highlighted matches, and a `query` code block shows a search inside a note.
+Quick Open (`Ctrl+P`) lists file and content matches from one field. Vault Search (`Ctrl+Shift+F`) supports advanced queries across the vault. Vault Search has a query language with operators such as `tag:`, `path:` and `line:()`, regular expressions and sorting. Results include line numbers and highlighted matches, and a `query` code block shows a search inside a note.
 
 ### [Command Palette](./command-palette.md)
 

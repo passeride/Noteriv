@@ -47,13 +47,6 @@ export interface FileEntry {
   isDirectory: boolean;
 }
 
-export interface SearchResult {
-  filePath: string;
-  fileName: string;
-  line: number;
-  text: string;
-}
-
 export interface HotkeyBinding {
   action: string;
   keys: string;

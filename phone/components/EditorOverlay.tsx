@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Animated, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from 'react-native';
+import { Animated, FlatList, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Paths } from 'expo-file-system';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,9 +40,12 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
   });
   const [query, setQuery] = useState('');
   const isFiles = mode === 'files';
+  const inlineCommands = !isFiles && Platform.OS === 'android';
   const commandInput = useRef<TextInputInstance>(null);
+  const requestedFocus = useRef(false);
   const focusCommands = () => {
-    // Android's dialog needs window focus before a TextInput can show the IME.
+    if (requestedFocus.current) return;
+    requestedFocus.current = true;
     requestAnimationFrame(() => commandInput.current?.focus());
   };
   const [revision, setRevision] = useState(0);
@@ -83,9 +86,8 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
     setFolder(normalized.startsWith(vaultPath) ? normalized : vaultPath);
   };
 
-  return (
-    <Modal transparent animationType="fade" onRequestClose={onClose} onShow={isFiles ? undefined : focusCommands}>
-      <SafeAreaView style={[styles.stage, !isFiles && styles.paletteStage]}>
+  const body = (
+    <>
         <Pressable accessibilityLabel="Close overlay" style={StyleSheet.absoluteFill} onPress={onClose} />
         <View accessibilityViewIsModal style={[
           styles.panel, { backgroundColor: colors.bgSecondary, borderColor: colors.border },
@@ -125,6 +127,7 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
           ) : (
             <>
               <TextInput ref={commandInput} accessibilityLabel="Search commands" placeholder="Search commands"
+                onLayout={inlineCommands ? focusCommands : undefined}
                 placeholderTextColor={colors.textMuted} value={query} onChangeText={setQuery}
                 autoCapitalize="none" autoCorrect={false} returnKeyType="go"
                 onSubmitEditing={() => { if (matched.length) execute(matched[0]); }}
@@ -146,7 +149,17 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
             <Ionicons name="add" size={28} color={colors.bgPrimary} />
           </Pressable>
         </Animated.View>}
-      </SafeAreaView>
+    </>
+  );
+
+  // Keep the input in Android's focused activity window so native focus can open the IME.
+  if (inlineCommands) {
+    return <View style={[styles.inline, styles.stage, styles.paletteStage]}>{body}</View>;
+  }
+
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose} onShow={isFiles ? undefined : focusCommands}>
+      <SafeAreaView style={[styles.stage, !isFiles && styles.paletteStage]}>{body}</SafeAreaView>
     </Modal>
   );
 }
@@ -154,6 +167,7 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
 const styles = StyleSheet.create({
   fab: { position: 'absolute', right: 16, bottom: 32 },
   fabButton: { width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  inline: { ...StyleSheet.absoluteFill, zIndex: 200 },
   stage: { flex: 1, backgroundColor: 'rgba(0,0,0,0.42)', alignItems: 'flex-start' },
   paletteStage: { alignItems: 'center', paddingTop: 24, paddingHorizontal: 16 },
   panel: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, overflow: 'hidden' },

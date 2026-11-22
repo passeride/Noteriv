@@ -16,6 +16,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import Animated, {
   useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming,
@@ -47,6 +48,16 @@ import { lintMarkdown, LintWarning } from '@/lib/markdown-lint';
 import { isBoardContent, isBoardFile } from '@/lib/board-utils';
 import { parseWikiLink, resolveWikiLink, warmWikiLinks } from '@/lib/wiki-links';
 
+// The toolbar uses bundled Ionicons artwork with fixed layout bounds.
+const toolbarIcons = {
+  back: require('../assets/images/editor-toolbar/back.png'),
+  files: require('../assets/images/editor-toolbar/files.png'),
+  commands: require('../assets/images/editor-toolbar/commands.png'),
+  edit: require('../assets/images/editor-toolbar/edit.png'),
+  preview: require('../assets/images/editor-toolbar/preview.png'),
+  more: require('../assets/images/editor-toolbar/more.png'),
+};
+
 export default function EditorRoute() {
   return <EditorScreen />;
 }
@@ -76,6 +87,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
 
   const [searchVisible, setSearchVisible] = useState(false);
   const [overlay, setOverlay] = useState<'files' | 'commands' | null>(root && !homePath ? 'files' : null);
+  const [editIconPath, setEditIconPath] = useState<string>();
+  const inlineCommands = overlay === 'commands' && Platform.OS === 'android';
   const [createDir, setCreateDir] = useState<string>();
   const [browseDir, setBrowseDir] = useState<string>();
   const [vaultSwitcherVisible, setVaultSwitcherVisible] = useState(false);
@@ -124,7 +137,16 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     })
     .runOnJS(true);
 
+  const closeOverlay = useCallback(() => {
+    setOverlay(null);
+    setEditIconPath(undefined);
+  }, []);
+
   const handleBack = useCallback(() => {
+    if (inlineCommands) {
+      closeOverlay();
+      return;
+    }
     if (!flushFile()) {
       Alert.alert('Error', 'Failed to save file.');
       return;
@@ -135,20 +157,23 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     }
     void setCurrentFile(null);
     router.back();
-  }, [flushFile, root, setCurrentFile, router]);
+  }, [closeOverlay, flushFile, inlineCommands, root, setCurrentFile, router]);
 
   useFocusEffect(useCallback(() => {
     if ((path || root) && activePath.current !== (path ?? null)) void setCurrentFile(path ?? null);
+    return () => {
+      linkRequest.current++;
+      setOpeningLink(false);
+    };
+  }, [path, root, setCurrentFile]));
+
+  useFocusEffect(useCallback(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       handleBack();
       return true;
     });
-    return () => {
-      subscription.remove();
-      linkRequest.current++;
-      setOpeningLink(false);
-    };
-  }, [path, root, setCurrentFile, handleBack]));
+    return () => subscription.remove();
+  }, [handleBack]));
 
   useFocusEffect(useCallback(() => {
     if (!path || root) return;
@@ -364,7 +389,6 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     const notePath = await (kind === 'daily' ? getOrCreateDailyNote(vault.path) : getRandomNote(vault.path));
     if (notePath) openNote(notePath);
   };
-  const [editIconPath, setEditIconPath] = useState<string>();
   const [gitBusy, setGitBusy] = useState(false);
   const [history, setHistory] = useState<{ hash: string; date: string; author: string; message: string }[]>();
   const syncVault = async () => {
@@ -451,9 +475,11 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     { label: 'Open settings', run: () => { if (flushFile()) router.push('/settings'); } },
   ];
 
+  const toolbarIconStyle = [styles.headerIcon, { tintColor: colors.textPrimary }];
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       <View style={styles.container}>
+      <View style={styles.container} importantForAccessibility={inlineCommands ? 'no-hide-descendants' : 'auto'}>
       {vault && <>
         <SearchModal visible={searchVisible} vaultPath={vault.path}
           onClose={() => setSearchVisible(false)} onFileSelect={openNote}
@@ -462,13 +488,6 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         <CreateModal visible={!!createDir} currentDir={createDir ?? vault.path}
           onClose={() => { setCreateDir(undefined); setOverlay('files'); }} onCreated={refreshFiles} />
       </>}
-      {overlay && vault && (
-        <EditorOverlay key={overlay} mode={overlay} vaultPath={vault.path} notePath={displayedPath || vault.path}
-          editIconPath={editIconPath} initialFolder={browseDir} vaultName={vault.name} commands={commands} fileCommands={libraryCommands}
-          onSwitchVault={() => { if (flushFile()) setVaultSwitcherVisible(true); }}
-          onCreate={folder => { setBrowseDir(folder); setCreateDir(folder); }} onRefresh={refreshFiles}
-          onClose={() => { setOverlay(null); setEditIconPath(undefined); }} onOpenNote={openNote} />
-      )}
       <Modal visible={history !== undefined} onRequestClose={() => setHistory(undefined)} animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary, padding: 16 }}>
           <TouchableOpacity accessibilityRole="button" onPress={() => setHistory(undefined)}>
@@ -483,7 +502,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         </SafeAreaView>
       </Modal>
       {/* Header */}
-      {!focusMode && <View style={collapsibleHeader ? [styles.headerOverlay, { height: headerHeight || undefined }] : undefined}
+      {!focusMode && <View style={collapsibleHeader ? styles.headerOverlay : undefined}
         pointerEvents={collapsibleHeader && headerHidden ? 'none' : 'box-none'}
         accessibilityElementsHidden={collapsibleHeader && headerHidden}
         importantForAccessibility={collapsibleHeader && headerHidden ? 'no-hide-descendants' : 'auto'}>
@@ -491,20 +510,18 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}
           style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.bgTertiary }, readingHeaderStyle]}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={styles.headerButton}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
           onPress={handleBack}
           activeOpacity={0.7}
         >
-          <Ionicons
-            name="chevron-back"
-            size={24}
-            color={colors.textPrimary}
-          />
+          <Image source={toolbarIcons.back} style={toolbarIconStyle} />
         </TouchableOpacity>
 
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Browse files"
           style={styles.headerButton} onPress={() => openOverlay('files')}>
-          <Ionicons name="folder-outline" size={21} color={colors.textPrimary} />
+          <Image source={toolbarIcons.files} style={toolbarIconStyle} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={[styles.fileName, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -516,7 +533,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         <View style={styles.headerActions}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Command palette"
             style={styles.headerButton} onPress={openCommands}>
-            <Ionicons name="terminal-outline" size={21} color={colors.textPrimary} />
+            <Image source={toolbarIcons.commands} style={toolbarIconStyle} />
           </TouchableOpacity>
           {isDirty && (
             <TouchableOpacity
@@ -529,25 +546,20 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
           )}
           <TouchableOpacity
             style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel={workspace.viewMode === 'edit' && !anchor ? 'Read note' : 'Edit note'}
             onPress={toggleViewMode}
           >
-            <Ionicons
-              name={
-                (workspace.viewMode === 'edit' && !anchor) ? 'eye-outline' : 'create-outline'
-              }
-              size={22}
-              color={colors.textPrimary}
-            />
+            <Image source={workspace.viewMode === 'edit' && !anchor ? toolbarIcons.preview : toolbarIcons.edit}
+              style={toolbarIconStyle} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel="More actions"
             onPress={() => setMenuVisible(!menuVisible)}
           >
-            <Ionicons
-              name="ellipsis-vertical"
-              size={22}
-              color={colors.textPrimary}
-            />
+            <Image source={toolbarIcons.more} style={toolbarIconStyle} />
           </TouchableOpacity>
         </View>
         </Animated.View>
@@ -812,6 +824,14 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         </KeyboardAvoidingView>
       </Modal>
       </View>
+      {overlay && vault && (
+        <EditorOverlay key={overlay} mode={overlay} vaultPath={vault.path} notePath={displayedPath || vault.path}
+          editIconPath={editIconPath} initialFolder={browseDir} vaultName={vault.name} commands={commands} fileCommands={libraryCommands}
+          onSwitchVault={() => { if (flushFile()) setVaultSwitcherVisible(true); }}
+          onCreate={folder => { setBrowseDir(folder); setCreateDir(folder); }} onRefresh={refreshFiles}
+          onClose={closeOverlay} onOpenNote={openNote} />
+      )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -834,10 +854,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 8,
     borderBottomWidth: 1,
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 8,
   },
   headerCenter: {
     flex: 1,
@@ -862,9 +878,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   headerButton: {
-    padding: 8,
+    width: 40,
+    height: 44,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  headerIcon: { width: 24, height: 24 },
   saveButton: {
     paddingHorizontal: 14,
     paddingVertical: 6,

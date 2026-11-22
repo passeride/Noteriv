@@ -58,6 +58,22 @@ const toolbarIcons = {
   more: require('../assets/images/editor-toolbar/more.png'),
 };
 
+function filePanelSwipe(enabled: boolean, openFiles: () => void) {
+  return Gesture.Pan()
+    .enabled(enabled)
+    .hitSlop({ left: 0, width: 56 })
+    .activeOffsetX(18)
+    .failOffsetX(-8)
+    .failOffsetY([-16, 16])
+    .maxPointers(1)
+    .runOnJS(true)
+    .onEnd((event, success) => {
+      if (success && event.translationX >= 48 && event.translationX > Math.abs(event.translationY) * 1.5) {
+        openFiles();
+      }
+    });
+}
+
 export default function EditorRoute() {
   return <EditorScreen />;
 }
@@ -124,11 +140,11 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     else router.replace(target);
   }, [flushFile, root, router]);
 
-  const swipeGesture = Gesture.Pan()
+  const swipeBetweenNotes = Gesture.Pan()
     .activeOffsetX([-30, 30])
     .failOffsetY([-10, 10])
-    .onEnd((e) => {
-      if (Math.abs(e.velocityX) < 300) return;
+    .onEnd((e, success) => {
+      if (!success || Math.abs(e.velocityX) < 300) return;
       if (e.translationX > 80 && currentIndex > 0) {
         navigateToNote(siblingNotes[currentIndex - 1].path);
       } else if (e.translationX < -80 && currentIndex < siblingNotes.length - 1) {
@@ -370,6 +386,9 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     setOverlay(mode);
   }, []);
   const openCommands = useCallback(() => openOverlay('commands'), [openOverlay]);
+  const openFiles = useCallback(() => openOverlay('files'), [openOverlay]);
+  const canSwipeFiles = !!vault && !overlay && !searchVisible && !menuVisible && Platform.OS !== 'web';
+  const noteGestures = Gesture.Exclusive(filePanelSwipe(canSwipeFiles, openFiles), swipeBetweenNotes);
   const pullHeader = Gesture.Pan()
     .enabled(!!vault && !overlay && !searchVisible)
     .activeOffsetY(18)
@@ -379,6 +398,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       if (event.translationY >= 52 && event.translationY > Math.abs(event.translationX) * 1.5) openCommands();
     })
     .runOnJS(true);
+  const headerGestures = Gesture.Race(filePanelSwipe(canSwipeFiles, openFiles), pullHeader);
   const openNote = (notePath: string) => {
     if (notePath !== currentFile && flushFile()) {
       router.push({ pathname: '/editor', params: { path: notePath } });
@@ -466,7 +486,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       { label: 'Set banner from local image', run: () => void chooseBanner() },
       { label: 'Git: File history and changelog', run: () => void showFileHistory() },
     ] : []),
-    { label: 'Browse files', run: () => openOverlay('files') },
+    { label: 'Browse files', run: openFiles },
     { label: 'Save note', run: handleSave },
     { label: (workspace.viewMode === 'edit' && !anchor) ? 'Switch to reading mode' : 'Switch to editing mode', run: toggleViewMode },
     { label: focusMode ? 'Exit focus mode' : 'Enter focus mode', run: () => setFocusMode(value => !value) },
@@ -506,7 +526,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         pointerEvents={collapsibleHeader && headerHidden ? 'none' : 'box-none'}
         accessibilityElementsHidden={collapsibleHeader && headerHidden}
         importantForAccessibility={collapsibleHeader && headerHidden ? 'no-hide-descendants' : 'auto'}>
-        <GestureDetector gesture={pullHeader}>
+        <GestureDetector gesture={headerGestures}>
         <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}
           style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.bgTertiary }, readingHeaderStyle]}>
         <TouchableOpacity
@@ -520,7 +540,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         </TouchableOpacity>
 
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Browse files"
-          style={styles.headerButton} onPress={() => openOverlay('files')}>
+          style={styles.headerButton} onPress={openFiles}>
           <Image source={toolbarIcons.files} style={toolbarIconStyle} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -706,7 +726,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       )}
 
       {/* Editor / Preview / Board */}
-      <GestureDetector gesture={swipeGesture}>
+      <GestureDetector gesture={noteGestures}>
         <View style={styles.editorContainer}>
           {loadingNote ? null : !displayedPath ? (
             <Text style={{ color: colors.textSecondary, padding: 20 }}>Open a note from the file panel.</Text>

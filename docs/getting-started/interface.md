@@ -105,6 +105,8 @@ Several panels can appear in the sidebar area, toggled via keyboard shortcuts or
 
 The editor area is the central workspace where you write and read your notes. It uses CodeMirror 6 as the editing engine, providing fast, responsive text editing with full markdown support.
 
+On mobile, swipe right from just inside the left edge of the note or its toolbar to open the file panel. Horizontal swipes farther inside the note switch between notes. You can also open the file panel with the folder button or the **Browse files** command.
+
 ### Editor features
 
 - **Syntax highlighting** in source mode for markdown elements, code blocks, frontmatter, and more.

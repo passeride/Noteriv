@@ -1,0 +1,9 @@
+{
+  "id": "spinnvill-pattern",
+  "name": "Spinnvill Patterns",
+  "version": "0.1.0",
+  "description": "Preview Spinnvill PatternSpec JSON in a Noteriv note.",
+  "author": "Noteriv",
+  "main": "main.js",
+  "codeBlockLanguages": ["spinnvill-pattern"]
+}

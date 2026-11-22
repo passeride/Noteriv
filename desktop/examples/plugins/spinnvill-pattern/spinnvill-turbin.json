@@ -1,0 +1,47 @@
+{
+  "x": "(inner+(outer-inner)*t)*cos(tau*i/n+twist*t)",
+  "y": "(inner+(outer-inner)*t)*sin(tau*i/n+twist*t)",
+  "z": "-depth*pow(t,2)",
+  "tMin": 0,
+  "tMax": 1,
+  "samples": 144,
+  "paths": 48,
+  "parameters": [
+    { "name": "inner", "value": 1.6, "min": 0.5, "max": 4, "step": 0.1 },
+    { "name": "outer", "value": 11.4, "min": 7, "max": 12.1, "step": 0.1 },
+    { "name": "twist", "value": 1.15, "min": 0.1, "max": 2.5, "step": 0.05 },
+    { "name": "depth", "value": 0.12, "min": 0, "max": 0.3, "step": 0.01 }
+  ],
+  "safeZ": 5,
+  "feed": 300,
+  "plunge": 100,
+  "rpm": 12000,
+  "tool": 1,
+  "color": "#237e80",
+  "maskClearance": 0.15,
+  "layers": [
+    {
+      "kind": "formula",
+      "color": "#a75b35",
+      "formula": {
+        "x": "(radius+i*spacing)*cos(t)",
+        "y": "(radius+i*spacing)*sin(t)",
+        "z": "-0.08",
+        "tMin": 0,
+        "tMax": 6.283185307179586,
+        "samples": 480,
+        "paths": 3,
+        "parameters": [
+          { "name": "radius", "value": 11.85, "min": 10, "max": 15, "step": 0.05 },
+          { "name": "spacing", "value": 0.3, "min": 0.1, "max": 0.8, "step": 0.05 }
+        ],
+        "safeZ": 5,
+        "feed": 300,
+        "plunge": 100,
+        "rpm": 12000,
+        "tool": 1
+      }
+    },
+    { "kind": "circle-mask", "x": 0, "y": 0, "radius": 2.1, "color": "#a75b35" }
+  ]
+}

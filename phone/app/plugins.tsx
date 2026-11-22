@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
+  TextInput,
   ScrollView,
   TouchableOpacity,
   Switch,
@@ -15,12 +16,18 @@ import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import {
   PluginManifest,
-  CommunityPluginEntry,
+  type CatalogPlugin,
+  type PluginSource,
+  COMMUNITY_SOURCE,
+  fetchPluginCatalog,
+  loadPluginSources,
+  parsePluginSource,
+  savePluginSources,
+  sourceKey,
   getInstalledPlugins,
   getEnabledPluginIds,
   setPluginEnabled,
   uninstallPlugin,
-  fetchCommunityPlugins,
   installCommunityPlugin,
   installLocalPlugin,
 } from '@/lib/plugins';
@@ -36,11 +43,21 @@ export default function PluginsScreen() {
   const { vault } = useApp();
   const { colors } = useTheme();
 
-  const [activeTab, setActiveTab] = useState<Tab>('installed');
+  const { action } = useLocalSearchParams<{ action?: string }>();
+  const [activeTab, setActiveTab] = useState<Tab>(action === 'sources' ? 'community' : 'installed');
   const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
-  const [communityPlugins, setCommunityPlugins] = useState<CommunityPluginEntry[]>([]);
+  const [communityPlugins, setCommunityPlugins] = useState<CatalogPlugin[]>([]);
   const [loadingCommunity, setLoadingCommunity] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState('');
+  const [sources, setSources] = useState<PluginSource[] | null>(null);
+  const [source, setSource] = useState<PluginSource>(COMMUNITY_SOURCE);
+  const [repository, setRepository] = useState('');
+  const [branch, setBranch] = useState('main');
+  const [sourceError, setSourceError] = useState('');
+  const [reload, setReload] = useState(0);
+  const sourceOptions = [COMMUNITY_SOURCE, ...(sources ?? [])];
+  const officialSelected = sourceKey(source) === sourceKey(COMMUNITY_SOURCE);
 
   const vaultPath = vault?.path ?? '';
 
@@ -63,13 +80,56 @@ export default function PluginsScreen() {
   }, [refreshPlugins]);
 
   useEffect(() => {
-    if (activeTab === 'community' && communityPlugins.length === 0) {
-      setLoadingCommunity(true);
-      fetchCommunityPlugins()
-        .then(setCommunityPlugins)
-        .finally(() => setLoadingCommunity(false));
+    if (!vaultPath) return;
+    let active = true;
+    setSources(null);
+    setSource(COMMUNITY_SOURCE);
+    loadPluginSources(vaultPath).then(
+      value => { if (active) setSources(value); },
+      error => { if (active) setSourceError(String(error)); },
+    );
+    return () => { active = false; };
+  }, [vaultPath]);
+
+  useEffect(() => {
+    if (!vaultPath || activeTab !== 'community') return;
+    const abort = new AbortController();
+    setLoadingCommunity(true);
+    setCatalogError('');
+    fetchPluginCatalog(source, abort.signal).then(
+      entries => { if (!abort.signal.aborted) setCommunityPlugins(entries); },
+      error => { if (!abort.signal.aborted) setCatalogError(String(error)); },
+    ).finally(() => { if (!abort.signal.aborted) setLoadingCommunity(false); });
+    return () => abort.abort();
+  }, [activeTab, source, reload, vaultPath]);
+
+  useEffect(() => {
+    if (action === 'sources') setActiveTab('community');
+  }, [action]);
+
+  function selectSource(next: PluginSource) {
+    setCommunityPlugins([]);
+    if (sourceKey(next) === sourceKey(source)) setReload(count => count + 1);
+    setSource(next);
+  }
+
+  function editSources(remove = false) {
+    if (!sources || !vaultPath) return;
+    setSourceError('');
+    try {
+      const next = remove ? COMMUNITY_SOURCE : parsePluginSource(repository, branch);
+      const duplicate = sourceOptions.some(item => sourceKey(item) === sourceKey(next));
+      if (remove || !duplicate) {
+        const updated = remove ? sources.filter(item => sourceKey(item) !== sourceKey(source)) : [...sources, next];
+        savePluginSources(vaultPath, updated);
+        setSources(updated);
+      }
+      if (!remove) setRepository('');
+      selectSource(next);
+    } catch (error) {
+      setSourceError(String(error));
     }
-  }, [activeTab]);
+  }
 
   const handleToggle = useCallback(
     async (plugin: InstalledPlugin) => {
@@ -109,27 +169,21 @@ export default function PluginsScreen() {
   );
 
   const handleInstallCommunity = useCallback(
-    async (entry: CommunityPluginEntry) => {
-      if (!vaultPath) return;
+    async (entry: CatalogPlugin) => {
+      if (!vaultPath || installingId) return;
       setInstallingId(entry.id);
       try {
-        const success = await installCommunityPlugin(vaultPath, entry);
-        if (success) {
-          await refreshPlugins();
-          Alert.alert('Installed', `"${entry.name}" has been installed.`);
-        } else {
-          Alert.alert('Error', 'Failed to install plugin.');
-        }
-      } catch {
-        Alert.alert('Error', 'Failed to install plugin.');
+        await installCommunityPlugin(vaultPath, entry);
+        await refreshPlugins();
+      } catch (error) {
+        Alert.alert('Unable to install plugin', String(error));
       } finally {
         setInstallingId(null);
       }
     },
-    [vaultPath, refreshPlugins]
+    [vaultPath, refreshPlugins, installingId]
   );
 
-  const { action } = useLocalSearchParams<{ action?: string }>();
   const requestedInstall = useRef(false);
   const importPlugin = useCallback(async () => {
     if (!vaultPath) return;
@@ -149,7 +203,7 @@ export default function PluginsScreen() {
     void importPlugin();
   }, [action, vaultPath, importPlugin]);
 
-  const installedIds = new Set(plugins.map((p) => p.manifest.id));
+  const installedIds = new Set(plugins.map((p) => p.manifest.id.toLowerCase()));
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
@@ -232,7 +286,44 @@ export default function PluginsScreen() {
           )}
         </ScrollView>
       ) : (
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+          <View style={styles.sourceSection}>
+            <Text style={[styles.pluginName, { color: colors.textPrimary }]}>GitHub plugin sources</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sourceOptions}>
+              {sourceOptions.map(item => {
+                const selected = sourceKey(item) === sourceKey(source);
+                return (
+                  <TouchableOpacity key={sourceKey(item)} accessibilityRole="button"
+                    accessibilityState={{ selected }} onPress={() => selectSource(item)}
+                    style={[styles.sourceChip, { backgroundColor: selected ? colors.accent : colors.bgTertiary }]}>
+                    <Text style={{ color: selected ? colors.bgPrimary : colors.textPrimary }}>
+                      {item === COMMUNITY_SOURCE ? 'Noteriv Community' : item.repository + ' · ' + item.branch}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TextInput style={[styles.sourceInput, { color: colors.textPrimary, borderColor: colors.border }]}
+              accessibilityLabel="GitHub repository" placeholder="owner/repo" placeholderTextColor={colors.textMuted}
+              autoCapitalize="none" autoCorrect={false} value={repository} onChangeText={setRepository} />
+            <TextInput style={[styles.sourceInput, { color: colors.textPrimary, borderColor: colors.border }]}
+              accessibilityLabel="GitHub branch" placeholder="Branch" placeholderTextColor={colors.textMuted}
+              autoCapitalize="none" autoCorrect={false} value={branch} onChangeText={setBranch} />
+            <View style={styles.sourceOptions}>
+              <TouchableOpacity accessibilityRole="button"
+                disabled={!sources || !repository.trim() || !branch.trim()} onPress={() => editSources()}>
+                <Text style={{ color: sources && repository.trim() && branch.trim() ? colors.accent : colors.textMuted }}>
+                  Add source
+                </Text>
+              </TouchableOpacity>
+              {!officialSelected && (
+                <TouchableOpacity accessibilityRole="button" onPress={() => editSources(true)}>
+                  <Text style={{ color: colors.accent }}>Remove source</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {!!sourceError && <Text accessibilityRole="alert" style={{ color: colors.textPrimary }}>{sourceError}</Text>}
+          </View>
           {loadingCommunity ? (
             <View style={styles.loadingState}>
               <ActivityIndicator size="large" color={colors.accent} />
@@ -240,19 +331,24 @@ export default function PluginsScreen() {
                 Fetching community plugins...
               </Text>
             </View>
+          ) : catalogError ? (
+            <View style={styles.emptyState}>
+              <Text accessibilityRole="alert" style={{ color: colors.textPrimary }}>{catalogError}</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setReload(value => value + 1)}>
+                <Text style={{ color: colors.accent }}>Retry</Text>
+              </TouchableOpacity>
+            </View>
           ) : communityPlugins.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="cloud-offline-outline" size={48} color={colors.textMuted} />
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 No community plugins available
               </Text>
-              <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
-                Check your internet connection or try again later
-              </Text>
+
             </View>
           ) : (
             communityPlugins.map((entry) => {
-              const isInstalled = installedIds.has(entry.id);
+              const isInstalled = installedIds.has(entry.id.toLowerCase());
               const isInstalling = installingId === entry.id;
 
               return (
@@ -283,7 +379,7 @@ export default function PluginsScreen() {
                       isInstalling && { opacity: 0.6 },
                     ]}
                     onPress={() => !isInstalled && !isInstalling && handleInstallCommunity(entry)}
-                    disabled={isInstalled || isInstalling}
+                    disabled={isInstalled || installingId !== null}
                   >
                     {isInstalling ? (
                       <ActivityIndicator size="small" color={colors.bgPrimary} />
@@ -332,6 +428,11 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
+
+  sourceSection: { gap: 10, marginBottom: 18 },
+  sourceOptions: { flexDirection: 'row', gap: 14, alignItems: 'center' },
+  sourceChip: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  sourceInput: { borderWidth: 1, borderRadius: 8, padding: 10 },
 
   // Empty state
   emptyState: {

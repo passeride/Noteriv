@@ -340,6 +340,11 @@ function Home() {
 
   // Ecosystem
   const [showPluginManager, setShowPluginManager] = useState(false);
+  const [pluginManagerTab, setPluginManagerTab] = useState<"installed" | "community">("installed");
+  const openPlugins = useCallback((tab: "installed" | "community" = "installed") => {
+    setPluginManagerTab(tab);
+    setShowPluginManager(true);
+  }, []);
   const [showCSSSnippets, setShowCSSSnippets] = useState(false);
 
   // New features
@@ -2688,7 +2693,8 @@ function Home() {
       audioRecorder: () => setShowAudioRecorder(true),
       attachments: () => setShowAttachments(true),
       slidePresentation: () => setShowSlidePresentation(true),
-      pluginManager: () => setShowPluginManager(true),
+      pluginManager: () => openPlugins(),
+      pluginSources: () => openPlugins("community"),
       cssSnippets: () => setShowCSSSnippets(true),
       calendarView: () => setShowCalendarView(true),
       vaultInsights: () => setShowVaultInsights(true),
@@ -2743,7 +2749,7 @@ function Home() {
       unfoldAll: () => { const v = shownView(); if (v) unfoldAll(v); },
     };
     actions[action]?.();
-  }, [handleSave, handleSaveAs, handleNewFile, handleNewFolder, handleOpenFile, activeTab, tabs, closeTab, handleCloseAllTabs, handleCloseOtherTabs, handleDeleteFile, handleGitSync, handleToggleFullscreen, handleToggleSidebar, handleZenMode, handleDailyNote, activeVault, openFile, content, currentTab, handleNewBoard, handleNewDrawing, handleInsertToc, handleUpdateToc, handleInsertDataview, handleFocusMode, handlePublish, pdfFile, handleTogglePin, handleSplitRight, handleCloseSplit, openKnowledgeIngest, viewMode, layoutStore, saveLayoutAs, handleNewBase, handleUniqueNote, openPopout, webReaderUrl, setWebReaderUrl]);
+  }, [handleSave, handleSaveAs, handleNewFile, handleNewFolder, handleOpenFile, activeTab, tabs, closeTab, handleCloseAllTabs, handleCloseOtherTabs, handleDeleteFile, handleGitSync, handleToggleFullscreen, handleToggleSidebar, handleZenMode, handleDailyNote, activeVault, openFile, content, currentTab, handleNewBoard, handleNewDrawing, handleInsertToc, handleUpdateToc, handleInsertDataview, handleFocusMode, handlePublish, pdfFile, handleTogglePin, handleSplitRight, handleCloseSplit, openKnowledgeIngest, viewMode, layoutStore, saveLayoutAs, handleNewBase, handleUniqueNote, openPopout, webReaderUrl, setWebReaderUrl, openPlugins]);
 
   // ============================================================
   // Recent commands handler
@@ -3392,7 +3398,7 @@ function Home() {
           onSettingsChange={handleSettingsChange}
           onHotkeysChange={handleHotkeysChange}
           onVaultUpdate={(v) => { setActiveVault(v); setVaults((prev) => prev.map((x) => x.id === v.id ? v : x)); }}
-          onOpenPlugins={() => { setShowSettings(false); setShowPluginManager(true); }}
+          onOpenPlugins={() => { setShowSettings(false); openPlugins(); }}
           onOpenSnippets={() => { setShowSettings(false); setShowCSSSnippets(true); }}
           pluginTabs={pluginUI.settingsTabs}
           onClose={() => setShowSettings(false)}
@@ -3558,6 +3564,8 @@ function Home() {
       {/* Plugin manager */}
       {showPluginManager && activeVault && (
         <PluginManagerModal
+          key={activeVault.path + ":" + pluginManagerTab}
+          initialTab={pluginManagerTab}
           vaultPath={activeVault.path}
           plugins={pluginInstances}
           onTogglePlugin={async (id, enabled) => {

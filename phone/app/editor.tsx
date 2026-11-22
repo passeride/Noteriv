@@ -421,6 +421,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     ...pluginCommands,
     ...(vault ? [{ label: 'Install plugin from folder', run: () => {
       if (flushFile()) router.push({ pathname: '/plugins', params: { action: 'install' } });
+    } }, { label: 'GitHub plugin sources', run: () => {
+      if (flushFile()) router.push({ pathname: '/plugins', params: { action: 'sources' } });
     } }] : []),
     ...libraryCommands,
     { label: settings.hideReadingMetadata ? 'Show metadata in reading view' : 'Hide metadata in reading view',

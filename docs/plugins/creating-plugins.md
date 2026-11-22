@@ -364,3 +364,37 @@ To share your plugin with the Noteriv community:
 4. Submit a pull request.
 
 After review and approval, your plugin will be available to all Noteriv users through the community plugin browser.
+
+## GitHub plugin sources
+
+Open **Plugins → Community** or run **GitHub plugin sources** from the command
+palette. Enter a public GitHub repository as `owner/repo` or its HTTPS GitHub
+URL, enter the branch, and choose **Add source**. Switch between sources in
+Community. The vault stores the list in `.noteriv/plugin-sources.json`.
+
+For a catalog repository, put a `manifest.json` with a `plugins` array at the
+root. Each entry describes the plugin and gives its repository-relative folder.
+List extra top-level text assets in `files`. Noteriv reads the plugin manifest
+from its folder and uses its `main` field to find the entry script.
+
+```json
+{
+  "plugins": [
+    {
+      "id": "example",
+      "name": "Example",
+      "version": "1.0.0",
+      "description": "Example plugin",
+      "author": "Example author",
+      "dir": "plugins/example",
+      "files": ["engine-index.json", "engine-0.txt"]
+    }
+  ]
+}
+```
+
+A repository that holds one plugin can put the plugin's own `manifest.json`
+and entry script at the root. In this case, put the optional `files` list
+directly in that manifest. The entry script may be up to 500,000 bytes and an
+asset up to 128 KiB. Noteriv reads each installation's files from the commit
+that supplied the catalog, even if the branch moves during installation.

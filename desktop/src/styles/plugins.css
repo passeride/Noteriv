@@ -421,3 +421,29 @@
 .pm-inline-link:hover {
   opacity: 0.8;
 }
+
+.pm-source-controls {
+  display: grid;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border, #45475a);
+}
+
+.pm-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pm-source-input {
+  flex: 1 1 140px;
+  min-width: 0;
+  border: 1px solid var(--border, #45475a);
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: var(--bg-secondary, #181825);
+  color: var(--text-primary, #cdd6f4);
+}
+
+.pm-source-branch { flex-basis: 70px; }

@@ -1,3 +1,8 @@
+import {
+  COMMUNITY_SOURCE, PLUGIN_SOURCES_PATH, fetchPluginCatalog, installCatalogPlugin,
+  parsePluginSource, parseStoredPluginSources, sourceKey,
+  type CatalogPlugin, type PluginSource,
+} from "../../../packages/plugin-catalog/catalog";
 import { relativePathFromVault } from "@/lib/knowledge/path-safety";
 // ─── Plugin System for Noteriv ───
 // Plugins live in {vaultPath}/.noteriv/plugins/{plugin-id}/
@@ -708,64 +713,34 @@ export class PluginManager {
 
 // ── Community plugins ──
 
-const COMMUNITY_PLUGINS_BASE =
-  "https://raw.githubusercontent.com/thejacedev/NoterivPlugins/master";
+export { COMMUNITY_SOURCE, fetchPluginCatalog, parsePluginSource, sourceKey };
+export type { CatalogPlugin, PluginSource };
 
-export interface CommunityPluginEntry {
-  id: string;
-  name: string;
-  description: string;
-  author: string;
-  version: string;
-  dir: string;
+export async function loadPluginSources(vaultPath: string): Promise<PluginSource[]> {
+  const fs = window.electronAPI;
+  return fs ? parseStoredPluginSources(await fs.readFile(`${vaultPath}/${PLUGIN_SOURCES_PATH}`)) : [];
 }
 
-export interface CommunityPluginManifest {
-  name: string;
-  description: string;
-  version: string;
-  plugins: CommunityPluginEntry[];
-}
-
-export async function fetchCommunityPluginManifest(): Promise<CommunityPluginManifest | null> {
-  try {
-    const res = await fetch(`${COMMUNITY_PLUGINS_BASE}/manifest.json`);
-    if (!res.ok) return null;
-    return (await res.json()) as CommunityPluginManifest;
-  } catch {
-    return null;
+export async function savePluginSources(vaultPath: string, sources: PluginSource[]): Promise<void> {
+  const fs = window.electronAPI;
+  if (!fs || !await fs.createDir(`${vaultPath}/.noteriv`) ||
+      !await fs.writeFile(`${vaultPath}/${PLUGIN_SOURCES_PATH}`, JSON.stringify(sources, null, 2) + "\n")) {
+    throw new Error("Unable to save plugin sources in the vault.");
   }
 }
 
-export async function fetchCommunityPluginFile(filePath: string): Promise<string | null> {
-  try {
-    const res = await fetch(`${COMMUNITY_PLUGINS_BASE}/${filePath}`);
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
-    return null;
-  }
-}
+export async function installCommunityPlugin(vaultPath: string, entry: CatalogPlugin): Promise<void> {
+  const fs = window.electronAPI;
+  if (!fs) throw new Error("The vault file API is unavailable.");
 
-export async function installCommunityPlugin(
-  vaultPath: string,
-  entry: CommunityPluginEntry
-): Promise<boolean> {
-  if (!window.electronAPI) return false;
-
-  // Fetch manifest.json and main.js from the community repo
-  const manifestContent = await fetchCommunityPluginFile(`${entry.dir}/manifest.json`);
-  const mainContent = await fetchCommunityPluginFile(`${entry.dir}/main.js`);
-
-  if (!manifestContent || !mainContent) return false;
-
-  const pluginDir = `${vaultPath}/${PLUGINS_DIR}/${entry.id}`;
-  await window.electronAPI.createDir(`${vaultPath}/.noteriv`);
-  await window.electronAPI.createDir(`${vaultPath}/${PLUGINS_DIR}`);
-  await window.electronAPI.createDir(pluginDir);
-
-  await window.electronAPI.writeFile(`${pluginDir}/manifest.json`, manifestContent);
-  await window.electronAPI.writeFile(`${pluginDir}/main.js`, mainContent);
-
-  return true;
+  const plugins = `${vaultPath}/${PLUGINS_DIR}`;
+  const target = `${plugins}/${entry.id}`;
+  const stage = `${vaultPath}/.noteriv/.plugin-install-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  await installCatalogPlugin(entry, {
+    hasPlugin: async () => (await fs.readDir(plugins)).some(file => file.name.toLowerCase() === entry.id.toLowerCase()),
+    createStage: async () => await fs.createDir(plugins) && await fs.createDir(stage),
+    write: (name, content) => fs.writeFile(`${stage}/${name}`, content),
+    publish: () => fs.rename(stage, target),
+    discardStage: () => fs.deleteDir(stage),
+  });
 }

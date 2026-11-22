@@ -7,6 +7,7 @@ on:
       - 'phone/**'
       - 'crates/noteriv-git/**'
       - 'packages/git-client/**'
+      - 'packages/plugin-catalog/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 

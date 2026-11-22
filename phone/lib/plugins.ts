@@ -1,7 +1,12 @@
+import {
+  COMMUNITY_SOURCE, PLUGIN_SOURCES_PATH, fetchPluginCatalog, installCatalogPlugin,
+  parsePluginSource, parseStoredPluginSources, sourceKey,
+  type CatalogPlugin, type PluginSource,
+} from '../../packages/plugin-catalog/catalog';
 import { Directory, File } from 'expo-file-system';
 import { vaultFileUri } from '@/lib/sync-state';
 import { pluginEvents } from './plugin-events';
-import { readDir, readFile, writeFile, createDir, deleteDir, fileExists } from '@/lib/file-system';
+import { readDir, readFile, writeFile, createDir, deleteDir, fileExists, movePath } from '@/lib/file-system';
 
 // --- Types ---
 
@@ -28,22 +33,10 @@ export interface PluginConfig {
   enabled: string[];
 }
 
-export interface CommunityPluginEntry {
-  id: string;
-  name: string;
-  description: string;
-  author: string;
-  version: string;
-  dir: string;
-  mobileHost?: boolean;
-  codeBlockLanguages?: string[];
-}
-
 // --- Constants ---
 
 const PLUGINS_DIR = '.noteriv/plugins';
 const PLUGIN_CONFIG_FILE = '.noteriv/plugin-config.json';
-const COMMUNITY_URL = 'https://raw.githubusercontent.com/thejacedev/NoterivPlugins/master';
 
 // --- Helpers ---
 
@@ -174,51 +167,32 @@ export async function installLocalPlugin(vaultPath: string): Promise<PluginManif
   return manifest;
 }
 
-// --- Community ---
+// --- GitHub plugin sources ---
 
-export async function fetchCommunityPlugins(): Promise<CommunityPluginEntry[]> {
-  try {
-    const res = await fetch(`${COMMUNITY_URL}/manifest.json`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data.plugins ?? data) as CommunityPluginEntry[];
-  } catch {
-    return [];
+export { COMMUNITY_SOURCE, fetchPluginCatalog, parsePluginSource, sourceKey };
+export type { CatalogPlugin, PluginSource };
+
+export async function loadPluginSources(vaultPath: string): Promise<PluginSource[]> {
+  return parseStoredPluginSources(await readFile(vaultFileUri(vaultPath, PLUGIN_SOURCES_PATH)));
+}
+
+export function savePluginSources(vaultPath: string, sources: PluginSource[]): void {
+  if (!writeFile(vaultFileUri(vaultPath, PLUGIN_SOURCES_PATH), JSON.stringify(sources, null, 2) + '\n')) {
+    throw new Error('Unable to save plugin sources in the vault.');
   }
 }
 
-export async function installCommunityPlugin(
-  vaultPath: string,
-  entry: CommunityPluginEntry
-): Promise<boolean> {
-  const pluginDir = `${pluginsPath(vaultPath)}/${entry.id}`;
-  createDir(pluginDir);
-
-  // Write manifest
-  const manifest: PluginManifest = {
-    id: entry.id,
-    name: entry.name,
-    version: entry.version,
-    description: entry.description,
-    author: entry.author,
-    main: 'main.js',
-    mobileHost: entry.mobileHost === true,
-    codeBlockLanguages: entry.codeBlockLanguages,
-  };
-  writeFile(`${pluginDir}/manifest.json`, JSON.stringify(manifest, null, 2));
-
-  // Fetch main.js from community repo
-  try {
-    const res = await fetch(`${COMMUNITY_URL}/${entry.dir}/main.js`);
-    if (res.ok) {
-      const mainContent = await res.text();
-      writeFile(`${pluginDir}/main.js`, mainContent);
-    } else {
-      writeFile(`${pluginDir}/main.js`, '// Plugin placeholder\n');
-    }
-  } catch {
-    writeFile(`${pluginDir}/main.js`, '// Plugin placeholder\n');
-  }
-
-  return true;
+export async function installCommunityPlugin(vaultPath: string, entry: CatalogPlugin): Promise<void> {
+  const plugins = vaultFileUri(vaultPath, PLUGINS_DIR);
+  const target = vaultFileUri(vaultPath, `${PLUGINS_DIR}/${entry.id}`);
+  const stage = vaultFileUri(vaultPath, `.noteriv/.plugin-install-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const hasPlugin = () => readDir(plugins).some(file => file.name.toLowerCase() === entry.id.toLowerCase());
+  await installCatalogPlugin(entry, {
+    hasPlugin,
+    createStage: () => createDir(plugins) && createDir(stage),
+    write: (name, content) => writeFile(`${stage}/${name}`, content),
+    publish: () => !hasPlugin() && movePath(stage, target),
+    discardStage: () => deleteDir(stage),
+  });
+  pluginEvents.emit('config', vaultPath);
 }

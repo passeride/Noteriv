@@ -3,9 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { PluginInstance } from "@/lib/plugin-api";
 import {
-  CommunityPluginEntry,
-  fetchCommunityPluginManifest,
-  installCommunityPlugin,
+  COMMUNITY_SOURCE, fetchPluginCatalog, installCommunityPlugin, loadPluginSources,
+  parsePluginSource, savePluginSources, sourceKey, type CatalogPlugin, type PluginSource,
 } from "@/lib/plugin-api";
 import "@/styles/plugins.css";
 
@@ -13,6 +12,7 @@ type Tab = "installed" | "community";
 
 interface PluginManagerProps {
   vaultPath: string;
+  initialTab?: Tab;
   plugins: PluginInstance[];
   onTogglePlugin: (id: string, enabled: boolean) => void;
   onInstallPlugin: () => void;
@@ -22,25 +22,35 @@ interface PluginManagerProps {
 
 export default function PluginManagerModal({
   vaultPath,
+  initialTab = "installed",
   plugins,
   onTogglePlugin,
   onInstallPlugin,
   onUninstallPlugin,
   onClose,
 }: PluginManagerProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("installed");
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [search, setSearch] = useState("");
   const [confirmUninstall, setConfirmUninstall] = useState<string | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Community state
-  const [communityEntries, setCommunityEntries] = useState<CommunityPluginEntry[]>([]);
+  const [communityEntries, setCommunityEntries] = useState<CatalogPlugin[]>([]);
   const [communityLoading, setCommunityLoading] = useState(false);
   const [communityError, setCommunityError] = useState("");
-  const [communityLoaded, setCommunityLoaded] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [communitySearch, setCommunitySearch] = useState("");
+  const [installError, setInstallError] = useState("");
+  const [sources, setSources] = useState<PluginSource[] | null>(null);
+  const [source, setSource] = useState<PluginSource>(COMMUNITY_SOURCE);
+  const [repository, setRepository] = useState("");
+  const [branch, setBranch] = useState("main");
+  const [sourceError, setSourceError] = useState("");
+  const [savingSources, setSavingSources] = useState(false);
+  const [reload, setReload] = useState(0);
+  const sourceOptions = [COMMUNITY_SOURCE, ...(sources ?? [])];
+  const officialSelected = sourceKey(source) === sourceKey(COMMUNITY_SOURCE);
 
   // Focus search on open
   useEffect(() => {
@@ -70,42 +80,73 @@ export default function PluginManagerModal({
     [onClose]
   );
 
-  const loadCommunity = async () => {
+  useEffect(() => {
+    let active = true;
+    loadPluginSources(vaultPath).then(
+      value => { if (active) setSources(value); },
+      error => { if (active) setSourceError(String(error)); },
+    );
+    return () => { active = false; };
+  }, [vaultPath]);
+
+  useEffect(() => {
+    if (activeTab !== "community") return;
+    const abort = new AbortController();
     setCommunityLoading(true);
     setCommunityError("");
-    const manifest = await fetchCommunityPluginManifest();
-    if (!manifest) {
-      setCommunityError("Failed to load community plugins. Check your connection.");
-      setCommunityLoading(false);
-      return;
-    }
-    setCommunityEntries(manifest.plugins);
-    setCommunityLoaded(true);
-    setCommunityLoading(false);
-  };
+    fetchPluginCatalog(source, abort.signal).then(
+      entries => { if (!abort.signal.aborted) setCommunityEntries(entries); },
+      error => { if (!abort.signal.aborted) setCommunityError(String(error)); },
+    ).finally(() => { if (!abort.signal.aborted) setCommunityLoading(false); });
+    return () => abort.abort();
+  }, [activeTab, source, reload]);
 
-  // Load community when tab first activated
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (activeTab === "community" && !communityLoaded && !communityLoading) {
-      loadCommunity();
+  function selectSource(next: PluginSource) {
+    setCommunityEntries([]);
+    setInstallError("");
+    if (sourceKey(next) === sourceKey(source)) setReload(count => count + 1);
+    setSource(next);
+  }
+
+  async function editSources(remove = false) {
+    if (!sources || savingSources) return;
+    setSourceError("");
+    setSavingSources(true);
+    try {
+      const next = remove ? COMMUNITY_SOURCE : parsePluginSource(repository, branch);
+      const duplicate = sourceOptions.some(item => sourceKey(item) === sourceKey(next));
+      if (remove || !duplicate) {
+        const updated = remove ? sources.filter(item => sourceKey(item) !== sourceKey(source)) : [...sources, next];
+        await savePluginSources(vaultPath, updated);
+        setSources(updated);
+      }
+      if (!remove) setRepository("");
+      selectSource(next);
+    } catch (error) {
+      setSourceError(String(error));
+    } finally {
+      setSavingSources(false);
     }
-  }, [activeTab, communityLoaded, communityLoading]);
+  }
 
   const handleInstallCommunity = useCallback(
-    async (entry: CommunityPluginEntry) => {
+    async (entry: CatalogPlugin) => {
+      if (installingId) return;
       setInstallingId(entry.id);
-      const ok = await installCommunityPlugin(vaultPath, entry);
-      setInstallingId(null);
-      if (ok) {
-        // Reload the page's plugin list — toggle it on
-        onTogglePlugin(entry.id, true);
+      setInstallError("");
+      try {
+        await installCommunityPlugin(vaultPath, entry);
+        await onTogglePlugin(entry.id, true);
+      } catch (error) {
+        setInstallError(String(error));
+      } finally {
+        setInstallingId(null);
       }
     },
-    [vaultPath, onTogglePlugin]
+    [vaultPath, onTogglePlugin, installingId]
   );
 
-  const isInstalled = (id: string) => plugins.some((p) => p.manifest.id === id);
+  const isInstalled = (id: string) => plugins.some((p) => p.manifest.id.toLowerCase() === id.toLowerCase());
 
   // Filter plugins by search query
   const filteredPlugins = plugins.filter((p) => {
@@ -308,6 +349,41 @@ export default function PluginManagerModal({
           ) : (
             /* Community tab */
             <div className="pm-community-tab">
+              <div className="pm-source-controls">
+                <div className="pm-source-row">
+                  <select
+                    aria-label="Plugin source"
+                    className="pm-source-input"
+                    value={sourceKey(source)}
+                    onChange={event => {
+                      const next = sourceOptions.find(item => sourceKey(item) === event.target.value);
+                      if (next) selectSource(next);
+                    }}
+                  >
+                    {sourceOptions.map(item => (
+                      <option key={sourceKey(item)} value={sourceKey(item)}>
+                        {item === COMMUNITY_SOURCE ? "Noteriv Community" : item.repository + " · " + item.branch}
+                      </option>
+                    ))}
+                  </select>
+                  {!officialSelected && (
+                    <button type="button" className="pm-install-btn" disabled={savingSources} onClick={() => void editSources(true)}>
+                      Remove source
+                    </button>
+                  )}
+                </div>
+                <form className="pm-source-row" onSubmit={event => { event.preventDefault(); void editSources(); }}>
+                  <input className="pm-source-input" aria-label="GitHub repository" placeholder="owner/repo"
+                    value={repository} onChange={event => setRepository(event.target.value)} />
+                  <input className="pm-source-input pm-source-branch" aria-label="GitHub branch" placeholder="Branch"
+                    value={branch} onChange={event => setBranch(event.target.value)} />
+                  <button type="submit" className="pm-install-btn" disabled={!sources || savingSources || !repository.trim() || !branch.trim()}>
+                    Add source
+                  </button>
+                </form>
+                {sourceError && <div className="pm-plugin-error" role="alert">{sourceError}</div>}
+                {installError && <div className="pm-plugin-error" role="alert">{installError}</div>}
+              </div>
               <div className="pm-toolbar">
                 <div className="pm-search-wrap">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="pm-search-icon">
@@ -340,7 +416,7 @@ export default function PluginManagerModal({
                 ) : communityError ? (
                   <div className="pm-community-status pm-community-status-err">
                     <span>{communityError}</span>
-                    <button className="pm-community-retry" onClick={loadCommunity}>Retry</button>
+                    <button className="pm-community-retry" onClick={() => setReload(count => count + 1)}>Retry</button>
                   </div>
                 ) : filteredCommunity.length === 0 ? (
                   <div className="pm-community-status">No plugins found.</div>
@@ -377,7 +453,7 @@ export default function PluginManagerModal({
                             <button
                               className="pm-community-install-btn"
                               onClick={() => handleInstallCommunity(entry)}
-                              disabled={installing}
+                              disabled={installingId !== null}
                             >
                               {installing ? "Installing..." : "Install"}
                             </button>

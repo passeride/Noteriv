@@ -59,6 +59,7 @@ export type HotkeyAction =
   | "attachments"
   | "slidePresentation"
   | "pluginManager"
+  | "pluginSources"
   | "cssSnippets"
   // New features
   | "calendarView"
@@ -180,6 +181,7 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   { action: "slidePresentation", label: "Start Presentation", keys: "", category: "View" },
   // Ecosystem
   { action: "pluginManager", label: "Plugin Manager", keys: "", category: "View" },
+  { action: "pluginSources", label: "GitHub plugin sources", keys: "", category: "View" },
   { action: "cssSnippets", label: "CSS Snippets", keys: "", category: "View" },
   // New features
   { action: "calendarView", label: "Calendar View", keys: "", category: "View" },

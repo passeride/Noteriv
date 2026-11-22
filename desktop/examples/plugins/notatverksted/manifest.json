@@ -1,0 +1,9 @@
+{
+  "id": "notatverksted",
+  "name": "Notatverksted",
+  "version": "0.1.0",
+  "description": "Prøv notatstatistikk, kommandoer og en interaktiv Markdown-sjekkliste.",
+  "author": "Noteriv",
+  "main": "main.js",
+  "codeBlockLanguages": ["notatverksted"]
+}

@@ -11,7 +11,9 @@ On desktop, Quick Open finds file names and contents in one field. Vault Search 
 
 Open **Quick open or search** from the command palette to search file names,
 paths and note text in one field. Pull down from the top of a note in reading
-view, or pull down on the editor toolbar, to open the command palette.
+view and release when the command icon is fully visible. You can also pull
+down on the editor toolbar. The command palette opens with its search field
+focused and the keyboard ready.
 Noteriv warms a bounded in-memory cache for the open vault and refreshes
 affected entries on note changes and Git pulls.
 

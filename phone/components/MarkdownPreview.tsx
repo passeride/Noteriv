@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ScrollView,
-  RefreshControl,
   StyleSheet,
   TouchableOpacity,
   Platform,
@@ -11,7 +10,10 @@ import {
   LayoutChangeEvent,
   type ScrollViewInstance,
 } from 'react-native';
-import Animated, { type useAnimatedScrollHandler } from 'react-native-reanimated';
+import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useComposedEventHandler, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
+import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { frontmatterLineCount, readProperties } from '@/lib/properties';
 import { readDecorations } from '@/lib/file-decoration';
@@ -34,6 +36,13 @@ interface MarkdownPreviewProps {
   hideReadingMetadata?: boolean;
   onLinkPress?: (url: string) => void;
   onWikiLinkPress?: (name: string) => void;
+}
+
+const COMMAND_PULL_THRESHOLD = 52;
+
+function commandPullDistance(x: number, y: number) {
+  'worklet';
+  return y > Math.abs(x) * 1.5 ? y : 0;
 }
 
 // ---- Inline parser ----
@@ -970,6 +979,42 @@ export default function MarkdownPreview({
 
   const lineHeight = fontSize * 1.65;
   const scrollRef = useRef<ScrollViewInstance>(null);
+  const scrollY = useSharedValue(0);
+  const pullDistance = useSharedValue(0);
+  const trackScroll = useAnimatedScrollHandler(event => { scrollY.value = event.contentOffset.y; });
+  const handleScroll = useComposedEventHandler([onScroll ?? null, onPullDown ? trackScroll : null]);
+  const pullGesture = useMemo(() => {
+    if (!onPullDown) return undefined;
+    const pull = Gesture.Pan()
+      .maxPointers(1)
+      .activeOffsetY(12)
+      .failOffsetY(-8)
+      .failOffsetX([-20, 20])
+      .onTouchesDown((_event, state) => {
+        'worklet';
+        // A drag already scrolling the note back up should finish as a scroll.
+        if (scrollY.value > 2) state.fail();
+      })
+      .onUpdate(event => {
+        'worklet';
+        pullDistance.value = commandPullDistance(event.translationX, event.translationY);
+      })
+      .onEnd((event, success) => {
+        'worklet';
+        if (success && commandPullDistance(event.translationX, event.translationY) >= COMMAND_PULL_THRESHOLD) {
+          scheduleOnRN(onPullDown);
+        }
+      })
+      .onFinalize(() => {
+        'worklet';
+        pullDistance.value = withTiming(0, { duration: 120 });
+      });
+    return Gesture.Exclusive(pull, Gesture.Native());
+  }, [onPullDown, pullDistance, scrollY]);
+  const pullIndicatorStyle = useAnimatedStyle(() => {
+    const progress = Math.min(1, pullDistance.value / COMMAND_PULL_THRESHOLD);
+    return { opacity: progress, transform: [{ translateY: 16 * progress - 10 }, { scale: 0.85 + 0.15 * progress }] };
+  });
   const headingYMap = useRef<Map<number, number>>(new Map());
   const anchorLine = useMemo(() => {
     if (!anchor) return undefined;
@@ -1361,12 +1406,10 @@ export default function MarkdownPreview({
     [blocks, colors, fontSize, lineHeight, vaultPath, onLinkPress, onWikiLinkPress, pluginRenderers, notePath]
   );
 
-  return (
+  const scrollView = (
     <Animated.ScrollView
       ref={scrollRef}
-      onScroll={onScroll}
-      refreshControl={onPullDown ? <RefreshControl refreshing={false} onRefresh={onPullDown}
-        tintColor={colors.accent} colors={[colors.accent]} /> : undefined}
+      onScroll={handleScroll}
       scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: colors.bgPrimary }]}
       contentContainerStyle={[styles.contentContainer, { paddingTop: 16 + headerInset }]}
@@ -1378,11 +1421,32 @@ export default function MarkdownPreview({
       {blocks.map(renderBlock)}
     </Animated.ScrollView>
   );
+
+  if (!pullGesture) return scrollView;
+  return (
+    <View style={styles.container}>
+      <GestureDetector gesture={pullGesture}>{scrollView}</GestureDetector>
+      <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+        style={[styles.pullIndicator, { top: headerInset + 8, backgroundColor: colors.bgSecondary, borderColor: colors.accent }, pullIndicatorStyle]}>
+        <Ionicons name="terminal-outline" size={20} color={colors.accent} />
+      </Animated.View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  pullIndicator: {
+    position: 'absolute',
+    alignSelf: 'center',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   contentContainer: {
     paddingHorizontal: 20,

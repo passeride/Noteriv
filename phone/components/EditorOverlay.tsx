@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Animated, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Animated, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Paths } from 'expo-file-system';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,6 +40,11 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
   });
   const [query, setQuery] = useState('');
   const isFiles = mode === 'files';
+  const commandInput = useRef<TextInputInstance>(null);
+  const focusCommands = () => {
+    // Android's dialog needs window focus before a TextInput can show the IME.
+    requestAnimationFrame(() => commandInput.current?.focus());
+  };
   const [revision, setRevision] = useState(0);
   const [showActions, setShowActions] = useState(false);
   const items = useMemo(() => isFiles ? readDir(folder) : [], [folder, isFiles, revision]);
@@ -79,7 +84,7 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
   };
 
   return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
+    <Modal transparent animationType="fade" onRequestClose={onClose} onShow={isFiles ? undefined : focusCommands}>
       <SafeAreaView style={[styles.stage, !isFiles && styles.paletteStage]}>
         <Pressable accessibilityLabel="Close overlay" style={StyleSheet.absoluteFill} onPress={onClose} />
         <View accessibilityViewIsModal style={[
@@ -119,7 +124,7 @@ export default function EditorOverlay({ mode, vaultPath, notePath, commands, fil
             </>
           ) : (
             <>
-              <TextInput autoFocus accessibilityLabel="Search commands" placeholder="Search commands"
+              <TextInput ref={commandInput} accessibilityLabel="Search commands" placeholder="Search commands"
                 placeholderTextColor={colors.textMuted} value={query} onChangeText={setQuery}
                 autoCapitalize="none" autoCorrect={false} returnKeyType="go"
                 onSubmitEditing={() => { if (matched.length) execute(matched[0]); }}

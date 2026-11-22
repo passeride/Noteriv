@@ -340,7 +340,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     currentFile && (workspace.bookmarks ?? []).includes(currentFile);
 
   const openOverlay = useCallback((mode: 'files' | 'commands') => {
-    Keyboard.dismiss();
+    if (mode === 'files') Keyboard.dismiss();
     setMenuVisible(false);
     setOverlay(mode);
   }, []);
@@ -717,7 +717,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               notePath={displayedPath}
               headerInset={collapsibleHeader ? headerHeight : undefined}
               onScroll={collapsibleHeader ? readingScroll : undefined}
-              onPullDown={vault ? openCommands : undefined}
+              onPullDown={vault && Platform.OS !== 'web' ? openCommands : undefined}
               hideReadingMetadata={settings.hideReadingMetadata}
               anchor={anchor ?? undefined}
               onWikiLinkPress={openNoteLink}

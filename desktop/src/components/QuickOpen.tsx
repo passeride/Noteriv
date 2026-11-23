@@ -1,5 +1,7 @@
 "use client";
 
+import LauncherTabs, { type LauncherMode } from "./LauncherTabs";
+
 import { useState, useEffect, useMemo, useRef } from "react";
 import { loadVaultIndex } from "@/lib/vault-index";
 import { isExcludedPath } from "@/lib/file-list";
@@ -19,6 +21,7 @@ interface QuickOpenProps {
   revision: string;
   onSelect: (filePath: string, line?: number) => void;
   onClose: () => void;
+  onModeChange?: (mode: LauncherMode) => void;
 }
 
 let fileCache: { vault: string; revision: string; list: Promise<QuickOpenFile[]> } | undefined;
@@ -33,7 +36,7 @@ function listFiles(vaultPath: string, revision: string) {
   return list;
 }
 
-export default function QuickOpen({ vaultPath, revision, onSelect, onClose }: QuickOpenProps) {
+export default function QuickOpen({ vaultPath, revision, onSelect, onClose, onModeChange }: QuickOpenProps) {
   const [query, setQuery] = useState("");
   const [files, setFiles] = useState<QuickOpenFile[]>();
   const [aliases, setAliases] = useState<Map<string, string[]>>(new Map());
@@ -135,7 +138,7 @@ export default function QuickOpen({ vaultPath, revision, onSelect, onClose }: Qu
 
   return (
     <div className="palette-overlay" onClick={onClose}>
-      <div className="palette" onClick={event => event.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="Find files and contents" className="palette" onClick={event => event.stopPropagation()}>
         <div className="palette-input-wrap">
           <svg width="14" height="14" viewBox="0 0 14 14" className="palette-icon" aria-hidden="true">
             <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" fill="none" />
@@ -146,6 +149,7 @@ export default function QuickOpen({ vaultPath, revision, onSelect, onClose }: Qu
             onChange={event => { setQuery(event.target.value); setSelectedIdx(0); }} />
           {searching && <span className="palette-spinner" title="Searching the vault" />}
         </div>
+        {onModeChange && <LauncherTabs mode="files" onChange={onModeChange} />}
         <div className="palette-list" ref={listRef}>
           {rows.map((row, index) => (
             <button key={row.kind === "file" ? "f:" + row.file.filePath : `c:${row.file.filePath}:${row.file.line.line}`}

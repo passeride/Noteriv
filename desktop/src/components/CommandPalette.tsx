@@ -1,5 +1,7 @@
 "use client";
 
+import LauncherTabs, { type LauncherMode } from "./LauncherTabs";
+
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { HotkeyBinding, HotkeyAction, formatHotkey } from "@/lib/hotkeys";
 import type { PluginCommand } from "@/lib/plugin-api";
@@ -13,6 +15,7 @@ interface CommandPaletteProps {
   onRecent?: (action: HotkeyAction) => void;
   onRunPluginCommand?: (cmd: PluginCommand) => void;
   onClose: () => void;
+  onModeChange?: (mode: LauncherMode) => void;
 }
 
 /** A built-in action or a plugin command, as listed in the palette. */
@@ -36,7 +39,7 @@ function loadPinned(): string[] {
   }
 }
 
-export default function CommandPalette({ hotkeys, platform, recentActions = [], pluginCommands = [], onExecute, onRecent, onRunPluginCommand, onClose }: CommandPaletteProps) {
+export default function CommandPalette({ hotkeys, platform, recentActions = [], pluginCommands = [], onExecute, onRecent, onRunPluginCommand, onClose, onModeChange }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   // Commands the user keeps at the top of the list, by id.
   const [pinned, setPinned] = useState<string[]>(loadPinned);
@@ -196,7 +199,7 @@ export default function CommandPalette({ hotkeys, platform, recentActions = [], 
 
   return (
     <div className="palette-overlay" onClick={onClose}>
-      <div className="palette palette-wide" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="Commands" className="palette palette-wide" onClick={(e) => e.stopPropagation()}>
         <div className="palette-input-wrap">
           <svg width="14" height="14" viewBox="0 0 16 16" className="palette-icon">
             <path d="M1 3h14M1 8h14M1 13h14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -212,6 +215,7 @@ export default function CommandPalette({ hotkeys, platform, recentActions = [], 
           />
         </div>
 
+        {onModeChange && <LauncherTabs mode="commands" onChange={onModeChange} />}
         <div className="palette-list" ref={listRef}>
           {pinnedItems.length > 0 && (
             <div>

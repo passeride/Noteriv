@@ -48,6 +48,8 @@ function NoteIcon({ path, symbol, color }: { path: string; symbol?: string; colo
 
 interface NotesListProps {
   files: FileEntry[];
+  indentation?: Map<string, number>;
+  expanded?: Set<string>;
   selectedPath?: string;
   editIconPath?: string;
   currentDir: string;
@@ -62,6 +64,8 @@ interface NotesListProps {
 
 export default function NotesList({
   files,
+  indentation,
+  expanded,
   selectedPath,
   editIconPath,
   currentDir,
@@ -73,7 +77,7 @@ export default function NotesList({
   onRefresh,
   isAtRoot,
 }: NotesListProps) {
-  const { colors } = useTheme();
+  const { colors, metrics } = useTheme();
   const { workspace, updateWorkspace } = useApp();
   const [syncedIcons, setSyncedIcons] = useState(() => readDecorations(vaultPath));
   const fileIcons = useMemo(() => ({ ...workspace.fileIcons, ...syncedIcons }), [workspace.fileIcons, syncedIcons]);
@@ -106,6 +110,7 @@ export default function NotesList({
   const [sortMode, setSortMode] = useState<'name' | 'name-desc'>('name');
 
   const sortedFiles = useMemo(() => {
+    if (indentation) return files;
     const sorted = [...files];
     if (sortMode === 'name-desc') {
       sorted.sort((a, b) => {
@@ -115,7 +120,7 @@ export default function NotesList({
       });
     }
     return sorted;
-  }, [files, sortMode]);
+  }, [files, sortMode, indentation]);
 
   const folderName = useMemo(() => {
     if (isAtRoot) return null;
@@ -193,14 +198,16 @@ export default function NotesList({
 
   const renderItem = useCallback(
     ({ item }: { item: FileEntry }) => {
+      const depth = indentation?.get(item.path) ?? 0;
+      const treeStyle = indentation && { paddingLeft: 10 + Math.min(depth, 6) * 12, borderRadius: metrics.rowRadius, minHeight: 48, paddingVertical: 4 };
       const icon = fileIcons?.[vaultRelativePath(vaultPath, item.path).replace(/\/$/, '')];
       if (item.isDirectory) {
         return (
           <TouchableOpacity
-            style={styles.item}
+            style={[styles.item, treeStyle]}
             onPress={() => onFolderPress(item)}
-            accessibilityState={{ selected: item.path === selectedPath }}
-          onLongPress={() => handleLongPress(item)}
+            accessibilityState={{ expanded: expanded?.has(item.path.endsWith('/') ? item.path : item.path + '/') }}
+            onLongPress={() => handleLongPress(item)}
             activeOpacity={0.6}
           >
             <View style={[styles.folderIcon, { backgroundColor: colors.blue + '15' }]}>
@@ -210,7 +217,7 @@ export default function NotesList({
             <Text style={[styles.itemName, { color: colors.textPrimary }]} numberOfLines={1}>
               {item.name}
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <Ionicons name={expanded?.has(item.path.endsWith('/') ? item.path : item.path + '/') ? 'chevron-down' : 'chevron-forward'} size={16} color={colors.textMuted} />
           </TouchableOpacity>
         );
       }
@@ -218,20 +225,20 @@ export default function NotesList({
       const displayName = item.name.replace(/\.(md|markdown)$/i, '');
       return (
         <TouchableOpacity
-          style={[styles.item, item.path === selectedPath && { backgroundColor: colors.bgTertiary }]}
+          style={[styles.item, treeStyle, item.path === selectedPath && { backgroundColor: colors.accent + '20' }]}
           onPress={() => onFilePress(item)}
           accessibilityState={{ selected: item.path === selectedPath }}
           onLongPress={() => handleLongPress(item)}
           activeOpacity={0.6}
         >
           <NoteIcon path={item.path} symbol={icon?.symbol || undefined} color={icon?.color} />
-          <Text style={[styles.itemName, { color: colors.textPrimary }]} numberOfLines={1}>
+          <Text style={[styles.itemName, { color: item.path === selectedPath ? colors.accent : colors.textPrimary }]} numberOfLines={1}>
             {displayName}
           </Text>
         </TouchableOpacity>
       );
     },
-    [colors, fileIcons, vaultPath, selectedPath, onFilePress, onFolderPress, handleLongPress]
+    [colors, fileIcons, vaultPath, selectedPath, onFilePress, onFolderPress, handleLongPress, indentation, expanded, metrics.rowRadius]
   );
 
   return (
@@ -266,7 +273,7 @@ export default function NotesList({
                 </Text>
               </TouchableOpacity>
             )}
-            {files.length > 0 && (
+            {!indentation && files.length > 0 && (
               <View style={[styles.sortRow, { borderBottomColor: colors.bgTertiary }]}>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>{files.length} items</Text>
                 <TouchableOpacity
@@ -294,7 +301,7 @@ export default function NotesList({
           </View>
         }
         contentContainerStyle={files.length === 0 ? styles.emptyList : undefined}
-        ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.bgTertiary }]} />}
+        ItemSeparatorComponent={indentation ? undefined : () => <View style={[styles.separator, { backgroundColor: colors.bgTertiary }]} />}
       />
 
       {/* Rename modal */}

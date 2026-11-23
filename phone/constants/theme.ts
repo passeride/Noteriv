@@ -1,3 +1,5 @@
+import { DEFAULT_WORKSPACE_THEME, WORKSPACE_THEMES } from "../../packages/appearance/workspace";
+
 // --- Theme type definitions ---
 
 export interface ThemeColors {
@@ -29,6 +31,7 @@ export interface ThemeDefinition {
 // --- Built-in themes ---
 
 export const BUILT_IN_THEMES: ThemeDefinition[] = [
+  ...WORKSPACE_THEMES.map(theme => ({ ...theme, colors: { ...theme.colors } })),
   {
     id: 'catppuccin-mocha',
     name: 'Catppuccin Mocha',
@@ -265,14 +268,14 @@ export const BUILT_IN_THEMES: ThemeDefinition[] = [
 
 export function getTheme(id: string): ThemeColors {
   const theme = BUILT_IN_THEMES.find((t) => t.id === id);
-  return theme?.colors ?? BUILT_IN_THEMES[0].colors;
+  return theme?.colors ?? WORKSPACE_THEMES.find(item => item.id === DEFAULT_WORKSPACE_THEME)!.colors;
 }
 
 // --- Backward compatibility ---
 
 // Legacy palette shape matching the old CatppuccinMocha / CatppuccinLatte exports
-const mochaTheme = BUILT_IN_THEMES[0].colors;
-const latteTheme = BUILT_IN_THEMES[1].colors;
+const mochaTheme = getTheme('catppuccin-mocha');
+const latteTheme = getTheme('catppuccin-latte');
 
 export const CatppuccinMocha = {
   base: mochaTheme.bgPrimary,

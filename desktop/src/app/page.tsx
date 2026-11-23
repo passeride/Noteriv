@@ -295,10 +295,13 @@ function Home() {
 
   // Modals / overlays
   const [showSettings, setShowSettings] = useState(false);
-  const [showQuickOpen, setShowQuickOpen] = useState(false);
+  const [workspaceTools, setWorkspaceTools] = useState(false);
+  const [launcher, setLauncher] = useState<"files" | "commands" | null>(null);
   const [showVaultSearch, setShowVaultSearch] = useState(false);
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showOutline, setShowOutline] = useState(false);
+  const [syncStatusOpen, setSyncStatusOpen] = useState(false);
+  const [noteDetails, setNoteDetails] = useState<"outline" | "links" | "properties" | null>(null);
+  const showOutline = noteDetails === "outline";
+  const showBacklinks = noteDetails === "links";
   const [showFootnotes, setShowFootnotes] = useState(false);
   // A file the file list should scroll to.
   const [revealFile, setRevealFile] = useState<{ path: string; tick: number } | null>(null);
@@ -307,7 +310,6 @@ function Home() {
   const [pdfPageRequest, setPdfPageRequest] = useState<{ filePath: string; page: number; tick: number } | null>(null);
   // Whether the graph opens on the current note's neighbourhood.
   const [graphStartsLocal, setGraphStartsLocal] = useState(false);
-  const [showBacklinks, setShowBacklinks] = useState(false);
   const [showTagPane, setShowTagPane] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showNoteComposer, setShowNoteComposer] = useState(false);
@@ -1404,8 +1406,7 @@ function Home() {
     setTabs(restoredTabs);
     setActiveTab(layout.activeTab && open.has(layout.activeTab) ? layout.activeTab : restoredTabs[0]?.filePath ?? null);
     setSplitTab(layout.splitTab && open.has(layout.splitTab) ? layout.splitTab : null);
-    setShowOutline(layout.panels.includes("outline"));
-    setShowBacklinks(layout.panels.includes("backlinks"));
+    setNoteDetails(layout.panels.includes("outline") ? "outline" : layout.panels.includes("backlinks") ? "links" : null);
     setShowFootnotes(layout.panels.includes("footnotes"));
     setShowTagPane(layout.panels.includes("tags"));
     setShowAllProperties(layout.panels.includes("properties"));
@@ -2642,8 +2643,8 @@ function Home() {
         const idx = tabs.findIndex((t) => t.filePath === activeTab);
         setActiveTab(tabs[(idx - 1 + tabs.length) % tabs.length].filePath);
       },
-      quickOpen: () => setShowQuickOpen(true),
-      commandPalette: () => {},
+      quickOpen: () => setLauncher("files"),
+      commandPalette: () => setLauncher("commands"),
       findInFile: () => {},
       findInVault: () => setShowVaultSearch(true),
       toggleSidebar: handleToggleSidebar,
@@ -2666,10 +2667,12 @@ function Home() {
       insertTable: () => { if (view) editorInsertTable(view); },
       gitSync: handleGitSync,
       dailyNote: handleDailyNote,
-      toggleOutline: () => setShowOutline((o) => !o),
+      toggleWorkspaceTools: () => setWorkspaceTools(value => !value),
+      noteDetails: () => { if (currentTab && !currentTab.kind) setNoteDetails(section => section ? null : "outline"); },
+      toggleOutline: () => { if (currentTab && !currentTab.kind) setNoteDetails((section) => section === "outline" ? null : "outline"); },
       graphView: () => { setGraphStartsLocal(false); setShowGraphView(true); },
       localGraph: () => { setGraphStartsLocal(true); setShowGraphView(true); },
-      toggleBacklinks: () => setShowBacklinks((b) => !b),
+      toggleBacklinks: () => { if (currentTab && !currentTab.kind) setNoteDetails((section) => section === "links" ? null : "links"); },
       toggleTags: () => setShowTagPane((t) => !t),
       insertTemplate: () => setShowTemplatePicker(true),
       toggleBookmark: () => { if (activeTab) setBookmarks((b) => toggleBookmarkItem(b, "file", activeTab)); },
@@ -2858,7 +2861,7 @@ function Home() {
       // command cannot drift apart. Only the palette itself differs: it is
       // already open when it runs a command, and a shortcut has to open it.
       const run = (action: HotkeyAction) => {
-        if (action === "commandPalette") setShowCommandPalette(true);
+        if (action === "commandPalette") setLauncher("commands");
         else handleCommandExecute(action);
       };
 
@@ -2934,7 +2937,7 @@ function Home() {
   }
 
   return (
-    <div className={`flex flex-col h-screen${zenMode ? " zen-mode" : ""}`}>
+    <div className={`noteriv-workspace flex flex-col h-screen${zenMode ? " zen-mode" : ""}`}>
       {!zenMode && (
         <TitleBar
           tabs={tabInfos}
@@ -2953,6 +2956,12 @@ function Home() {
           onNewFile={handleNewFile}
           onSave={handleSave}
           onOpenSettings={() => setShowSettings(true)}
+          onFind={() => setLauncher("files")}
+          onToggleDetails={() => handleCommandExecute("noteDetails")}
+          onToggleTools={() => handleCommandExecute("toggleWorkspaceTools")}
+          toolsOpen={workspaceTools}
+          detailsOpen={noteDetails !== null}
+          findShortcut={hotkeys.find((binding) => binding.action === "quickOpen")?.keys ?? ""}
           onSwitchVault={handleSwitchVault}
           onCreateVault={() => setShowSetupWizard(true)}
           onDeleteVault={handleDeleteVault}
@@ -2988,11 +2997,11 @@ function Home() {
         />
       )}
 
-      <div className="flex flex-1 overflow-hidden">
-        {!zenMode && (
-          <div className="ribbon">
+      <div className="relative flex flex-1 overflow-hidden">
+        {!zenMode && workspaceTools && (
+          <div className="ribbon" role="toolbar" aria-label="Workspace tools">
             <div className="ribbon-top">
-              <button className="ribbon-btn" title="Quick Open" onClick={() => setShowQuickOpen(true)}>
+              <button className="ribbon-btn" title="Quick Open" onClick={() => setLauncher("files")}>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.2" />
                   <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -3019,7 +3028,7 @@ function Home() {
                   <path d="M6 7.2l4-2.4M6 8.8l4 2.4" stroke="currentColor" strokeWidth="1.2" />
                 </svg>
               </button>
-              <button className="ribbon-btn" title="Command palette" onClick={() => setShowCommandPalette(true)}>
+              <button className="ribbon-btn" title="Command palette" onClick={() => setLauncher("commands")}>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M4 5l4 3-4 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M9 11h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -3076,6 +3085,9 @@ function Home() {
             </div>
           </div>
         )}
+        {!zenMode && !sidebarCollapsed && (
+          <button className="workspace-drawer-backdrop sidebar-overlay-scrim" aria-label="Close files" onClick={handleToggleSidebar} />
+        )}
         {!zenMode && (
           <Sidebar
             vault={activeVault}
@@ -3109,7 +3121,7 @@ function Home() {
         )}
 
         {/* Editor */}
-        <div className="flex-1 overflow-hidden bg-[var(--bg-primary)] flex flex-col" data-vault-path={activeVault?.path || ""} data-open-file={currentTab?.filePath || ""} onContextMenu={handleEditorContextMenu}>
+        <div className="workspace-note flex-1 overflow-hidden flex flex-col" data-vault-path={activeVault?.path || ""} data-open-file={currentTab?.filePath || ""} onContextMenu={handleEditorContextMenu}>
           {webReaderUrl !== null ? (
             <WebViewer
               // One reader: its name lets it keep its history and its place while another tab is in front.
@@ -3130,6 +3142,8 @@ function Home() {
                 <div className="flex flex-col h-full overflow-hidden">
                   <DocumentTitle
                     filePath={currentTab.filePath}
+                    vaultPath={activeVault?.path}
+                    readingContent={viewMode === "view" && !isBoardFile(currentTab.filePath) && !isBoardContent(content) ? content : undefined}
                     onRename={handleRenameCurrentFile}
                   />
                   {!zenMode &&
@@ -3141,6 +3155,7 @@ function Home() {
                   {viewMode !== "source" &&
                     !isBoardFile(currentTab.filePath) &&
                     !isBoardContent(content) &&
+                    noteDetails !== "properties" &&
                     (hasProperties(content) || addPropertyFor === currentTab.filePath) && (
                       <PropertiesEditor
                         content={content}
@@ -3253,12 +3268,35 @@ function Home() {
         )}
 
         {/* Right side panels */}
-        {showOutline && currentTab && (
-          <OutlinePanel
-            content={content}
-            onHeadingClick={handleHeadingClick}
-            onClose={() => setShowOutline(false)}
-          />
+        {!zenMode && noteDetails && currentTab && !currentTab.kind && activeVault && (
+          <>
+            <button className="workspace-drawer-backdrop" aria-label="Close note details" onClick={() => setNoteDetails(null)} />
+            <aside className="workspace-details" aria-label="Note details">
+              <header className="workspace-details-header">
+                Note details
+                <button className="workspace-control" aria-label="Close note details" onClick={() => setNoteDetails(null)}>×</button>
+              </header>
+              <div role="group" aria-label="Note details section" className="workspace-tabs">
+                <button aria-pressed={noteDetails === "outline"} onClick={() => setNoteDetails("outline")}>Outline</button>
+                <button aria-pressed={noteDetails === "links"} onClick={() => setNoteDetails("links")}>Links</button>
+                <button aria-pressed={noteDetails === "properties"} onClick={() => setNoteDetails("properties")}>Properties</button>
+              </div>
+              <div className="workspace-details-body">
+                {noteDetails === "outline" && <OutlinePanel content={content}
+                  onHeadingClick={handleHeadingClick} onClose={() => setNoteDetails(null)} />}
+                {noteDetails === "links" && <BacklinksPanel filePath={currentTab.filePath}
+                  vaultPath={activeVault.path} content={currentTab.content} onContentChange={applyTextEdit}
+                  onFileOpen={openFileAtLine} onClose={() => setNoteDetails(null)} />}
+                {noteDetails === "properties" && <PropertiesEditor content={content} onChange={applyTextEdit}
+                  types={propertyTypes} onTypeChange={changePropertyType} vaultPath={activeVault.path}
+                  collapsed={propertiesCollapsed} onToggleCollapse={() => setPropertiesCollapsed(value => !value)}
+                  addRequest={addPropertyRequest} onDismiss={() => setAddPropertyFor(null)} />}
+              </div>
+              <div className="workspace-details-actions">
+                <button className="workspace-control" onClick={() => handleCommandExecute("noteHistory")}>File history</button>
+              </div>
+            </aside>
+          </>
         )}
         {showFootnotes && currentTab && !currentTab.kind && (
           <FootnotesPanel
@@ -3274,16 +3312,6 @@ function Home() {
             onTypeChange={changePropertyType}
             onSearch={(query) => { setVaultSearchQuery(query); setShowVaultSearch(true); }}
             onClose={() => setShowAllProperties(false)}
-          />
-        )}
-        {showBacklinks && activeVault && currentTab && (
-          <BacklinksPanel
-            filePath={currentTab.filePath}
-            vaultPath={activeVault.path}
-            content={currentTab.content}
-            onContentChange={applyTextEdit}
-            onFileOpen={openFileAtLine}
-            onClose={() => setShowBacklinks(false)}
           />
         )}
         {pluginUI.sidebarPanels
@@ -3322,7 +3350,7 @@ function Home() {
 
       {/* Status bar */}
       {!zenMode && (
-        <div className="flex items-center justify-between h-6 px-3 bg-[var(--bg-secondary)] border-t border-[var(--border)] text-[10px] text-[var(--text-muted)] select-none shrink-0">
+        <div className="workspace-status flex items-center justify-between px-3 border-t text-xs select-none shrink-0">
           <div className="flex items-center gap-3">
             <span>{viewMode === "live" ? "Edit" : viewMode === "view" ? "View" : "Source"}</span>
             {activeVault && <span>{activeVault.name}</span>}
@@ -3340,24 +3368,38 @@ function Home() {
           <div className="flex items-center gap-3">
             {currentTab && (
               <span
-                className={currentTab.externalConflict ? "text-[var(--red)]" : isDirty ? "text-[var(--yellow)]" : "text-[var(--green)]"}
+                className={currentTab.externalConflict ? "text-[var(--red)]" : isDirty ? "text-[var(--yellow)]" : "saved-local"}
                 title={currentTab.externalConflict ? "The file changed on disk. Autosave is paused; saving requires confirmation." : undefined}
               >
-                {currentTab.externalConflict ? "external change" : isDirty ? "unsaved" : "saved"}
+                {currentTab.externalConflict ? "external change" : isDirty ? "Unsaved" : "Saved locally"}
               </span>
             )}
             {(activeVault?.gitRemote || settings.extraSyncProvider !== "none") && (
               <button
-                onClick={() => performSync()}
+                onClick={() => setSyncStatusOpen((open) => !open)}
+                aria-expanded={syncStatusOpen}
                 className={`statusbar-sync${syncStatus === "syncing" ? " syncing" : ""}${syncStatus === "error" ? " sync-error" : ""}`}
-                title={syncStatus === "error" && syncError ? `Sync failed — click to retry.\n${syncError}` : lastSyncTime ? `Last synced: ${lastSyncTime.toLocaleTimeString()}` : "Click to sync"}
+                title={syncStatus === "error" && syncError ? `Sync failed — open status to retry.\n${syncError}` : lastSyncTime ? `Last synced: ${lastSyncTime.toLocaleTimeString()}` : "Open sync status"}
               >
                 <svg width="10" height="10" viewBox="0 0 16 16" fill="none" className={syncStatus === "syncing" ? "spin" : ""}>
                   <path d="M2 8a6 6 0 0110.5-4M14 8a6 6 0 01-10.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   <path d="M12 2v3h-3M4 14v-3h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                {syncStatus === "syncing" ? "syncing" : syncStatus === "error" ? "sync failed" : gitChanges > 0 ? `${gitChanges} changes` : lastSyncTime ? `synced ${lastSyncTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "sync"}
+                {syncStatus === "syncing" ? "Syncing…" : syncStatus === "error" ? "Sync failed" : gitChanges > 0 ? `${gitChanges} pending` : lastSyncTime ? `Synced ${lastSyncTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Sync status"}
               </button>
+            )}
+            {syncStatusOpen && (activeVault?.gitRemote || settings.extraSyncProvider !== "none") && (
+              <section className="workspace-sync-popover" aria-label="Sync status" onKeyDown={(event) => {
+                if (event.key === "Escape") setSyncStatusOpen(false);
+              }}>
+                <header>Sync status <button className="workspace-control" aria-label="Close sync status" onClick={() => setSyncStatusOpen(false)}>×</button></header>
+                <p role="status">{syncStatus === "syncing" ? "Sync is running." : syncError ||
+                  (gitChanges > 0 ? `${gitChanges} local changes are waiting to sync.` :
+                    lastSyncTime ? `Last synced at ${lastSyncTime.toLocaleTimeString()}.` : "Ready to sync.")}</p>
+                <button className="workspace-control" disabled={syncStatus === "syncing"} onClick={() => void performSync()}>
+                  {syncStatus === "error" ? "Retry sync" : "Sync now"}
+                </button>
+              </section>
             )}
             {currentTab && !currentTab.kind && (
               <>
@@ -3406,13 +3448,14 @@ function Home() {
       )}
 
       {/* Quick open (Ctrl+P) */}
-      {showQuickOpen && activeVault && (
+      {launcher === "files" && activeVault && (
         <QuickOpen
           key={activeVault.path}
           vaultPath={activeVault.path}
           revision={vaultFilesTick + ":" + sidebarRefresh}
           onSelect={openFileAtLine}
-          onClose={() => setShowQuickOpen(false)}
+          onModeChange={setLauncher}
+          onClose={() => setLauncher(null)}
         />
       )}
 
@@ -3457,7 +3500,7 @@ function Home() {
       )}
 
       {/* Command palette (Ctrl+Shift+P) */}
-      {showCommandPalette && (
+      {launcher === "commands" && (
         <CommandPalette
           hotkeys={hotkeys}
           platform={platform}
@@ -3466,7 +3509,8 @@ function Home() {
           onExecute={handleCommandExecute}
           onRunPluginCommand={runPluginCommand}
           onRecent={handleRecentCommand}
-          onClose={() => setShowCommandPalette(false)}
+          onModeChange={setLauncher}
+          onClose={() => setLauncher(null)}
         />
       )}
 

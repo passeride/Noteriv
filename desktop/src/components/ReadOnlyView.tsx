@@ -109,6 +109,6 @@ export default function ReadOnlyView({ content, onChange, onViewReady, notePath,
   // Wiki link click handling is done in page.tsx
 
   return (
-    <div ref={editorRef} data-note-path={notePath} className={`h-full overflow-hidden ${className}`} />
+    <div ref={editorRef} data-note-path={notePath} className={`read-only-note h-full overflow-hidden ${className}`} />
   );
 }

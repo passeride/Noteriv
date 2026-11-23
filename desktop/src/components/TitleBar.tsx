@@ -29,6 +29,12 @@ interface TitleBarProps {
   onNewFile: () => void;
   onSave: () => void;
   onOpenSettings: () => void;
+  onFind: () => void;
+  onToggleDetails: () => void;
+  detailsOpen: boolean;
+  onToggleTools: () => void;
+  toolsOpen: boolean;
+  findShortcut: string;
   onSwitchVault: (id: string) => void;
   onCreateVault: () => void;
   onDeleteVault: (id: string) => void;
@@ -58,6 +64,12 @@ export default function TitleBar({
   onNewFile,
   onSave,
   onOpenSettings,
+  onFind,
+  onToggleDetails,
+  detailsOpen,
+  onToggleTools,
+  toolsOpen,
+  findShortcut,
   onSwitchVault,
   onCreateVault,
   onDeleteVault,
@@ -74,7 +86,6 @@ export default function TitleBar({
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number; y: number; filePath: string } | null>(null);
-  const [pathContextMenu, setPathContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -119,7 +130,6 @@ export default function TitleBar({
 
   const isMac = platform === "darwin";
   const isWindows = platform === "win32";
-  const displayedPath = activeTab || activeVault?.path || "Noteriv";
 
   // Sort tabs: pinned first, then unpinned (preserving relative order within each group)
   const sortedTabs = [...tabs].sort((a, b) => {
@@ -199,9 +209,9 @@ export default function TitleBar({
 
         {/* Left: sidebar toggle + vault switcher */}
         <div className="titlebar-section" style={{ paddingLeft: isMac ? 0 : 8 }}>
-          <button onClick={onToggleSidebar} className="titlebar-btn" title="Toggle Sidebar (Ctrl+B)">
+          <button onClick={onToggleSidebar} className="titlebar-btn" title="Toggle files (Ctrl+B)" aria-label="Toggle files" aria-expanded={!sidebarCollapsed}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <rect x="1" y="2" width="5" height="12" rx="1" stroke="currentColor" strokeWidth="1.2" fill={sidebarCollapsed ? "none" : "rgba(137,180,250,0.12)"} />
+              <rect x="1" y="2" width="5" height="12" rx="1" stroke="currentColor" strokeWidth="1.2" fill={sidebarCollapsed ? "none" : "var(--noteriv-selection)"} />
               <rect x="7" y="2" width="8" height="12" rx="1" stroke="currentColor" strokeWidth="1.2" />
             </svg>
           </button>
@@ -218,43 +228,103 @@ export default function TitleBar({
           />
         </div>
 
-        {/* Center: current location and drag area */}
-        <div
-          className="titlebar-path"
-          title={displayedPath}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            if (displayedPath !== "Noteriv") setPathContextMenu({ x: e.clientX, y: e.clientY });
-          }}
-        >
-          {displayedPath}
+        {/* Tab bar */}
+        <div className="tab-bar">
+          {sortedTabs.map((tab, idx) => {
+            const isActive = tab.filePath === activeTab;
+            const isDragging = dragIdx === idx;
+            const isDragOver = dragOverIdx === idx && dragIdx !== idx;
+            const isPinned = pinnedTabs.has(tab.filePath);
+
+            return (
+              <div
+                key={tab.filePath}
+                draggable
+                onDragStart={(e) => handleDragStart(e, idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDrop={(e) => handleDrop(e, idx)}
+                onDragEnd={handleDragEnd}
+                onClick={() => onTabSelect(tab.filePath)}
+                // Middle-click closes the tab. mouseup rather than auxclick so it
+                // works in every webview; mousedown is cancelled to stop autoscroll.
+                onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
+                onMouseUp={(e) => { if (e.button === 1) onTabClose(tab.filePath); }}
+                onContextMenu={(e) => handleTabContextMenu(e, tab.filePath)}
+                title={tab.filePath}
+              role="button"
+              tabIndex={0}
+              aria-current={isActive ? "page" : undefined}
+              onKeyDown={event => {
+                if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                  event.preventDefault();
+                  onTabSelect(tab.filePath);
+                }
+              }}
+                className={`tab${isActive ? " tab-active" : ""}${isDragging ? " tab-dragging" : ""}${isDragOver ? " tab-dragover" : ""}${isPinned ? " tab-pinned" : ""}`}
+              >
+                {isPinned && (
+                  <svg className="tab-pin-icon" width="10" height="10" viewBox="0 0 16 16" fill="none">
+                    <path d="M9.5 2L14 6.5L10 10.5L8.5 14L2 7.5L5.5 6L9.5 2Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                    <path d="M5.5 10.5L2 14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                  </svg>
+                )}
+                <span className="tab-label">{tab.name}</span>
+                {tab.isDirty && <span className="tab-dirty" />}
+                {!isPinned && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onTabClose(tab.filePath); }}
+                    className="tab-close"
+                    aria-label={`Close ${tab.name}`}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          {/* New tab */}
+          <button onClick={onNewFile} className="tab-new" title="New File">
+            <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
+          </button>
         </div>
 
         {/* Right: view toggle + window controls */}
         <div className="titlebar-section" style={{ paddingRight: 8 }}>
+          <button onClick={onFind} type="button" className="workspace-control" aria-label="Find files and contents">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.3" />
+              <path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+            <span className="workspace-control-label">Find</span>
+            {findShortcut && <kbd>{findShortcut}</kbd>}
+          </button>
           {showViewModes && (
-          <div className="view-toggle">
-            <button
-              onClick={() => onViewModeChange("live")}
-              className={`view-toggle-btn ${viewMode === "live" ? "vt-active" : ""}`}
-            >
-              Edit
+            <div className="workspace-control workspace-mode" title="Note view mode">
+              <select aria-label="Note view mode" value={viewMode}
+                onChange={(event) => onViewModeChange(event.target.value as TitleBarProps["viewMode"])}>
+                <option value="live">Write</option>
+                <option value="view">Read</option>
+                <option value="source">Source</option>
+              </select>
+            </div>
+          )}
+          {activeTab && showViewModes && (
+            <button type="button" className="workspace-control" aria-label="Note details" title="Note details"
+              onClick={onToggleDetails} aria-expanded={detailsOpen}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+                <path d="M10 3v10" stroke="currentColor" strokeWidth="1.3" />
+              </svg>
             </button>
-            <button
-              onClick={() => onViewModeChange("view")}
-              className={`view-toggle-btn ${viewMode === "view" ? "vt-active" : ""}`}
-            >
-              View
-            </button>
-            <button
-              onClick={() => onViewModeChange("source")}
-              className={`view-toggle-btn ${viewMode === "source" ? "vt-active" : ""}`}
-            >
-              Source
-            </button>
-          </div>
           )}
 
+          <button type="button" onClick={onToggleTools} className="workspace-control" title="Workspace tools"
+            aria-label="Workspace tools" aria-expanded={toolsOpen}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <circle cx="3" cy="8" r="1.2" /><circle cx="8" cy="8" r="1.2" /><circle cx="13" cy="8" r="1.2" />
+            </svg>
+          </button>
           <button onClick={onOpenSettings} className="titlebar-btn" title="Settings (Ctrl+,)">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2" />
@@ -283,57 +353,6 @@ export default function TitleBar({
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="tab-bar">
-        {sortedTabs.map((tab, idx) => {
-          const isActive = tab.filePath === activeTab;
-          const isDragging = dragIdx === idx;
-          const isDragOver = dragOverIdx === idx && dragIdx !== idx;
-          const isPinned = pinnedTabs.has(tab.filePath);
-
-          return (
-            <div
-              key={tab.filePath}
-              draggable
-              onDragStart={(e) => handleDragStart(e, idx)}
-              onDragOver={(e) => handleDragOver(e, idx)}
-              onDrop={(e) => handleDrop(e, idx)}
-              onDragEnd={handleDragEnd}
-              onClick={() => onTabSelect(tab.filePath)}
-              // Middle-click closes the tab. mouseup rather than auxclick so it
-              // works in every webview; mousedown is cancelled to stop autoscroll.
-              onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
-              onMouseUp={(e) => { if (e.button === 1) onTabClose(tab.filePath); }}
-              onContextMenu={(e) => handleTabContextMenu(e, tab.filePath)}
-              title={tab.filePath}
-              className={`tab${isActive ? " tab-active" : ""}${isDragging ? " tab-dragging" : ""}${isDragOver ? " tab-dragover" : ""}${isPinned ? " tab-pinned" : ""}`}
-            >
-              {isPinned && (
-                <svg className="tab-pin-icon" width="10" height="10" viewBox="0 0 16 16" fill="none">
-                  <path d="M9.5 2L14 6.5L10 10.5L8.5 14L2 7.5L5.5 6L9.5 2Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-                  <path d="M5.5 10.5L2 14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
-              )}
-              <span className="tab-label">{tab.name}</span>
-              {tab.isDirty && <span className="tab-dirty" />}
-              {!isPinned && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onTabClose(tab.filePath); }}
-                  className="tab-close"
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
-                </button>
-              )}
-            </div>
-          );
-        })}
-
-        {/* New tab */}
-        <button onClick={onNewFile} className="tab-new" title="New File">
-          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
-        </button>
-      </div>
-
       {/* Tab context menu */}
       {tabContextMenu && (
         <ContextMenu
@@ -343,14 +362,7 @@ export default function TitleBar({
           onClose={() => setTabContextMenu(null)}
         />
       )}
-      {pathContextMenu && (
-        <ContextMenu
-          x={pathContextMenu.x}
-          y={pathContextMenu.y}
-          items={[{ label: "Copy Path", onClick: () => onCopyPath?.(displayedPath) }]}
-          onClose={() => setPathContextMenu(null)}
-        />
-      )}
+
     </div>
   );
 }

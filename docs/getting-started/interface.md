@@ -105,7 +105,19 @@ Several panels can appear in the sidebar area, toggled via keyboard shortcuts or
 
 The editor area is the central workspace where you write and read your notes. It uses CodeMirror 6 as the editing engine, providing fast, responsive text editing with full markdown support.
 
-On mobile, swipe right from just inside the left edge of the note or its toolbar to open the file panel. Horizontal swipes farther inside the note switch between notes. You can also open the file panel with the folder button or the **Browse files** command.
+On mobile, swipe right from just inside the left edge or use **Browse files** to
+open the file drawer. Tap a folder to expand it in place. Tap the vault name
+to switch vaults, or **New** to create a note or folder in the selected
+folder. The drawer remembers its expanded folders for the open session.
+
+Tap **Find** to search file names and contents. Pull down at the top of a note
+or hold **Find** to open **Commands**. Use the tabs to switch between the two.
+Select a content hit to open its block in the reading view. The note title
+opens the note menu with details and file actions.
+
+The desktop toolbar also offers **Find** and **Note details**. Open **Workspace tools** from the more button to show the ribbon. Read mode uses
+a centered reading width. Configure the workspace with
+[CSS snippets](../themes/css-snippets.md#workspace-appearance).
 
 ### Editor features
 

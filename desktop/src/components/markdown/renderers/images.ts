@@ -56,7 +56,7 @@ function getMime(name: string): string {
   return mimes[ext] || "image/png";
 }
 
-function loadLocalImage(absPath: string): Promise<string | null> {
+export function loadLocalImage(absPath: string): Promise<string | null> {
   if (imageCache.has(absPath)) return Promise.resolve(imageCache.get(absPath)!);
   const inFlight = loadingPaths.get(absPath);
   if (inFlight) return inFlight;

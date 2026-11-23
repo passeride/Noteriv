@@ -14,6 +14,7 @@ import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useComposedEventH
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { WebView } from 'react-native-webview';
 import { frontmatterLineCount, readProperties } from '@/lib/properties';
 import { readDecorations } from '@/lib/file-decoration';
@@ -26,7 +27,8 @@ import { MobilePluginBlock, usePluginRenderers } from '@/components/MobilePlugin
 
 interface MarkdownPreviewProps {
   content: string;
-  anchor?: { heading: string };
+  anchor?: { heading?: string; line?: number };
+  showLocation?: boolean;
   fontSize: number;
   vaultPath?: string;
   notePath?: string;
@@ -39,6 +41,10 @@ interface MarkdownPreviewProps {
 }
 
 const COMMAND_PULL_THRESHOLD = 52;
+
+function signalCommandThreshold() {
+  if (Platform.OS !== 'web') void Haptics.selectionAsync().catch(() => undefined);
+}
 
 function commandPullDistance(x: number, y: number) {
   'worklet';
@@ -954,13 +960,14 @@ export default function MarkdownPreview({
   vaultPath,
   notePath,
   headerInset = 0,
+  showLocation,
   onScroll,
   onPullDown,
   hideReadingMetadata,
   onLinkPress,
   onWikiLinkPress,
 }: MarkdownPreviewProps) {
-  const { colors } = useTheme();
+  const { colors, metrics } = useTheme();
   const blocks = useMemo(() => parseBlocks(content, hideReadingMetadata ? frontmatterLineCount(content) : 0), [content, hideReadingMetadata]);
   const bannerUri = useMemo(() => {
     const configured = readProperties(content).find(property => property.key === 'banner')?.value;
@@ -981,6 +988,7 @@ export default function MarkdownPreview({
   const scrollRef = useRef<ScrollViewInstance>(null);
   const scrollY = useSharedValue(0);
   const pullDistance = useSharedValue(0);
+  const pullSignaled = useSharedValue(false);
   const trackScroll = useAnimatedScrollHandler(event => { scrollY.value = event.contentOffset.y; });
   const handleScroll = useComposedEventHandler([onScroll ?? null, onPullDown ? trackScroll : null]);
   const pullGesture = useMemo(() => {
@@ -998,6 +1006,10 @@ export default function MarkdownPreview({
       .onUpdate(event => {
         'worklet';
         pullDistance.value = commandPullDistance(event.translationX, event.translationY);
+        if (pullDistance.value >= COMMAND_PULL_THRESHOLD && !pullSignaled.value) {
+          pullSignaled.value = true;
+          scheduleOnRN(signalCommandThreshold);
+        }
       })
       .onEnd((event, success) => {
         'worklet';
@@ -1007,10 +1019,11 @@ export default function MarkdownPreview({
       })
       .onFinalize(() => {
         'worklet';
+        pullSignaled.value = false;
         pullDistance.value = withTiming(0, { duration: 120 });
       });
     return Gesture.Exclusive(pull, Gesture.Native());
-  }, [onPullDown, pullDistance, scrollY]);
+  }, [onPullDown, pullDistance, pullSignaled, scrollY]);
   const pullIndicatorStyle = useAnimatedStyle(() => {
     const progress = Math.min(1, pullDistance.value / COMMAND_PULL_THRESHOLD);
     return { opacity: progress, transform: [{ translateY: 16 * progress - 10 }, { scale: 0.85 + 0.15 * progress }] };
@@ -1018,9 +1031,19 @@ export default function MarkdownPreview({
   const headingYMap = useRef<Map<number, number>>(new Map());
   const anchorLine = useMemo(() => {
     if (!anchor) return undefined;
+    if (anchor.line !== undefined) {
+      let target = blocks[0]?.line;
+      for (const block of blocks) {
+        if (block.line >= anchor.line) break;
+        target = block.line;
+      }
+      return target;
+    }
+    const heading = anchor.heading;
+    if (!heading) return undefined;
     const normalize = (text: string) => text.trim().normalize('NFC').toLowerCase();
     return blocks.find(block => block.type === 'heading' &&
-      normalize(block.text) === normalize(anchor.heading))?.line;
+      normalize(block.text) === normalize(heading))?.line;
   }, [anchor, blocks]);
   const completedAnchor = useRef<typeof anchor>(undefined);
   useEffect(() => {
@@ -1028,8 +1051,8 @@ export default function MarkdownPreview({
     const y = headingYMap.current.get(anchorLine);
     if (y === undefined) return;
     completedAnchor.current = anchor;
-    scrollRef.current?.scrollTo({ y, animated: false });
-  }, [anchor, anchorLine]);
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - headerInset - 8), animated: false });
+  }, [anchor, anchorLine, headerInset]);
 
 
   const pluginRenderers = usePluginRenderers();
@@ -1068,7 +1091,7 @@ export default function MarkdownPreview({
                 headingYMap.current.set(block.line, y);
                 if (block.line === anchorLine && completedAnchor.current !== anchor) {
                   completedAnchor.current = anchor;
-                  scrollRef.current?.scrollTo({ y, animated: false });
+                  scrollRef.current?.scrollTo({ y: Math.max(0, y - headerInset - 8), animated: false });
                 }
               }}
             >
@@ -1078,7 +1101,8 @@ export default function MarkdownPreview({
                 colors={colors}
                 onLinkPress={onLinkPress}
                 onWikiLinkPress={onWikiLinkPress}
-                style={{ fontWeight: '700', color: colors.textPrimary, lineHeight: size * 1.3 }}
+                style={{ fontWeight: block.level === 1 ? '400' : '700', color: colors.textPrimary, lineHeight: size * 1.3,
+                  fontFamily: block.level === 1 ? (Platform.OS === 'ios' ? 'Georgia' : 'serif') : undefined }}
               />
               {block.level <= 2 && (
                 <View style={[styles.headingRule, { marginTop: 6, backgroundColor: colors.border }]} />
@@ -1403,22 +1427,38 @@ export default function MarkdownPreview({
           return null;
       }
     },
-    [blocks, colors, fontSize, lineHeight, vaultPath, onLinkPress, onWikiLinkPress, pluginRenderers, notePath]
+    [blocks, colors, fontSize, lineHeight, vaultPath, onLinkPress, onWikiLinkPress, pluginRenderers, notePath, anchorLine, anchor, headerInset]
   );
 
+  const noteLocation = vaultPath && notePath && showLocation ? vaultRelativePath(vaultPath, notePath).split('/') : [];
+  const fileTitle = noteLocation[noteLocation.length - 1]?.replace(/\.(md|markdown)$/i, '');
+  const breadcrumb = noteLocation.slice(0, -1).filter(Boolean).join(' / ');
   const scrollView = (
     <Animated.ScrollView
       ref={scrollRef}
       onScroll={handleScroll}
       scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: colors.bgPrimary }]}
-      contentContainerStyle={[styles.contentContainer, { paddingTop: 16 + headerInset }]}
+      contentContainerStyle={[styles.contentContainer, { paddingHorizontal: metrics.contentPadding, paddingTop: 16 + headerInset }]}
       showsVerticalScrollIndicator
     >
+      {!!breadcrumb && <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: 12, marginBottom: 13 }}>{breadcrumb}</Text>}
       {bannerUri && failedBanner !== bannerUri && <Image accessibilityLabel="Note banner"
         source={{ uri: bannerUri }} resizeMode="cover" onError={() => setFailedBanner(bannerUri)}
-        style={{ width: '100%', height: 156, borderRadius: 12, marginBottom: 14 }} />}
-      {blocks.map(renderBlock)}
+        style={{ width: '100%', height: 156, borderRadius: metrics.panelRadius, marginBottom: 14 }} />}
+      {fileTitle && !blocks.some(block => block.type === 'heading' && block.level === 1) &&
+        <Text accessibilityRole="header" style={{ color: colors.textPrimary, fontSize: fontSize * 2,
+          marginBottom: 16, fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }}>{fileTitle}</Text>}
+      {blocks.map((block, index) => block.line === anchorLine && block.type !== 'heading' ? (
+        <View key={index} style={{ borderRadius: metrics.rowRadius, backgroundColor: colors.accent + '14' }}
+          onLayout={event => {
+            if (completedAnchor.current === anchor) return;
+            completedAnchor.current = anchor;
+            scrollRef.current?.scrollTo({ y: Math.max(0, event.nativeEvent.layout.y - headerInset - 8), animated: false });
+          }}>
+          {renderBlock(block, index)}
+        </View>
+      ) : renderBlock(block, index))}
     </Animated.ScrollView>
   );
 

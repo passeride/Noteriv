@@ -1,3 +1,4 @@
+import { DEFAULT_WORKSPACE_THEME } from "../../../packages/appearance/workspace";
 export interface AppSettings {
   autoSaveInterval: number; // seconds, 0 = disabled
   spellCheck: boolean;
@@ -58,7 +59,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   folderSync: { targetPath: "", direction: "both" },
   webdavSync: { url: "", username: "", password: "", remotePath: "/Noteriv", encryptionPassword: "" },
   syncFilter: { images: true, pdfs: true, audio: false, video: false, settings: false, excludeFolders: "" },
-  theme: "catppuccin-mocha",
+  theme: DEFAULT_WORKSPACE_THEME,
   autoUpdate: true,
   autoCollapseSidebar: true,
   sidebarCollapseWidth: 800,

@@ -1,3 +1,4 @@
+import { DEFAULT_WORKSPACE_THEME } from "../../packages/appearance/workspace";
 import { AppSettings } from '@/types';
 import { getItem, setItem, KEYS } from './storage';
 
@@ -13,7 +14,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   syncOnSave: false,
   pullOnOpen: false,
   commitMessageFormat: 'Sync {date} {time}',
-  theme: 'catppuccin-mocha',
+  theme: DEFAULT_WORKSPACE_THEME,
   autoUpdate: true,
 };
 

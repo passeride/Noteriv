@@ -1,3 +1,5 @@
+import { WORKSPACE_THEMES } from "../../../packages/appearance/workspace";
+
 export interface ThemeDefinition {
   id: string;
   name: string;
@@ -29,6 +31,10 @@ export interface ThemeColors {
 }
 
 export const BUILT_IN_THEMES: ThemeDefinition[] = [
+  ...WORKSPACE_THEMES.map(({ id, name, colors }) => ({
+    id, name, author: "Noteriv", version: "1.0.0",
+    colors: { ...colors, scrollbar: colors.border, scrollbarHover: colors.textMuted },
+  })),
   {
     id: "catppuccin-mocha",
     name: "Catppuccin Mocha",
@@ -402,7 +408,7 @@ export function importTheme(json: string): ThemeDefinition | null {
 }
 
 export function getDefaultTheme(): ThemeDefinition {
-  return BUILT_IN_THEMES[0]; // Catppuccin Mocha
+  return BUILT_IN_THEMES.find((theme) => theme.id === "noteriv-night")!;
 }
 
 // ── Community themes ──

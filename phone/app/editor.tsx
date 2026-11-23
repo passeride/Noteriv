@@ -35,14 +35,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Git from '@/lib/provider-sync';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 import { hasInvalidProperties, setProperty } from '@/lib/properties';
-import CreateModal from '@/components/CreateModal';
-import VaultSwitcher from '@/components/VaultSwitcher';
 import { getOrCreateDailyNote } from '@/lib/daily-note';
 import { getRandomNote } from '@/lib/random-note';
-import SearchModal from '@/components/SearchModal';
+import QuickLauncher, { type EditorCommand } from '@/components/QuickLauncher';
+import NoteDetails from '@/components/NoteDetails';
+import SyncStatusSheet from '@/components/SyncStatusSheet';
 import MarkdownPreview from '@/components/MarkdownPreview';
 import BoardView from '@/components/BoardView';
-import EditorOverlay, { type EditorCommand } from '@/components/EditorOverlay';
+import FileDrawer from '@/components/FileDrawer';
 import { rename as renameFile, listAllMarkdownFiles } from '@/lib/file-system';
 import { lintMarkdown, LintWarning } from '@/lib/markdown-lint';
 import { isBoardContent, isBoardFile } from '@/lib/board-utils';
@@ -52,10 +52,6 @@ import { parseWikiLink, resolveWikiLink, warmWikiLinks } from '@/lib/wiki-links'
 const toolbarIcons = {
   back: require('../assets/images/editor-toolbar/back.png'),
   files: require('../assets/images/editor-toolbar/files.png'),
-  commands: require('../assets/images/editor-toolbar/commands.png'),
-  edit: require('../assets/images/editor-toolbar/edit.png'),
-  preview: require('../assets/images/editor-toolbar/preview.png'),
-  more: require('../assets/images/editor-toolbar/more.png'),
 };
 
 function filePanelSwipe(enabled: boolean, openFiles: () => void) {
@@ -80,10 +76,12 @@ export default function EditorRoute() {
 
 export function EditorScreen({ root = false, homePath }: { root?: boolean; homePath?: string }) {
   const router = useRouter();
-  const { path: routePath, heading } = useLocalSearchParams<{ path: string; heading?: string }>();
+  const { path: routePath, heading, line } = useLocalSearchParams<{ path: string; heading?: string; line?: string }>();
   const path = root ? homePath : routePath;
-  const [anchor, setAnchor] = useState<{ heading: string } | null>(() => heading ? { heading } : null);
-  const { colors } = useTheme();
+  const [anchor, setAnchor] = useState<{ heading?: string; line?: number } | null>(() =>
+    heading ? { heading } : line && Number.isSafeInteger(Number(line)) && Number(line) > 0 ? { line: Number(line) } : null
+  );
+  const { colors, metrics } = useTheme();
   const {
     currentFile,
     content,
@@ -101,13 +99,12 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     refreshFiles,
   } = useApp();
 
-  const [searchVisible, setSearchVisible] = useState(false);
-  const [overlay, setOverlay] = useState<'files' | 'commands' | null>(root && !homePath ? 'files' : null);
+  const [overlay, setOverlay] = useState<'files' | 'commands' | 'search' | null>(root && !homePath ? 'files' : null);
   const [editIconPath, setEditIconPath] = useState<string>();
-  const inlineCommands = overlay === 'commands' && Platform.OS === 'android';
-  const [createDir, setCreateDir] = useState<string>();
-  const [browseDir, setBrowseDir] = useState<string>();
-  const [vaultSwitcherVisible, setVaultSwitcherVisible] = useState(false);
+  const inlineLauncher = (overlay === 'commands' || overlay === 'search') && Platform.OS === 'android';
+  const [startCreating, setStartCreating] = useState(false);
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [syncStatusVisible, setSyncStatusVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -156,10 +153,12 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const closeOverlay = useCallback(() => {
     setOverlay(null);
     setEditIconPath(undefined);
+    setStartCreating(false);
   }, []);
 
   const handleBack = useCallback(() => {
-    if (inlineCommands) {
+    if (inlineLauncher) {
+      Keyboard.dismiss();
       closeOverlay();
       return;
     }
@@ -173,7 +172,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     }
     void setCurrentFile(null);
     router.back();
-  }, [closeOverlay, flushFile, inlineCommands, root, setCurrentFile, router]);
+  }, [closeOverlay, flushFile, inlineLauncher, root, setCurrentFile, router]);
 
   useFocusEffect(useCallback(() => {
     if ((path || root) && activePath.current !== (path ?? null)) void setCurrentFile(path ?? null);
@@ -380,17 +379,21 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const isBookmarked =
     currentFile && (workspace.bookmarks ?? []).includes(currentFile);
 
-  const openOverlay = useCallback((mode: 'files' | 'commands') => {
+  const openOverlay = useCallback((mode: 'files' | 'commands' | 'search') => {
     if (mode === 'files') Keyboard.dismiss();
     setMenuVisible(false);
     setOverlay(mode);
   }, []);
   const openCommands = useCallback(() => openOverlay('commands'), [openOverlay]);
   const openFiles = useCallback(() => openOverlay('files'), [openOverlay]);
-  const canSwipeFiles = !!vault && !overlay && !searchVisible && !menuVisible && Platform.OS !== 'web';
+  const openSearch = useCallback(() => openOverlay('search'), [openOverlay]);
+  const openDetails = useCallback(() => { setMenuVisible(false); Keyboard.dismiss(); setDetailsVisible(true); }, []);
+  const openSyncStatus = () => { setMenuVisible(false); setSyncStatusVisible(true); };
+  const newEntry = () => { setStartCreating(true); openFiles(); };
+  const canSwipeFiles = !!vault && !overlay && !menuVisible && Platform.OS !== 'web';
   const noteGestures = Gesture.Exclusive(filePanelSwipe(canSwipeFiles, openFiles), swipeBetweenNotes);
   const pullHeader = Gesture.Pan()
-    .enabled(!!vault && !overlay && !searchVisible)
+    .enabled(!!vault && !overlay)
     .activeOffsetY(18)
     .failOffsetX([-20, 20])
     .failOffsetY([-12, 10000])
@@ -399,10 +402,13 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     })
     .runOnJS(true);
   const headerGestures = Gesture.Race(filePanelSwipe(canSwipeFiles, openFiles), pullHeader);
-  const openNote = (notePath: string) => {
-    if (notePath !== currentFile && flushFile()) {
-      router.push({ pathname: '/editor', params: { path: notePath } });
+  const openNote = (notePath: string, targetLine?: number) => {
+    if (notePath === currentFile) {
+      if (targetLine) setAnchor({ line: targetLine });
+      return;
     }
+    if (flushFile()) router.push({ pathname: '/editor',
+      params: { path: notePath, ...(targetLine ? { line: String(targetLine) } : {}) } });
   };
   const openLibraryNote = async (kind: 'daily' | 'random') => {
     if (!vault || !flushFile()) return;
@@ -411,13 +417,13 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   };
   const [gitBusy, setGitBusy] = useState(false);
   const [history, setHistory] = useState<{ hash: string; date: string; author: string; message: string }[]>();
-  const syncVault = async () => {
+  const syncVault = async (showResult = true) => {
     if (!vault?.gitRemote || gitBusy || !flushFile()) return;
     setGitBusy(true);
     try {
       const token = await Git.getVaultToken(vault.id);
       const result = await Git.sync(vault.path, token ?? '', vault.gitRemote, vault.gitBranch || undefined, vault.gitProvider);
-      Alert.alert('Git sync', result.errors.join('\n') || (result.conflicts?.length
+      if (showResult) Alert.alert('Git sync', result.errors.join('\n') || (result.conflicts?.length
         ? 'Conflicts need attention in Git settings.'
         : `Pulled ${result.pulled}, pushed ${result.pushed}.`));
     } catch (error) {
@@ -460,13 +466,14 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     }
   };
   const libraryCommands: EditorCommand[] = [
+    ...(vault?.gitRemote ? [{ label: 'Git: Sync status', run: openSyncStatus }] : []),
     ...(vault?.gitRemote && !gitBusy ? [{ label: 'Git: Sync now', run: () => void syncVault() }] : []),
     { label: 'Daily note', run: () => void openLibraryNote('daily') },
     { label: 'Calendar', run: () => { if (flushFile()) router.push('/calendar'); } },
     { label: 'Flashcards', run: () => { if (flushFile()) router.push('/flashcards'); } },
     { label: 'Vault graph', run: () => { if (flushFile()) router.push('/graph'); } },
     { label: 'Random note', run: () => void openLibraryNote('random') },
-    { label: 'Quick open or search', run: () => setSearchVisible(true) },
+    { label: 'Quick open or search', run: openSearch },
     { label: 'Settings', run: () => { if (flushFile()) router.push('/settings'); } },
     ...(vault?.homeFile && !root ? [{ label: 'Start note', run: () => { if (flushFile()) router.dismissTo('/'); } }] : []),
   ];
@@ -487,6 +494,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       { label: 'Git: File history and changelog', run: () => void showFileHistory() },
     ] : []),
     { label: 'Browse files', run: openFiles },
+    { label: 'New note or folder', run: newEntry },
+    ...(displayedPath && currentFile === displayedPath ? [{ label: 'Note details', run: openDetails }] : []),
     { label: 'Save note', run: handleSave },
     { label: (workspace.viewMode === 'edit' && !anchor) ? 'Switch to reading mode' : 'Switch to editing mode', run: toggleViewMode },
     { label: focusMode ? 'Exit focus mode' : 'Enter focus mode', run: () => setFocusMode(value => !value) },
@@ -499,15 +508,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       <View style={styles.container}>
-      <View style={styles.container} importantForAccessibility={inlineCommands ? 'no-hide-descendants' : 'auto'}>
-      {vault && <>
-        <SearchModal visible={searchVisible} vaultPath={vault.path}
-          onClose={() => setSearchVisible(false)} onFileSelect={openNote}
-          draft={isDirty && currentFile ? { path: currentFile, text: content } : undefined} />
-        <VaultSwitcher visible={vaultSwitcherVisible} onClose={() => setVaultSwitcherVisible(false)} />
-        <CreateModal visible={!!createDir} currentDir={createDir ?? vault.path}
-          onClose={() => { setCreateDir(undefined); setOverlay('files'); }} onCreated={refreshFiles} />
-      </>}
+      <View style={styles.container} importantForAccessibility={inlineLauncher ? 'no-hide-descendants' : 'auto'}>
       <Modal visible={history !== undefined} onRequestClose={() => setHistory(undefined)} animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary, padding: 16 }}>
           <TouchableOpacity accessibilityRole="button" onPress={() => setHistory(undefined)}>
@@ -528,7 +529,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         importantForAccessibility={collapsibleHeader && headerHidden ? 'no-hide-descendants' : 'auto'}>
         <GestureDetector gesture={headerGestures}>
         <Animated.View onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}
-          style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.bgTertiary }, readingHeaderStyle]}>
+          style={[styles.header, { minHeight: metrics.toolbarHeight, backgroundColor: colors.bgSecondary, borderBottomColor: colors.border }, readingHeaderStyle]}>
         <TouchableOpacity
           style={styles.headerButton}
           accessibilityRole="button"
@@ -543,44 +544,30 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
           style={styles.headerButton} onPress={openFiles}>
           <Image source={toolbarIcons.files} style={toolbarIconStyle} />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
+        <TouchableOpacity style={styles.headerCenter} accessibilityRole="button" accessibilityLabel="Note actions"
+          accessibilityState={{ expanded: menuVisible }} onPress={() => setMenuVisible(!menuVisible)}>
           <Text style={[styles.fileName, { color: colors.textPrimary }]} numberOfLines={1}>
-            {fileName}
+            {fileName.replace(/\.(md|markdown)$/i, '')}
           </Text>
-          {isDirty && <View style={[styles.dirtyDot, { backgroundColor: colors.peach }]} />}
-        </View>
+          {isDirty && <View accessibilityLabel="Unsaved changes" style={[styles.dirtyDot, { backgroundColor: colors.peach }]} />}
+          <Ionicons name="chevron-down" size={13} color={colors.textMuted} />
+        </TouchableOpacity>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Command palette"
-            style={styles.headerButton} onPress={openCommands}>
-            <Image source={toolbarIcons.commands} style={toolbarIconStyle} />
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Find files and contents"
+            onPress={openSearch} onLongPress={openCommands} accessibilityHint="Hold for commands" style={styles.headerButton}>
+            <Ionicons name="search" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
-          {isDirty && (
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: colors.blue }]}
-              onPress={handleSave}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.saveButtonText, { color: colors.bgPrimary }]}>Save</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={styles.headerButton}
+          {displayedPath && !isBoard && <TouchableOpacity
+            style={[styles.modeButton, { borderRadius: metrics.controlRadius, backgroundColor: colors.accent + '18' }]}
             accessibilityRole="button"
-            accessibilityLabel={workspace.viewMode === 'edit' && !anchor ? 'Read note' : 'Edit note'}
+            accessibilityLabel={workspace.viewMode === 'edit' && !anchor ? 'Read note' : 'Write note'}
             onPress={toggleViewMode}
           >
-            <Image source={workspace.viewMode === 'edit' && !anchor ? toolbarIcons.preview : toolbarIcons.edit}
-              style={toolbarIconStyle} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerButton}
-            accessibilityRole="button"
-            accessibilityLabel="More actions"
-            onPress={() => setMenuVisible(!menuVisible)}
-          >
-            <Image source={toolbarIcons.more} style={toolbarIconStyle} />
-          </TouchableOpacity>
+            <Text style={{ color: colors.accent, fontWeight: '700' }}>
+              {workspace.viewMode === 'edit' && !anchor ? 'Read' : 'Write'}
+            </Text>
+          </TouchableOpacity>}
         </View>
         </Animated.View>
         </GestureDetector>
@@ -588,7 +575,25 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
 
       {/* More Menu */}
       {menuVisible && (
-        <View style={[styles.menu, { top: headerHeight || 56, backgroundColor: colors.bgTertiary }]}>
+        <ScrollView style={[styles.menu, { top: headerHeight || metrics.toolbarHeight, backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]} keyboardShouldPersistTaps="handled">
+          {displayedPath && <>
+            <TouchableOpacity style={styles.menuItem} onPress={openDetails}>
+              <Ionicons name="information-circle-outline" size={20} color={colors.accent} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Note details</Text>
+            </TouchableOpacity>
+            {isDirty && <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); void handleSave(); }}>
+              <Ionicons name="save-outline" size={20} color={colors.accent} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Save note</Text>
+            </TouchableOpacity>}
+          </>}
+          {vault?.gitRemote && <TouchableOpacity style={styles.menuItem} onPress={openSyncStatus}>
+            <Ionicons name="sync-outline" size={20} color={colors.accent} />
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Sync status</Text>
+          </TouchableOpacity>}
+          <TouchableOpacity style={styles.menuItem} onPress={openCommands}>
+            <Ionicons name="terminal-outline" size={20} color={colors.accent} />
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Commands</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={handleBookmark}>
             <Ionicons
               name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
@@ -706,7 +711,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               Delete
             </Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       )}
 
       {/* Dismiss menu on tap */}
@@ -738,6 +743,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               content={content}
               onChange={setContent}
               fontSize={settings.fontSize}
+              lineSpacing={settings.lineHeight}
+              spellCheck={settings.spellCheck}
               focusMode={focusMode}
               onToggleFocusMode={() => setFocusMode((f) => !f)}
             />
@@ -747,6 +754,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               fontSize={settings.fontSize}
               vaultPath={vault?.path}
               notePath={displayedPath}
+              showLocation
               headerInset={collapsibleHeader ? headerHeight : undefined}
               onScroll={collapsibleHeader ? readingScroll : undefined}
               onPullDown={vault && Platform.OS !== 'web' ? openCommands : undefined}
@@ -844,12 +852,27 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         </KeyboardAvoidingView>
       </Modal>
       </View>
-      {overlay && vault && (
-        <EditorOverlay key={overlay} mode={overlay} vaultPath={vault.path} notePath={displayedPath || vault.path}
-          editIconPath={editIconPath} initialFolder={browseDir} vaultName={vault.name} commands={commands} fileCommands={libraryCommands}
-          onSwitchVault={() => { if (flushFile()) setVaultSwitcherVisible(true); }}
-          onCreate={folder => { setBrowseDir(folder); setCreateDir(folder); }} onRefresh={refreshFiles}
+      {vault && overlay === 'files' && (
+        <FileDrawer key={vault.id} vaultPath={vault.path} notePath={displayedPath || vault.path}
+          editIconPath={editIconPath} vaultName={vault.name} fileCommands={libraryCommands} startCreating={startCreating}
+          onVaultChange={() => { if (!root) router.dismissTo('/'); }} onRefresh={refreshFiles}
           onClose={closeOverlay} onOpenNote={openNote} />
+      )}
+      {vault && (overlay === 'commands' || overlay === 'search') && (
+        <QuickLauncher key={vault.id} mode={overlay === 'search' ? 'files' : 'commands'}
+          onModeChange={mode => setOverlay(mode === 'files' ? 'search' : 'commands')}
+          commands={commands} vaultPath={vault.path} onClose={closeOverlay} onFileSelect={openNote}
+          draft={isDirty && currentFile ? { path: currentFile, text: content } : undefined} />
+      )}
+      {vault?.gitRemote && syncStatusVisible && (
+        <SyncStatusSheet vaultPath={vault.path} busy={gitBusy} onSync={() => void syncVault(false)}
+          onClose={() => setSyncStatusVisible(false)} onSettings={() => router.push({ pathname: '/settings', params: { section: 'vault' } })} />
+      )}
+      {vault && currentFile && detailsVisible && (
+        <NoteDetails content={content} onClose={() => setDetailsVisible(false)} onJump={target => setAnchor({ line: target })}
+          onEditProperties={() => { if (flushFile()) router.push('/frontmatter'); }}
+          onOpenLinks={() => { if (flushFile()) router.push({ pathname: '/backlinks', params: { filePath: currentFile, vaultPath: vault.path } }); }}
+          onOpenHistory={() => void showFileHistory()} />
       )}
       </View>
     </SafeAreaView>
@@ -905,16 +928,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerIcon: { width: 24, height: 24 },
-  saveButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginRight: 4,
-  },
-  saveButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  modeButton: { minHeight: 44, minWidth: 48, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
   menu: {
     position: 'absolute',
     top: 56,
@@ -922,6 +936,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 4,
     minWidth: 180,
+    maxHeight: '80%',
     zIndex: 100,
     elevation: 8,
     shadowColor: '#000',

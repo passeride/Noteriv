@@ -7,6 +7,34 @@ order: 3
 
 CSS snippets let you fine-tune the visual appearance of Noteriv beyond what themes control. A snippet is a small CSS file that overrides specific styles. You can toggle individual snippets on and off without affecting each other, making it easy to experiment with visual changes.
 
+## Workspace appearance
+
+[Download the workspace appearance example](/examples/workspace-appearance.css).
+Save it as `.noteriv/snippets/workspace-appearance.css` inside your vault and
+enable it in **CSS Snippets**. The example uses a light palette. Delete the
+color declarations to use the active theme's colors with the example's sizes.
+
+| Variable | Controls |
+|---|---|
+| `--noteriv-surface` | Reading surface and quick launcher |
+| `--noteriv-navigation` | Toolbar, file drawer and other navigation surfaces |
+| `--noteriv-panel` | Secondary controls and panels |
+| `--noteriv-border` | Dividers and control edges |
+| `--noteriv-text`, `--noteriv-muted` | Main and secondary text |
+| `--noteriv-accent`, `--noteriv-success` | Selections, primary actions and saved status |
+| `--noteriv-control-radius`, `--noteriv-row-radius`, `--noteriv-panel-radius` | Corner radii |
+| `--noteriv-content-padding`, `--noteriv-toolbar-height` | Reading margins and toolbar sizing |
+| `--noteriv-drawer-width`, `--noteriv-launcher-width` | Maximum widths on narrow screens |
+| `--noteriv-reading-width`, `--noteriv-details-width`, `--noteriv-row-height` | Desktop reading width, details panel and file rows |
+| `--noteriv-heading-font`, `--noteriv-ui-font` | Desktop typography |
+| `--noteriv-selection`, `--noteriv-scrim` | Desktop selected-row fill and backdrop |
+
+Mobile applies the shared variables in top-level `:root` blocks when values
+are six-digit hex colors or numbers with a `px` suffix. Widths and touch controls
+stay within the available space. The desktop-only variables use the full CSS cascade. Mobile uses its current theme and native layout
+defaults for all other declarations.
+
+
 ## How Snippets Work
 
 Each snippet is a `.css` file stored in your vault's `.noteriv/snippets/` directory. When a snippet is enabled, its CSS is injected into the application's `<head>` as a `<style>` element. This means snippets can override any CSS rule in the interface, from font sizes and spacing to hiding UI elements entirely.

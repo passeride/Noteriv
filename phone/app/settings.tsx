@@ -12,7 +12,7 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { BUILT_IN_THEMES, AccentColors, ThemeDefinition } from '@/constants/theme';
@@ -48,7 +48,10 @@ const TAB_SIZE_OPTIONS = [2, 4, 8];
 
 export default function SettingsScreen() {
   const { settings, updateSettings, vault, refreshVaults } = useApp();
-  const { colors } = useTheme();
+  const { colors, metrics } = useTheme();
+  const { section } = useLocalSearchParams<{ section?: string }>();
+  const categories = ['Appearance', 'Writing', 'Vault', 'Extensions', 'About'] as const;
+  const [category, setCategory] = useState<typeof categories[number]>(section === 'vault' ? 'Vault' : 'Appearance');
   const router = useRouter();
   const pluginSettings = usePluginEntries().filter(entry => entry.kind === 'settings');
   const [homeFile, setHomeFile] = useState('');
@@ -400,10 +403,19 @@ export default function SettingsScreen() {
       style={[s.container, { backgroundColor: colors.bgPrimary }]}
       contentContainerStyle={s.contentContainer}
     >
-      {pluginSettings.length > 0 && (
+      <View accessibilityRole="tablist" style={s.categoryList}>
+        {categories.map(item => (
+          <TouchableOpacity key={item} accessibilityRole="tab" accessibilityState={{ selected: category === item }}
+            onPress={() => setCategory(item)} style={[s.categoryButton, { borderRadius: metrics.controlRadius },
+              category === item && { backgroundColor: colors.accent + '18' }]}>
+            <Text style={{ color: category === item ? colors.accent : colors.textSecondary, fontWeight: '600' }}>{item}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {category === 'Extensions' && pluginSettings.length > 0 && (
         <>
           {renderSectionHeader('Plugin settings', 'extension-puzzle-outline')}
-          <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+          <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
             {pluginSettings.map(entry => (
               <TouchableOpacity key={entry.label + entry.id} accessibilityRole="button" onPress={entry.run}
                 style={{ padding: 14 }}>
@@ -413,9 +425,9 @@ export default function SettingsScreen() {
           </View>
         </>
       )}
-      {/* General */}
-      {renderSectionHeader('General', 'settings-outline')}
-      <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+      {category === 'Writing' && <>
+      {renderSectionHeader('Writing', 'settings-outline')}
+      <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
         {renderPicker(
           'Auto-save',
           AUTO_SAVE_OPTIONS,
@@ -429,8 +441,9 @@ export default function SettingsScreen() {
           updateSettings({ spellCheck: val })
         )}
       </View>
+      </>}
 
-      {vault && (
+      {category === 'Vault' && vault && (
         <>
           {renderSectionHeader('Start note', 'home-outline')}
           <View style={[s.section, { backgroundColor: colors.bgTertiary, padding: 12, gap: 8 }]}>
@@ -453,8 +466,9 @@ export default function SettingsScreen() {
       )}
 
       {/* Appearance */}
+      {category === 'Appearance' && <>
       {renderSectionHeader('Appearance', 'color-palette-outline')}
-      <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+      <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
         {/* Theme Picker */}
         <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
           <Text style={[s.settingLabel, { color: colors.textPrimary }]}>Theme</Text>
@@ -598,9 +612,11 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {/* Editor */}
+      </>}
+
+      {category === 'Writing' && <>
       {renderSectionHeader('Editor', 'code-slash-outline')}
-      <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+      <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
         {renderSlider(
           'Line height',
           settings.lineHeight,
@@ -618,9 +634,11 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {/* Ecosystem */}
-      {renderSectionHeader('Ecosystem', 'apps-outline')}
-      <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+      </>}
+
+      {category === 'Extensions' && <>
+      {renderSectionHeader('Extensions', 'apps-outline')}
+      <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
         <TouchableOpacity
           style={[s.settingRow, { borderBottomColor: colors.border }]}
           onPress={() => router.push('/snippets')}
@@ -657,15 +675,19 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Git sync */}
+      </>}
+
+      {category === 'Vault' && <>
       {renderSectionHeader('Git Sync', 'git-branch-outline')}
-      <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+      <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
         <NativeGitSettings key={vault?.id} onChooseRepository={() => setShowTokenModal(true)} />
       </View>
 
-      {/* About */}
+      </>}
+
+      {category === 'About' && <>
       {renderSectionHeader('About', 'information-circle-outline')}
-      <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+      <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
         <View style={[s.settingRow, { borderBottomColor: colors.border }]}>
           <Text style={[s.settingLabel, { color: colors.textPrimary }]}>Version</Text>
           <Text style={{ fontSize: 15, color: colors.textSecondary }}>
@@ -691,7 +713,7 @@ export default function SettingsScreen() {
 
       {/* Danger Zone */}
       {renderSectionHeader('Danger Zone', 'warning-outline')}
-      <View style={[s.section, { backgroundColor: colors.bgTertiary }]}>
+      <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
         <TouchableOpacity style={s.resetRow} onPress={handleResetApp}>
           <Ionicons name="trash-outline" size={20} color={colors.red} />
           <View style={{ flex: 1 }}>
@@ -710,6 +732,8 @@ export default function SettingsScreen() {
           A markdown notes app built with care.
         </Text>
       </View>
+
+      </>}
 
       {/* GitHub connect modal (token + repo picker) */}
       <Modal
@@ -753,7 +777,7 @@ export default function SettingsScreen() {
                 />
                 <View style={s.modalButtons}>
                   <TouchableOpacity
-                    style={[s.modalButton, { backgroundColor: colors.bgTertiary }]}
+                    style={[s.modalButton, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}
                     onPress={() => {
                       setTokenInput('');
                       setShowTokenModal(false);
@@ -832,7 +856,7 @@ export default function SettingsScreen() {
                 />
                 <View style={s.modalButtons}>
                   <TouchableOpacity
-                    style={[s.modalButton, { backgroundColor: colors.bgTertiary }]}
+                    style={[s.modalButton, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}
                     onPress={() => setTokenStep('token')}
                   >
                     <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
@@ -863,6 +887,8 @@ export default function SettingsScreen() {
 }
 
 const s = StyleSheet.create({
+  categoryList: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, paddingBottom: 8 },
+  categoryButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
   container: {
     flex: 1,
   },

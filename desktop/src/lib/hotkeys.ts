@@ -78,6 +78,8 @@ export type HotkeyAction =
   | "openTrash"
   | "togglePinTab"
   | "noteHistory"
+  | "noteDetails"
+  | "toggleWorkspaceTools"
   | "timeScrubber"
   | "toggleLint"
   | "splitEditor"
@@ -203,6 +205,8 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   // Tab pinning
   { action: "togglePinTab", label: "Pin/Unpin Tab", keys: "Ctrl+Shift+T", category: "File" },
   // Note history & lint
+  { action: "toggleWorkspaceTools", label: "Toggle Workspace Tools", keys: "", category: "View" },
+  { action: "noteDetails", label: "Note Details", keys: "", category: "View" },
   { action: "noteHistory", label: "Note History", keys: "", category: "View" },
   { action: "timeScrubber", label: "Time Scrubber", keys: "Ctrl+Shift+H", category: "View" },
   { action: "toggleLint", label: "Toggle Lint Warnings", keys: "Ctrl+Shift+L", category: "View" },

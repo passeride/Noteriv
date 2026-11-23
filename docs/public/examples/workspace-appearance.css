@@ -1,0 +1,26 @@
+/* Copy into .noteriv/snippets/workspace-appearance.css and enable it in Noteriv.
+   Use the light theme with this color example. Remove the colors to keep a theme's palette. */
+:root {
+  --noteriv-surface: #f9f7f0;
+  --noteriv-navigation: #eee9dc;
+  --noteriv-panel: #e9e3d6;
+  --noteriv-border: #c9bfab;
+  --noteriv-text: #202e29;
+  --noteriv-muted: #525d55;
+  --noteriv-accent: #35624e;
+  --noteriv-success: #28634d;
+
+  --noteriv-control-radius: 6px;
+  --noteriv-panel-radius: 20px;
+  --noteriv-row-radius: 10px;
+  --noteriv-content-padding: 24px;
+  --noteriv-toolbar-height: 56px;
+  --noteriv-drawer-width: 320px;
+  --noteriv-launcher-width: 520px;
+
+  /* Desktop layout and typography */
+  --noteriv-details-width: 250px;
+  --noteriv-row-height: 36px;
+  --noteriv-reading-width: 68ch;
+  --noteriv-heading-font: Georgia, serif;
+}

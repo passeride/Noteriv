@@ -22,10 +22,12 @@ import { Vault } from '@/types';
 
 interface VaultSwitcherProps {
   visible: boolean;
+  embedded?: boolean;
+  onVaultChange?: () => void;
   onClose: () => void;
 }
 
-export default function VaultSwitcher({ visible, onClose }: VaultSwitcherProps) {
+export default function VaultSwitcher({ visible, embedded, onClose, onVaultChange }: VaultSwitcherProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { vaults, vault, switchVault, createVault, deleteVault } = useApp();
@@ -77,9 +79,10 @@ export default function VaultSwitcher({ visible, onClose }: VaultSwitcherProps) 
         return;
       }
       await switchVault(id);
+      onVaultChange?.();
       onClose();
     },
-    [vault, switchVault, onClose]
+    [vault, switchVault, onClose, onVaultChange]
   );
 
   const handleCreate = useCallback(async () => {
@@ -100,13 +103,14 @@ export default function VaultSwitcher({ visible, onClose }: VaultSwitcherProps) 
       await createVault(trimmed);
       setNewVaultName('');
       setShowCreate(false);
+      onVaultChange?.();
       onClose();
     } catch {
       Alert.alert('Error', 'Failed to create vault.');
     } finally {
       setIsCreating(false);
     }
-  }, [newVaultName, vaults, createVault, onClose]);
+  }, [newVaultName, vaults, createVault, onClose, onVaultChange]);
 
   const handleDelete = useCallback(
     (v: Vault) => {
@@ -195,36 +199,12 @@ export default function VaultSwitcher({ visible, onClose }: VaultSwitcherProps) 
     [colors, vault, swipedId, handleSwitch, handleDelete]
   );
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-
-        <View style={[styles.sheet, { backgroundColor: colors.bgPrimary }]}>
-          {/* Handle */}
-          <View style={styles.handleContainer}>
-            <View style={[styles.handle, { backgroundColor: colors.border }]} />
-          </View>
-
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.bgTertiary }]}>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>Vaults</Text>
-            <TouchableOpacity
-              onPress={onClose}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close" size={22} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
+  const contents = (
+    <>
           {/* Vault list */}
           <FlatList
             data={vaults}
+            keyboardShouldPersistTaps="handled"
             renderItem={renderVaultItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
@@ -294,6 +274,41 @@ export default function VaultSwitcher({ visible, onClose }: VaultSwitcherProps) 
               <Text style={[styles.createButtonText, { color: colors.blue }]}>Create New Vault</Text>
             </TouchableOpacity>
           )}
+
+    </>
+  );
+  if (embedded && visible) {
+    return <View style={{ flex: 1, paddingBottom: keyboardHeight }}>{contents}</View>;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+
+        <View style={[styles.sheet, { backgroundColor: colors.bgPrimary }]}>
+          {/* Handle */}
+          <View style={styles.handleContainer}>
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          </View>
+
+          {/* Header */}
+          <View style={[styles.header, { borderBottomColor: colors.bgTertiary }]}>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Vaults</Text>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={22} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {contents}
 
           {/* Bottom padding for safe area (clears the Android nav bar / iOS home
               indicator). Collapsed while the keyboard is up, since the container's

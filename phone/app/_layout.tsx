@@ -21,7 +21,7 @@ function AppThemeWrapper({ children }: { children: React.ReactNode }) {
   }, [vault?.path]);
 
   return (
-    <ThemeProvider themeId={settings.theme} customThemes={customThemes}>
+    <ThemeProvider themeId={settings.theme} customThemes={customThemes} vaultPath={vault?.path}>
       {children}
     </ThemeProvider>
   );

@@ -20,6 +20,8 @@ interface MarkdownEditorProps {
   content: string;
   onChange: (text: string) => void;
   fontSize: number;
+  lineSpacing?: number;
+  spellCheck?: boolean;
   focusMode?: boolean;
   onToggleFocusMode?: () => void;
 }
@@ -137,8 +139,8 @@ const toolbarActions: ToolbarAction[] = [
   { icon: 'calculator-outline' as keyof typeof Ionicons.glyphMap, label: '$', action: (t, s) => wrapSelection(t, s, '$', '$') },
 ];
 
-export default function MarkdownEditor({ notePath, content, onChange, fontSize, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
-  const { colors } = useTheme();
+export default function MarkdownEditor({ notePath, content, onChange, fontSize, lineSpacing = 1.6, spellCheck = true, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
+  const { colors, metrics } = useTheme();
   const inputRef = useRef<TextInputInstance>(null);
   const [selection, setSelection] = useState<Selection>({ start: 0, end: 0 });
 
@@ -184,7 +186,8 @@ export default function MarkdownEditor({ notePath, content, onChange, fontSize, 
           styles.textInput,
           {
             fontSize,
-            lineHeight: fontSize * 1.6,
+            lineHeight: fontSize * lineSpacing,
+            paddingHorizontal: metrics.contentPadding,
             color: colors.textPrimary,
             backgroundColor: colors.bgPrimary,
           },
@@ -195,7 +198,8 @@ export default function MarkdownEditor({ notePath, content, onChange, fontSize, 
         multiline
         textAlignVertical="top"
         autoCapitalize="sentences"
-        autoCorrect
+        autoCorrect={spellCheck}
+        spellCheck={spellCheck}
         scrollEnabled
         selectionColor={colors.accent + '80'}
         placeholderTextColor={colors.textMuted}
@@ -213,7 +217,8 @@ export default function MarkdownEditor({ notePath, content, onChange, fontSize, 
             {toolbarActions.map((action) => (
               <TouchableOpacity
                 key={action.label}
-                style={[styles.toolbarButton, { backgroundColor: colors.bgTertiary }]}
+                style={[styles.toolbarButton, { borderRadius: metrics.controlRadius }]}
+                accessibilityRole="button" accessibilityLabel={action.label}
                 onPress={() => handleToolbarPress(action.action)}
                 activeOpacity={0.6}
               >
@@ -222,7 +227,8 @@ export default function MarkdownEditor({ notePath, content, onChange, fontSize, 
             ))}
             {onToggleFocusMode && (
               <TouchableOpacity
-                style={[styles.toolbarButton, { backgroundColor: colors.bgTertiary }]}
+                style={[styles.toolbarButton, { borderRadius: metrics.controlRadius }]}
+                accessibilityRole="button" accessibilityLabel="Enter focus mode"
                 onPress={onToggleFocusMode}
                 activeOpacity={0.6}
               >
@@ -267,8 +273,8 @@ const styles = StyleSheet.create({
   toolbarButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 40,
-    height: 36,
+    width: 48,
+    height: 48,
     borderRadius: 8,
   },
   focusExitBtn: {

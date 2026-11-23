@@ -874,7 +874,7 @@ export default function Sidebar({
         <>
           {/* Header */}
           <div className="sidebar-header">
-            <span className="sidebar-title" title={vault.path}>{vault.name}</span>
+            <span className="sidebar-title" title={vault.path}>Files</span>
             <div className="sidebar-actions">
               <button onClick={onNewFile} className="sidebar-btn" title="New file">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none">

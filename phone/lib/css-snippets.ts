@@ -28,6 +28,25 @@ const SNIPPETS_DIR = '.noteriv/snippets';
 const SNIPPET_CONFIG_FILE = '.noteriv/snippet-config.json';
 const COMMUNITY_URL = 'https://raw.githubusercontent.com/thejacedev/NoterivSnippets/master';
 
+const snippetListeners = new Set<(vaultPath: string) => void>();
+export function onSnippetChange(listener: (vaultPath: string) => void) {
+  snippetListeners.add(listener);
+  return () => { snippetListeners.delete(listener); };
+}
+
+function notifySnippets(vaultPath: string) {
+  snippetListeners.forEach(listener => listener(vaultPath));
+}
+
+export async function loadAppearanceCSS(vaultPath: string): Promise<string> {
+  const config = await loadConfig(vaultPath);
+  if (!Array.isArray(config.enabled) || !config.enabled.length) return '';
+  const files = readDir(snippetsPath(vaultPath))
+    .filter(entry => !entry.isDirectory && entry.name.endsWith('.css') && config.enabled.includes(filenameToId(entry.name)))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return (await Promise.all(files.map(entry => readFile(entry.path)))).join('\n');
+}
+
 // --- Helpers ---
 
 function snippetsPath(vaultPath: string): string {
@@ -61,7 +80,7 @@ async function loadConfig(vaultPath: string): Promise<SnippetConfig> {
 
 function saveConfig(vaultPath: string, config: SnippetConfig): void {
   createDir(`${vaultPath}/.noteriv`);
-  writeFile(configPath(vaultPath), JSON.stringify(config, null, 2));
+  if (writeFile(configPath(vaultPath), JSON.stringify(config, null, 2))) notifySnippets(vaultPath);
 }
 
 // --- Public API ---
@@ -136,7 +155,7 @@ export function deleteSnippet(vaultPath: string, snippetId: string): void {
 
   for (const entry of entries) {
     if (!entry.isDirectory && filenameToId(entry.name) === snippetId) {
-      deleteFile(entry.path);
+      if (deleteFile(entry.path)) notifySnippets(vaultPath);
       break;
     }
   }
@@ -165,7 +184,7 @@ export function updateSnippetContent(
 
   for (const entry of entries) {
     if (!entry.isDirectory && filenameToId(entry.name) === snippetId) {
-      writeFile(entry.path, content);
+      if (writeFile(entry.path, content)) notifySnippets(vaultPath);
       break;
     }
   }

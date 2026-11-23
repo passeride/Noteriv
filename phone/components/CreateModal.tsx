@@ -14,11 +14,13 @@ import {
   type TextInputInstance,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Paths } from 'expo-file-system';
 import { useTheme } from '@/context/ThemeContext';
 import { createFile, createDir, fileExists } from '@/lib/file-system';
 
 interface CreateModalProps {
   visible: boolean;
+  inline?: boolean;
   onClose: () => void;
   currentDir: string;
   onCreated: () => void;
@@ -28,11 +30,12 @@ type CreateType = 'file' | 'folder';
 
 export default function CreateModal({
   visible,
+  inline,
   onClose,
   currentDir,
   onCreated,
 }: CreateModalProps) {
-  const { colors } = useTheme();
+  const { colors, metrics } = useTheme();
   const [name, setName] = useState('');
   const [createType, setCreateType] = useState<CreateType>('file');
   const [isCreating, setIsCreating] = useState(false);
@@ -50,7 +53,8 @@ export default function CreateModal({
         tension: 65,
         friction: 10,
       }).start();
-      setTimeout(() => inputRef.current?.focus(), 250);
+      const timer = setTimeout(() => inputRef.current?.focus(), 250);
+      return () => clearTimeout(timer);
     } else {
       slideAnim.setValue(0);
     }
@@ -125,22 +129,17 @@ export default function CreateModal({
     return trimmed.endsWith('.md') || trimmed.endsWith('.markdown') ? trimmed : `${trimmed}.md`;
   }, [name, createType]);
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+  const body = (
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable style={[styles.overlay, inline && styles.sheetOverlay]} onPress={onClose}>
         <Animated.View
           style={[
             styles.dialog,
-            { backgroundColor: colors.bgTertiary },
+            { backgroundColor: colors.bgPrimary, borderRadius: metrics.panelRadius },
+            inline && styles.sheet,
             {
               transform: [
                 {
@@ -163,9 +162,14 @@ export default function CreateModal({
                 color={colors.blue}
               />
               <Text style={[styles.dialogTitle, { color: colors.textPrimary }]}>
-                Create {createType === 'file' ? 'File' : 'Folder'}
+                {createType === 'file' ? 'New note' : 'New folder'}
               </Text>
             </View>
+
+
+            <Text numberOfLines={1} style={{ color: colors.textMuted, marginBottom: 12 }}>
+              In {Paths.basename(currentDir) || 'vault'}
+            </Text>
 
             {/* Type toggle */}
             <View style={[styles.toggleContainer, { backgroundColor: colors.bgPrimary }]}>
@@ -186,7 +190,7 @@ export default function CreateModal({
                     createType === 'file' && { color: colors.bgPrimary, fontWeight: '600' },
                   ]}
                 >
-                  File
+                  Note
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -274,11 +278,15 @@ export default function CreateModal({
         </Animated.View>
       </Pressable>
       </KeyboardAvoidingView>
-    </Modal>
   );
+  if (inline) return visible ? <View style={styles.inline}>{body}</View> : null;
+  return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>{body}</Modal>;
 }
 
 const styles = StyleSheet.create({
+  inline: { ...StyleSheet.absoluteFill, zIndex: 20 },
+  sheetOverlay: { justifyContent: 'flex-end' },
+  sheet: { width: '100%', maxWidth: 540, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',

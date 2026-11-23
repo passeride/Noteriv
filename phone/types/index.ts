@@ -20,6 +20,7 @@ export interface AppSettings {
   hideReadingMetadata?: boolean;
   accentColor: string;
   fontSize: number;
+  wordWrap: boolean;
   lineHeight: number;
   editorFont: string;
   tabSize: number;

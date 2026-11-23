@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   spellCheck: true,
   accentColor: '#89b4fa',
   fontSize: 16,
+  wordWrap: true,
   lineHeight: 1.6,
   editorFont: 'monospace',
   tabSize: 4,

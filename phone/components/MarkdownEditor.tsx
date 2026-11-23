@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import {
   View,
   TextInput,
@@ -9,8 +9,11 @@ import {
   Platform,
   type TextInputSelectionChangeEvent,
   KeyboardAvoidingView,
+  useWindowDimensions,
   type TextInputInstance,
+  type ScrollViewInstance,
 } from 'react-native';
+import { GestureDetector, useNativeGesture, type PinchGesture } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { pluginEvents, setPluginSelection } from '@/lib/plugin-events';
 import { useTheme } from '@/context/ThemeContext';
@@ -20,6 +23,8 @@ interface MarkdownEditorProps {
   content: string;
   onChange: (text: string) => void;
   fontSize: number;
+  wordWrap: boolean;
+  pinchGesture: PinchGesture;
   lineSpacing?: number;
   spellCheck?: boolean;
   focusMode?: boolean;
@@ -139,17 +144,55 @@ const toolbarActions: ToolbarAction[] = [
   { icon: 'calculator-outline' as keyof typeof Ionicons.glyphMap, label: '$', action: (t, s) => wrapSelection(t, s, '$', '$') },
 ];
 
-export default function MarkdownEditor({ notePath, content, onChange, fontSize, lineSpacing = 1.6, spellCheck = true, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
+// React Native's multiline input wraps at its layout width. Give it space for
+// the longest line in horizontal-scroll mode, including tabs and fallback fonts.
+function lineColumns(line: string): number {
+  const tabs = line.match(/\t/g)?.length ?? 0;
+  const wide = line.match(/[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe10-\ufe6f\uff00-\uff60\uffe0-\uffe6]/g)?.length ?? 0;
+  return line.length + tabs * 7 + wide;
+}
+
+export default function MarkdownEditor({ notePath, content, onChange, fontSize, wordWrap, pinchGesture, lineSpacing = 1.6, spellCheck = true, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
   const { colors, metrics } = useTheme();
+  const { width: windowWidth, fontScale } = useWindowDimensions();
   const inputRef = useRef<TextInputInstance>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const horizontalOffset = useRef(0);
+  const [editorSize, setEditorSize] = useState<{ width: number; height: number }>();
   const [selection, setSelection] = useState<Selection>({ start: 0, end: 0 });
+  const longestLine = useMemo(() => {
+    if (wordWrap) return 0;
+    return content.split('\n').reduce((width, line) => Math.max(width, lineColumns(line)), 0);
+  }, [content, wordWrap]);
+  const viewportWidth = editorSize?.width ?? windowWidth;
+  const inputWidth = Math.max(viewportWidth, Math.ceil(fontSize * fontScale * 0.67 * longestLine
+    + 2 * metrics.contentPadding + 16));
+  const scrollGesture = useNativeGesture({ simultaneousWith: pinchGesture });
+
+  useEffect(() => {
+    horizontalOffset.current = 0;
+    scrollRef.current?.scrollTo({ x: 0, animated: false });
+  }, [notePath, wordWrap]);
 
   const handleSelectionChange = useCallback(
     (e: TextInputSelectionChangeEvent) => {
-      setPluginSelection(notePath, e.nativeEvent.selection);
-      setSelection(e.nativeEvent.selection);
+      const range = e.nativeEvent.selection;
+      setPluginSelection(notePath, range);
+      setSelection(range);
+      if (wordWrap || range.start !== range.end || inputWidth <= viewportWidth) return;
+
+      const lineStart = range.end === 0 ? 0 : content.lastIndexOf('\n', range.end - 1) + 1;
+      const columns = lineColumns(content.slice(lineStart, range.end));
+      const caretX = metrics.contentPadding + columns * fontSize * fontScale * 0.6;
+      const offset = horizontalOffset.current;
+      const inset = metrics.contentPadding;
+      if (caretX < offset + inset || caretX > offset + viewportWidth - inset) {
+        const x = Math.min(inputWidth - viewportWidth, Math.max(0, caretX < offset + inset
+          ? caretX - inset : caretX - viewportWidth + inset));
+        scrollRef.current?.scrollTo({ x, animated: false });
+      }
     },
-    [notePath]
+    [content, fontScale, fontSize, inputWidth, metrics.contentPadding, notePath, viewportWidth, wordWrap]
   );
 
   useEffect(() => {
@@ -180,31 +223,51 @@ export default function MarkdownEditor({ notePath, content, onChange, fontSize, 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <TextInput
-        ref={inputRef}
-        style={[
-          styles.textInput,
-          {
-            fontSize,
-            lineHeight: fontSize * lineSpacing,
-            paddingHorizontal: metrics.contentPadding,
-            color: colors.textPrimary,
-            backgroundColor: colors.bgPrimary,
-          },
-        ]}
-        value={content}
-        onChangeText={onChange}
-        onSelectionChange={handleSelectionChange}
-        multiline
-        textAlignVertical="top"
-        autoCapitalize="sentences"
-        autoCorrect={spellCheck}
-        spellCheck={spellCheck}
-        scrollEnabled
-        selectionColor={colors.accent + '80'}
-        placeholderTextColor={colors.textMuted}
-        placeholder="Start writing..."
-      />
+      <GestureDetector gesture={scrollGesture}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          style={styles.container}
+          contentContainerStyle={styles.editorScrollContent}
+          onLayout={({ nativeEvent: { layout } }) => setEditorSize((size) =>
+            size?.width === layout.width && size.height === layout.height ? size : layout
+          )}
+          onScroll={(event) => { horizontalOffset.current = event.nativeEvent.contentOffset.x; }}
+          scrollEventThrottle={16}
+          scrollEnabled={!wordWrap && inputWidth > viewportWidth}
+          showsHorizontalScrollIndicator={!wordWrap}
+          pinchGestureEnabled={false}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="always"
+        >
+          <TextInput
+            ref={inputRef}
+            style={[
+              styles.textInput,
+              { width: inputWidth, height: editorSize?.height },
+              {
+                fontSize,
+                lineHeight: fontSize * lineSpacing,
+                paddingHorizontal: metrics.contentPadding,
+                color: colors.textPrimary,
+                backgroundColor: colors.bgPrimary,
+              },
+            ]}
+            value={content}
+            onChangeText={onChange}
+            onSelectionChange={handleSelectionChange}
+            multiline
+            textAlignVertical="top"
+            autoCapitalize="sentences"
+            autoCorrect={spellCheck}
+            spellCheck={spellCheck}
+            scrollEnabled
+            selectionColor={colors.accent + '80'}
+            placeholderTextColor={colors.textMuted}
+            placeholder="Start writing..."
+          />
+        </ScrollView>
+      </GestureDetector>
 
       {!focusMode && (
         <View style={[styles.toolbar, { backgroundColor: colors.bgSecondary, borderTopColor: colors.border }]}>
@@ -254,8 +317,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  editorScrollContent: {
+    flexGrow: 1,
+  },
   textInput: {
-    flex: 1,
+    flexShrink: 0,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     paddingHorizontal: 16,
     paddingTop: 12,

@@ -22,7 +22,7 @@ import Animated, {
   useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, usePinchGesture } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Paths } from 'expo-file-system';
@@ -47,6 +47,7 @@ import { rename as renameFile, listAllMarkdownFiles } from '@/lib/file-system';
 import { lintMarkdown, LintWarning } from '@/lib/markdown-lint';
 import { isBoardContent, isBoardFile } from '@/lib/board-utils';
 import { parseWikiLink, resolveWikiLink, warmWikiLinks } from '@/lib/wiki-links';
+import { clampNoteFontSize } from '../../packages/appearance/note-text';
 
 // The toolbar uses bundled Ionicons artwork with fixed layout bounds.
 const toolbarIcons = {
@@ -101,6 +102,10 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
 
   const [overlay, setOverlay] = useState<'files' | 'commands' | 'search' | null>(root && !homePath ? 'files' : null);
   const [editIconPath, setEditIconPath] = useState<string>();
+  const [pinchFontSize, setPinchFontSize] = useState<number>();
+  const pinchZoom = useRef<{ startSize: number; size: number } | null>(null);
+  const fontSize = pinchFontSize ?? settings.fontSize;
+  const isEditing = workspace.viewMode === 'edit' && !anchor;
   const inlineLauncher = (overlay === 'commands' || overlay === 'search') && Platform.OS === 'android';
   const [startCreating, setStartCreating] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
@@ -137,7 +142,10 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     else router.replace(target);
   }, [flushFile, root, router]);
 
-  const swipeBetweenNotes = Gesture.Pan()
+  const allowNoteSwipe = !isEditing || settings.wordWrap;
+  const swipeBetweenNotes = useMemo(() => Gesture.Pan()
+    .enabled(allowNoteSwipe)
+    .maxPointers(1)
     .activeOffsetX([-30, 30])
     .failOffsetY([-10, 10])
     .onEnd((e, success) => {
@@ -148,7 +156,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         navigateToNote(siblingNotes[currentIndex + 1].path);
       }
     })
-    .runOnJS(true);
+    .runOnJS(true), [allowNoteSwipe, currentIndex, navigateToNote, siblingNotes]);
 
   const closeOverlay = useCallback(() => {
     setOverlay(null);
@@ -391,9 +399,40 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const openSyncStatus = () => { setMenuVisible(false); setSyncStatusVisible(true); };
   const newEntry = () => { setStartCreating(true); openFiles(); };
   const canSwipeFiles = !!vault && !overlay && !menuVisible && Platform.OS !== 'web';
-  const noteGestures = Gesture.Exclusive(filePanelSwipe(canSwipeFiles, openFiles), swipeBetweenNotes);
+  const hasMarkdownNote = !!displayedPath && !loadingNote && !isBoard;
+  const setNoteFontSize = useCallback((size: number) => {
+    const nextSize = clampNoteFontSize(size);
+    if (nextSize !== settings.fontSize) void updateSettings({ fontSize: nextSize });
+  }, [settings.fontSize, updateSettings]);
+  // The hook-based gesture survives Android's multiline input taking native touch ownership.
+  const pinch = usePinchGesture({
+    enabled: hasMarkdownNote && !overlay && !menuVisible,
+    runOnJS: true,
+    onActivate: () => {
+      pinchZoom.current = { startSize: settings.fontSize, size: settings.fontSize };
+    },
+    onUpdate: ({ scale }) => {
+      const zoom = pinchZoom.current;
+      if (!zoom) return;
+      const nextSize = clampNoteFontSize(zoom.startSize * scale);
+      if (nextSize === zoom.size) return;
+      zoom.size = nextSize;
+      setPinchFontSize(nextSize);
+    },
+    onDeactivate: ({ canceled }) => {
+      const zoom = pinchZoom.current;
+      if (!zoom) return;
+      pinchZoom.current = null;
+      if (!canceled) setNoteFontSize(zoom.size);
+      setPinchFontSize(undefined);
+    },
+  });
+  const noteGestures = useMemo(() => Gesture.Exclusive(
+    filePanelSwipe(canSwipeFiles, openFiles), swipeBetweenNotes
+  ), [canSwipeFiles, openFiles, swipeBetweenNotes]);
   const pullHeader = Gesture.Pan()
     .enabled(!!vault && !overlay)
+    .maxPointers(1)
     .activeOffsetY(18)
     .failOffsetX([-20, 20])
     .failOffsetY([-12, 10000])
@@ -486,6 +525,14 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       if (flushFile()) router.push({ pathname: '/plugins', params: { action: 'sources' } });
     } }] : []),
     ...libraryCommands,
+    ...(hasMarkdownNote ? [
+      { label: 'Increase note font size', run: () => setNoteFontSize(settings.fontSize + 1) },
+      { label: 'Decrease note font size', run: () => setNoteFontSize(settings.fontSize - 1) },
+    ] : []),
+    ...(hasMarkdownNote && isEditing ? [
+      { label: settings.wordWrap ? 'Turn off editor word wrap' : 'Turn on editor word wrap',
+        run: () => updateSettings({ wordWrap: !settings.wordWrap }) },
+    ] : []),
     { label: settings.hideReadingMetadata ? 'Show metadata in reading view' : 'Hide metadata in reading view',
       run: () => updateSettings({ hideReadingMetadata: !settings.hideReadingMetadata }) },
     ...(displayedPath && displayedPath === currentFile ? [
@@ -731,40 +778,45 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       )}
 
       {/* Editor / Preview / Board */}
-      <GestureDetector gesture={noteGestures}>
-        <View style={styles.editorContainer}>
-          {loadingNote ? null : !displayedPath ? (
-            <Text style={{ color: colors.textSecondary, padding: 20 }}>Open a note from the file panel.</Text>
-          ) : isBoard ? (
-            <BoardView content={content} onChange={setContent} />
-          ) : workspace.viewMode === 'edit' && !anchor ? (
-            <MarkdownEditor
-              notePath={displayedPath}
-              content={content}
-              onChange={setContent}
-              fontSize={settings.fontSize}
-              lineSpacing={settings.lineHeight}
-              spellCheck={settings.spellCheck}
-              focusMode={focusMode}
-              onToggleFocusMode={() => setFocusMode((f) => !f)}
-            />
-          ) : (
-            <MarkdownPreview
-              content={content}
-              fontSize={settings.fontSize}
-              vaultPath={vault?.path}
-              notePath={displayedPath}
-              showLocation
-              headerInset={collapsibleHeader ? headerHeight : undefined}
-              onScroll={collapsibleHeader ? readingScroll : undefined}
-              onPullDown={vault && Platform.OS !== 'web' ? openCommands : undefined}
-              hideReadingMetadata={settings.hideReadingMetadata}
-              anchor={anchor ?? undefined}
-              onWikiLinkPress={openNoteLink}
-              onLinkPress={handleMarkdownLink}
-            />
-          )}
-        </View>
+      <GestureDetector gesture={pinch}>
+        <GestureDetector gesture={noteGestures}>
+          <View style={styles.editorContainer}>
+            {loadingNote ? null : !displayedPath ? (
+              <Text style={{ color: colors.textSecondary, padding: 20 }}>Open a note from the file panel.</Text>
+            ) : isBoard ? (
+              <BoardView content={content} onChange={setContent} />
+            ) : isEditing ? (
+              <MarkdownEditor
+                notePath={displayedPath}
+                content={content}
+                onChange={setContent}
+                fontSize={fontSize}
+                wordWrap={settings.wordWrap}
+                pinchGesture={pinch}
+                lineSpacing={settings.lineHeight}
+                spellCheck={settings.spellCheck}
+                focusMode={focusMode}
+                onToggleFocusMode={() => setFocusMode((f) => !f)}
+              />
+            ) : (
+              <MarkdownPreview
+                content={content}
+                fontSize={fontSize}
+                pinchGesture={pinch}
+                vaultPath={vault?.path}
+                notePath={displayedPath}
+                showLocation
+                headerInset={collapsibleHeader ? headerHeight : undefined}
+                onScroll={collapsibleHeader ? readingScroll : undefined}
+                onPullDown={vault && Platform.OS !== 'web' ? openCommands : undefined}
+                hideReadingMetadata={settings.hideReadingMetadata}
+                anchor={anchor ?? undefined}
+                onWikiLinkPress={openNoteLink}
+                onLinkPress={handleMarkdownLink}
+              />
+            )}
+          </View>
+        </GestureDetector>
       </GestureDetector>
       {!focusMode && <PluginStatusBar />}
 

@@ -11,7 +11,9 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useComposedEventHandler, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  GestureDetector, GestureStateManager, useExclusiveGestures, useNativeGesture, usePanGesture, type PinchGesture,
+} from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -35,6 +37,7 @@ interface MarkdownPreviewProps {
   headerInset?: number;
   onScroll?: ReturnType<typeof useAnimatedScrollHandler>;
   onPullDown?: () => void;
+  pinchGesture?: PinchGesture;
   hideReadingMetadata?: boolean;
   onLinkPress?: (url: string) => void;
   onWikiLinkPress?: (name: string) => void;
@@ -963,6 +966,7 @@ export default function MarkdownPreview({
   showLocation,
   onScroll,
   onPullDown,
+  pinchGesture,
   hideReadingMetadata,
   onLinkPress,
   onWikiLinkPress,
@@ -991,39 +995,40 @@ export default function MarkdownPreview({
   const pullSignaled = useSharedValue(false);
   const trackScroll = useAnimatedScrollHandler(event => { scrollY.value = event.contentOffset.y; });
   const handleScroll = useComposedEventHandler([onScroll ?? null, onPullDown ? trackScroll : null]);
-  const pullGesture = useMemo(() => {
-    if (!onPullDown) return undefined;
-    const pull = Gesture.Pan()
-      .maxPointers(1)
-      .activeOffsetY(12)
-      .failOffsetY(-8)
-      .failOffsetX([-20, 20])
-      .onTouchesDown((_event, state) => {
-        'worklet';
-        // A drag already scrolling the note back up should finish as a scroll.
-        if (scrollY.value > 2) state.fail();
-      })
-      .onUpdate(event => {
-        'worklet';
-        pullDistance.value = commandPullDistance(event.translationX, event.translationY);
-        if (pullDistance.value >= COMMAND_PULL_THRESHOLD && !pullSignaled.value) {
-          pullSignaled.value = true;
-          scheduleOnRN(signalCommandThreshold);
-        }
-      })
-      .onEnd((event, success) => {
-        'worklet';
-        if (success && commandPullDistance(event.translationX, event.translationY) >= COMMAND_PULL_THRESHOLD) {
-          scheduleOnRN(onPullDown);
-        }
-      })
-      .onFinalize(() => {
-        'worklet';
-        pullSignaled.value = false;
-        pullDistance.value = withTiming(0, { duration: 120 });
-      });
-    return Gesture.Exclusive(pull, Gesture.Native());
-  }, [onPullDown, pullDistance, pullSignaled, scrollY]);
+  const pull = usePanGesture({
+    enabled: !!onPullDown,
+    maxPointers: 1,
+    activeOffsetY: 12,
+    failOffsetY: -8,
+    failOffsetX: [-20, 20],
+    simultaneousWith: pinchGesture,
+    onTouchesDown: event => {
+      'worklet';
+      // A drag already scrolling the note back up should finish as a scroll.
+      if (scrollY.value > 2) GestureStateManager.fail(event.handlerTag);
+    },
+    onUpdate: event => {
+      'worklet';
+      pullDistance.value = commandPullDistance(event.translationX, event.translationY);
+      if (pullDistance.value >= COMMAND_PULL_THRESHOLD && !pullSignaled.value) {
+        pullSignaled.value = true;
+        scheduleOnRN(signalCommandThreshold);
+      }
+    },
+    onDeactivate: event => {
+      'worklet';
+      if (onPullDown && !event.canceled && commandPullDistance(event.translationX, event.translationY) >= COMMAND_PULL_THRESHOLD) {
+        scheduleOnRN(onPullDown);
+      }
+    },
+    onFinalize: () => {
+      'worklet';
+      pullSignaled.value = false;
+      pullDistance.value = withTiming(0, { duration: 120 });
+    },
+  });
+  const nativeScroll = useNativeGesture({ simultaneousWith: pinchGesture });
+  const pullGesture = useExclusiveGestures(pull, nativeScroll);
   const pullIndicatorStyle = useAnimatedStyle(() => {
     const progress = Math.min(1, pullDistance.value / COMMAND_PULL_THRESHOLD);
     return { opacity: progress, transform: [{ translateY: 16 * progress - 10 }, { scale: 0.85 + 0.15 * progress }] };
@@ -1441,13 +1446,14 @@ export default function MarkdownPreview({
       style={[styles.container, { backgroundColor: colors.bgPrimary }]}
       contentContainerStyle={[styles.contentContainer, { paddingHorizontal: metrics.contentPadding, paddingTop: 16 + headerInset }]}
       showsVerticalScrollIndicator
+      pinchGestureEnabled={false}
     >
       {!!breadcrumb && <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: 12, marginBottom: 13 }}>{breadcrumb}</Text>}
       {bannerUri && failedBanner !== bannerUri && <Image accessibilityLabel="Note banner"
         source={{ uri: bannerUri }} resizeMode="cover" onError={() => setFailedBanner(bannerUri)}
         style={{ width: '100%', height: 156, borderRadius: metrics.panelRadius, marginBottom: 14 }} />}
       {fileTitle && !blocks.some(block => block.type === 'heading' && block.level === 1) &&
-        <Text accessibilityRole="header" style={{ color: colors.textPrimary, fontSize: fontSize * 2,
+        <Text accessibilityRole="header" style={{ color: colors.textPrimary, fontSize: 32,
           marginBottom: 16, fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }}>{fileTitle}</Text>}
       {blocks.map((block, index) => block.line === anchorLine && block.type !== 'heading' ? (
         <View key={index} style={{ borderRadius: metrics.rowRadius, backgroundColor: colors.accent + '14' }}
@@ -1462,7 +1468,7 @@ export default function MarkdownPreview({
     </Animated.ScrollView>
   );
 
-  if (!pullGesture) return scrollView;
+  if (!onPullDown) return scrollView;
   return (
     <View style={styles.container}>
       <GestureDetector gesture={pullGesture}>{scrollView}</GestureDetector>

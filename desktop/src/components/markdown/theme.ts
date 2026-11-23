@@ -585,7 +585,6 @@ export const editorTheme = EditorView.theme({
     height: "100%",
     background: "var(--bg-primary)",
     color: "var(--text-primary)",
-    fontSize: "var(--editor-font-size, 15px)",
   },
   ".cm-scroller": {
     fontFamily: "var(--editor-font, 'JetBrains Mono', 'Fira Code', monospace)",
@@ -595,6 +594,8 @@ export const editorTheme = EditorView.theme({
   },
   ".cm-content": {
     caretColor: "var(--accent)",
+  },
+  ".cm-content.cm-lineWrapping": {
     maxWidth: "800px",
     margin: "0 auto",
   },

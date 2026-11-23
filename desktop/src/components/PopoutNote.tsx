@@ -19,6 +19,7 @@ const NOTE = /\.(md|markdown)$/i;
  */
 export default function PopoutNote({ initialPath }: { initialPath: string }) {
   const [path, setPath] = useState(initialPath);
+  const [wordWrap, setWordWrap] = useState(true);
   const [vaultPath, setVaultPath] = useState<string | null>(null);
   // The note as read and as typed, with the path it belongs to: text read
   // for one note is never shown, or saved, as another's.
@@ -51,6 +52,7 @@ export default function PopoutNote({ initialPath }: { initialPath: string }) {
       const vault = await api.getActiveVault();
       if (cancelled) return;
       applySettings(settings);
+      setWordWrap(settings.wordWrap);
       setVaultPrefs({ excludedFiles: settings.excludedFiles, attachmentFolder: settings.attachmentFolder });
       setVaultPath(vault?.path ?? null);
       const builtIn = BUILT_IN_THEMES.find((t) => t.id === settings.theme);
@@ -234,7 +236,7 @@ export default function PopoutNote({ initialPath }: { initialPath: string }) {
       </div>
       <div className="popout-editor">
         {content !== null && (
-          <Editor key={path} content={content} onChange={setContent} vaultPath={vaultPath ?? undefined} />
+          <Editor key={path} content={content} wordWrap={wordWrap} onChange={setContent} vaultPath={vaultPath ?? undefined} />
         )}
       </div>
     </div>

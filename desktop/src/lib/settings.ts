@@ -4,6 +4,7 @@ export interface AppSettings {
   spellCheck: boolean;
   accentColor: string;
   fontSize: number;
+  wordWrap: boolean;
   lineHeight: number;
   editorFont: string;
   tabSize: number;
@@ -48,6 +49,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   spellCheck: false,
   accentColor: "#89b4fa",
   fontSize: 15,
+  wordWrap: true,
   lineHeight: 1.75,
   editorFont: "JetBrains Mono",
   tabSize: 4,

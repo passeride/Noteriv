@@ -32,7 +32,7 @@ const sourceHighlight = HighlightStyle.define([
 ]);
 
 const sourceTheme = EditorView.theme({
-  "&": { height: "100%", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: "var(--editor-font-size, 15px)" },
+  "&": { height: "100%", background: "var(--bg-primary)", color: "var(--text-primary)" },
   ".cm-scroller": {
     fontFamily: "var(--editor-font, 'JetBrains Mono', 'Fira Code', monospace)",
     lineHeight: "var(--editor-line-height, 1.7)",
@@ -50,6 +50,7 @@ const sourceTheme = EditorView.theme({
 
 interface SourceEditorProps {
   content: string;
+  wordWrap?: boolean;
   onChange: (value: string) => void;
   onViewReady?: (view: EditorView) => void;
   vaultPath?: string;
@@ -58,10 +59,11 @@ interface SourceEditorProps {
   className?: string;
 }
 
-export default function SourceEditor({ content, onChange, onViewReady, vaultPath, notePath, className = "" }: SourceEditorProps) {
+export default function SourceEditor({ content, wordWrap = true, onChange, onViewReady, vaultPath, notePath, className = "" }: SourceEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const historyConfig = useRef(new Compartment());
+  const [wrapConfig] = useState(() => new Compartment());
   const [noteSetting] = useState(() => notePathSetting(notePath));
   const onChangeRef = useRef(onChange);
   const vaultPathRef = useRef(vaultPath);
@@ -108,7 +110,7 @@ export default function SourceEditor({ content, onChange, onViewReady, vaultPath
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onChangeRef.current(update.state.doc.toString());
         }),
-        EditorView.lineWrapping,
+        wrapConfig.of([]),
       ],
     });
 
@@ -120,6 +122,12 @@ export default function SourceEditor({ content, onChange, onViewReady, vaultPath
     createEditor();
     return () => { viewRef.current?.destroy(); };
   }, [createEditor]);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: wrapConfig.reconfigure(wordWrap ? EditorView.lineWrapping : []),
+    });
+  }, [wordWrap, wrapConfig]);
 
   useEffect(() => {
     if (!viewRef.current) return;

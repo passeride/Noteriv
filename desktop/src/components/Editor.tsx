@@ -26,6 +26,7 @@ import { imagePaste, listenForImageDrops, type ImageTarget } from "@/lib/editor-
 
 interface EditorProps {
   content: string;
+  wordWrap?: boolean;
   onChange: (value: string) => void;
   onViewReady?: (view: EditorView) => void;
   vaultPath?: string;
@@ -35,10 +36,11 @@ interface EditorProps {
   focusMode?: boolean;
 }
 
-export default function Editor({ content, onChange, onViewReady, vaultPath, notePath, className = "", focusMode = false }: EditorProps) {
+export default function Editor({ content, wordWrap = true, onChange, onViewReady, vaultPath, notePath, className = "", focusMode = false }: EditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const historyConfig = useRef(new Compartment());
+  const [wrapConfig] = useState(() => new Compartment());
   const [noteSetting] = useState(() => notePathSetting(notePath));
   const onChangeRef = useRef(onChange);
   const vaultPathRef = useRef(vaultPath);
@@ -94,7 +96,7 @@ export default function Editor({ content, onChange, onViewReady, vaultPath, note
             onChangeRef.current(update.state.doc.toString());
           }
         }),
-        EditorView.lineWrapping,
+        wrapConfig.of([]),
       ],
     });
 
@@ -107,6 +109,12 @@ export default function Editor({ content, onChange, onViewReady, vaultPath, note
     createEditor();
     return () => { viewRef.current?.destroy(); };
   }, [createEditor]);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: wrapConfig.reconfigure(wordWrap ? EditorView.lineWrapping : []),
+    });
+  }, [wordWrap, wrapConfig]);
 
   // Sync external content changes
   useEffect(() => {

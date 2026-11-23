@@ -21,6 +21,9 @@ export type HotkeyAction =
   // View
   | "toggleSidebar"
   | "toggleViewMode"
+  | "increaseNoteFontSize"
+  | "decreaseNoteFontSize"
+  | "toggleWordWrap"
   | "toggleFullscreen"
   | "zenMode"
   | "settings"
@@ -138,6 +141,9 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   // View
   { action: "toggleSidebar", label: "Toggle Sidebar", keys: "Ctrl+B", category: "View" },
   { action: "toggleViewMode", label: "Toggle View Mode", keys: "Ctrl+E", category: "View" },
+  { action: "increaseNoteFontSize", label: "Increase note font size", keys: "", category: "View" },
+  { action: "decreaseNoteFontSize", label: "Decrease note font size", keys: "", category: "View" },
+  { action: "toggleWordWrap", label: "Toggle editor word wrap", keys: "", category: "Edit" },
   { action: "toggleFullscreen", label: "Toggle Fullscreen", keys: "F11", category: "View" },
   { action: "zenMode", label: "Zen Mode", keys: "Ctrl+Shift+E", category: "View" },
   { action: "settings", label: "Settings", keys: "Ctrl+,", category: "View" },

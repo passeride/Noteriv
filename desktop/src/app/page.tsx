@@ -13,6 +13,7 @@ import SettingsModal from "@/components/SettingsModal";
 import QuickOpen from "@/components/QuickOpen";
 import VaultSearch from "@/components/VaultSearch";
 import CommandPalette from "@/components/CommandPalette";
+import { clampNoteFontSize } from "../../../packages/appearance/note-text";
 import OutlinePanel from "@/components/OutlinePanel";
 import BacklinksPanel from "@/components/BacklinksPanel";
 import TagPane from "@/components/TagPane";
@@ -437,7 +438,7 @@ function Home() {
   const sidebarCollapsedRef = useRef(sidebarCollapsed);
   const manualSidebarCollapsedRef = useRef(sidebarCollapsed);
   const responsiveSidebarRef = useRef(false);
-  const fontSizeSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noteTextSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -468,7 +469,7 @@ function Home() {
   }, [sidebarCollapsed]);
 
   useEffect(() => () => {
-    if (fontSizeSaveRef.current) clearTimeout(fontSizeSaveRef.current);
+    if (noteTextSaveRef.current) clearTimeout(noteTextSaveRef.current);
   }, []);
 
   // Current tab helpers
@@ -2619,6 +2620,56 @@ function Home() {
     return api.onAppRequest(() => { void pull(); });
   }, [appState]);
 
+  const hasMarkdownNote = !!currentTab && !currentTab.kind && webReaderUrl === null
+    && /\.(md|markdown)$/i.test(currentTab.filePath)
+    && (viewMode === "source" || (!isBoardFile(currentTab.filePath) && !isBoardContent(content)));
+
+  const updateNoteTextSettings = useCallback((updates: Partial<Pick<AppSettings, "fontSize" | "wordWrap">>) => {
+    const nextSettings = { ...settingsRef.current, ...updates };
+    settingsRef.current = nextSettings;
+    setSettings(nextSettings);
+    applySettings(nextSettings);
+
+    if (noteTextSaveRef.current) clearTimeout(noteTextSaveRef.current);
+    noteTextSaveRef.current = setTimeout(async () => {
+      if (!window.electronAPI) return;
+      const stored = await window.electronAPI.loadSettings();
+      const { fontSize, wordWrap } = settingsRef.current;
+      await window.electronAPI.saveSettings({ ...stored, fontSize, wordWrap });
+    }, 250);
+  }, []);
+
+  const adjustNoteFontSize = useCallback((delta: number) => {
+    const currentSize = settingsRef.current.fontSize;
+    const fontSize = clampNoteFontSize(currentSize + delta);
+    if (fontSize !== currentSize) updateNoteTextSettings({ fontSize });
+  }, [updateNoteTextSettings]);
+
+  useEffect(() => {
+    const workspace = document.querySelector<HTMLElement>(".workspace-note");
+    if (!workspace) return;
+    let movement = 0;
+    let lastEvent = 0;
+    const handlePinch = (event: WheelEvent) => {
+      if (!event.ctrlKey || !(event.target instanceof Element) || !event.target.closest(".cm-scroller")) return;
+      const notePath = event.target.closest("[data-note-path]")?.getAttribute("data-note-path");
+      if (!notePath || !/\.(md|markdown)$/i.test(notePath)) return;
+      // Chromium reports a trackpad pinch as Ctrl+wheel.
+      event.preventDefault();
+      if (event.timeStamp - lastEvent > 150) movement = 0;
+      lastEvent = event.timeStamp;
+      const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? workspace.clientHeight : 1;
+      movement -= event.deltaY * unit;
+      const steps = Math.trunc(movement / 24);
+      if (!steps) return;
+      movement -= steps * 24;
+      adjustNoteFontSize(steps);
+    };
+    workspace.addEventListener("wheel", handlePinch, { passive: false });
+    return () => workspace.removeEventListener("wheel", handlePinch);
+  }, [appState, adjustNoteFontSize]);
+
   const handleCommandExecute = useCallback((action: HotkeyAction) => {
     const view = editorViewRef.current;
     // The editor on screen: the reading view has its own.
@@ -2649,6 +2700,11 @@ function Home() {
       findInVault: () => setShowVaultSearch(true),
       toggleSidebar: handleToggleSidebar,
       toggleViewMode: () => setViewMode((m) => m === "live" ? "view" : m === "view" ? "source" : "live"),
+      increaseNoteFontSize: () => { if (hasMarkdownNote) adjustNoteFontSize(1); },
+      decreaseNoteFontSize: () => { if (hasMarkdownNote) adjustNoteFontSize(-1); },
+      toggleWordWrap: () => {
+        if (hasMarkdownNote && viewMode !== "view") updateNoteTextSettings({ wordWrap: !settingsRef.current.wordWrap });
+      },
       toggleFullscreen: handleToggleFullscreen,
       zenMode: handleZenMode,
       settings: () => setShowSettings(true),
@@ -2752,7 +2808,7 @@ function Home() {
       unfoldAll: () => { const v = shownView(); if (v) unfoldAll(v); },
     };
     actions[action]?.();
-  }, [handleSave, handleSaveAs, handleNewFile, handleNewFolder, handleOpenFile, activeTab, tabs, closeTab, handleCloseAllTabs, handleCloseOtherTabs, handleDeleteFile, handleGitSync, handleToggleFullscreen, handleToggleSidebar, handleZenMode, handleDailyNote, activeVault, openFile, content, currentTab, handleNewBoard, handleNewDrawing, handleInsertToc, handleUpdateToc, handleInsertDataview, handleFocusMode, handlePublish, pdfFile, handleTogglePin, handleSplitRight, handleCloseSplit, openKnowledgeIngest, viewMode, layoutStore, saveLayoutAs, handleNewBase, handleUniqueNote, openPopout, webReaderUrl, setWebReaderUrl, openPlugins]);
+  }, [handleSave, handleSaveAs, handleNewFile, handleNewFolder, handleOpenFile, activeTab, tabs, closeTab, handleCloseAllTabs, handleCloseOtherTabs, handleDeleteFile, handleGitSync, handleToggleFullscreen, handleToggleSidebar, handleZenMode, handleDailyNote, activeVault, openFile, content, currentTab, handleNewBoard, handleNewDrawing, handleInsertToc, handleUpdateToc, handleInsertDataview, handleFocusMode, handlePublish, pdfFile, handleTogglePin, handleSplitRight, handleCloseSplit, openKnowledgeIngest, viewMode, layoutStore, saveLayoutAs, handleNewBase, handleUniqueNote, openPopout, webReaderUrl, setWebReaderUrl, openPlugins, hasMarkdownNote, adjustNoteFontSize, updateNoteTextSettings]);
 
   // ============================================================
   // Recent commands handler
@@ -2783,6 +2839,7 @@ function Home() {
   }, []);
 
   const handleSettingsChange = useCallback(async (newSettings: AppSettings) => {
+    if (noteTextSaveRef.current) clearTimeout(noteTextSaveRef.current);
     settingsRef.current = newSettings;
     setSettings(newSettings);
     // The sync settings in it are the open vault's, and are kept as that
@@ -2808,24 +2865,6 @@ function Home() {
       await window.electronAPI.saveSettings(settingsToStore(stored, newSettings, syncVault));
     }
   }, [activeVault]);
-
-  const adjustEditorFontSize = useCallback((delta: number) => {
-    const currentSettings = settingsRef.current;
-    const fontSize = Math.max(11, Math.min(24, currentSettings.fontSize + delta));
-    if (fontSize !== currentSettings.fontSize) {
-      const nextSettings = { ...currentSettings, fontSize };
-      settingsRef.current = nextSettings;
-      setSettings(nextSettings);
-      applySettings(nextSettings);
-
-      if (fontSizeSaveRef.current) clearTimeout(fontSizeSaveRef.current);
-      fontSizeSaveRef.current = setTimeout(async () => {
-        if (!window.electronAPI) return;
-        const stored = await window.electronAPI.loadSettings();
-        await window.electronAPI.saveSettings(settingsToStore(stored, nextSettings, syncVaultIdRef.current));
-      }, 250);
-    }
-  }, []);
 
   // ============================================================
   // Keyboard shortcuts (driven by configurable hotkeys)
@@ -2853,7 +2892,7 @@ function Home() {
       const zoomOut = e.key === "-" || e.code === "NumpadSubtract";
       if (primaryModifier && !e.altKey && (zoomIn || zoomOut)) {
         e.preventDefault();
-        adjustEditorFontSize(zoomIn ? 1 : -1);
+        handleCommandExecute(zoomIn ? "increaseNoteFontSize" : "decreaseNoteFontSize");
         return;
       }
 
@@ -2887,7 +2926,7 @@ function Home() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [appState, hotkeys, showSettings, showKnowledgeIngest, handleCommandExecute, adjustEditorFontSize, runPluginCommand]);
+  }, [appState, hotkeys, showSettings, showKnowledgeIngest, handleCommandExecute, runPluginCommand]);
 
   // Electron menu events
   useEffect(() => {
@@ -3175,9 +3214,9 @@ function Home() {
                     ) : viewMode === "view" ? (
                       <ReadOnlyView content={content} onChange={handleContentChange} onViewReady={handleReadViewReady} notePath={currentTab.filePath} />
                     ) : viewMode === "source" ? (
-                      <SourceEditor content={content} onChange={handleContentChange} onViewReady={handleEditorViewReady} vaultPath={activeVault?.path} notePath={currentTab.filePath} />
+                      <SourceEditor content={content} wordWrap={settings.wordWrap} onChange={handleContentChange} onViewReady={handleEditorViewReady} vaultPath={activeVault?.path} notePath={currentTab.filePath} />
                     ) : (
-                      <Editor content={content} onChange={handleContentChange} onViewReady={handleEditorViewReady} vaultPath={activeVault?.path} notePath={currentTab.filePath} focusMode={focusMode} />
+                      <Editor content={content} wordWrap={settings.wordWrap} onChange={handleContentChange} onViewReady={handleEditorViewReady} vaultPath={activeVault?.path} notePath={currentTab.filePath} focusMode={focusMode} />
                     )}
                   </div>
                 </div>
@@ -3205,9 +3244,9 @@ function Home() {
                       ) : viewMode === "view" ? (
                         <ReadOnlyView content={splitContent} onChange={handleSplitContentChange} notePath={splitTabState.filePath} />
                       ) : viewMode === "source" ? (
-                        <SourceEditor content={splitContent} onChange={handleSplitContentChange} onViewReady={(view) => { splitEditorViewRef.current = view; }} vaultPath={activeVault?.path} notePath={splitTabState.filePath} />
+                        <SourceEditor content={splitContent} wordWrap={settings.wordWrap} onChange={handleSplitContentChange} onViewReady={(view) => { splitEditorViewRef.current = view; }} vaultPath={activeVault?.path} notePath={splitTabState.filePath} />
                       ) : (
-                        <Editor content={splitContent} onChange={handleSplitContentChange} onViewReady={(view) => { splitEditorViewRef.current = view; }} vaultPath={activeVault?.path} notePath={splitTabState.filePath} focusMode={false} />
+                        <Editor content={splitContent} wordWrap={settings.wordWrap} onChange={handleSplitContentChange} onViewReady={(view) => { splitEditorViewRef.current = view; }} vaultPath={activeVault?.path} notePath={splitTabState.filePath} focusMode={false} />
                       )}
                     </div>
                   </div>
@@ -3502,7 +3541,11 @@ function Home() {
       {/* Command palette (Ctrl+Shift+P) */}
       {launcher === "commands" && (
         <CommandPalette
-          hotkeys={hotkeys}
+          hotkeys={hotkeys.filter(({ action }) => {
+            if (action === "increaseNoteFontSize" || action === "decreaseNoteFontSize") return hasMarkdownNote;
+            if (action === "toggleWordWrap") return hasMarkdownNote && viewMode !== "view";
+            return true;
+          })}
           platform={platform}
           recentActions={recentCommands}
           pluginCommands={pluginUI.commands}

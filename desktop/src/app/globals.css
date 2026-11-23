@@ -53,8 +53,11 @@ body {
 /* CodeMirror overrides */
 .cm-editor {
   height: 100%;
-  font-size: var(--editor-font-size, 15px);
   background: transparent !important;
+}
+
+.cm-editor .cm-content {
+  font-size: var(--editor-font-size, 15px);
 }
 
 /* Autocomplete dropdown */

@@ -1,3 +1,4 @@
+import { MIN_NOTE_FONT_SIZE, MAX_NOTE_FONT_SIZE } from "../../packages/appearance/note-text";
 import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
@@ -437,6 +438,9 @@ export default function SettingsScreen() {
         {renderToggle('Hide metadata in reading view', !!settings.hideReadingMetadata, (val) =>
           updateSettings({ hideReadingMetadata: val })
         )}
+        {renderToggle('Word wrap in edit mode', settings.wordWrap, (wordWrap) =>
+          updateSettings({ wordWrap })
+        )}
         {renderToggle('Spell check', settings.spellCheck, (val) =>
           updateSettings({ spellCheck: val })
         )}
@@ -602,10 +606,10 @@ export default function SettingsScreen() {
         </View>
 
         {renderSlider(
-          'Font size',
+          'Note text size',
           settings.fontSize,
-          12,
-          24,
+          MIN_NOTE_FONT_SIZE,
+          MAX_NOTE_FONT_SIZE,
           1,
           (v) => `${v}px`,
           (val) => updateSettings({ fontSize: val })

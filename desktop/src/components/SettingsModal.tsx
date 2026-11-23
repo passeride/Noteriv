@@ -1,5 +1,6 @@
 "use client";
 
+import { MIN_NOTE_FONT_SIZE, MAX_NOTE_FONT_SIZE } from "../../../packages/appearance/note-text";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { confirmDialog } from "@/components/ConfirmDialog";
 import {
@@ -409,13 +410,16 @@ export default function SettingsModal({
 
   const renderEditor = () => (
     <div className="st-section">
-      <Row label="Font size" desc="Base font size for the editor (px).">
+      <Row label="Note text size" desc="Base font size when reading and editing notes (px).">
         <Stepper
           value={settings.fontSize}
-          min={11}
-          max={24}
+          min={MIN_NOTE_FONT_SIZE}
+          max={MAX_NOTE_FONT_SIZE}
           onChange={(v) => update({ fontSize: v })}
         />
+      </Row>
+      <Row label="Word wrap in edit mode" desc="Wrap long lines to fit the editor.">
+        <Toggle checked={settings.wordWrap} onChange={(wordWrap) => update({ wordWrap })} />
       </Row>
       <Row label="Line height" desc="Vertical spacing between lines.">
         <Stepper

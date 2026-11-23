@@ -258,6 +258,7 @@ Or run `npx noteriv-mcp` yourself. It finds your active vault from the Noteriv c
 
 - **22 tools**: read, write, append, delete and rename notes; list, create and delete folders; full-text search; tags, backlinks and outgoing links; vault stats; daily notes
 - **Multi-vault**: switch vaults, or pass a path as a CLI argument
+- **Note links** work on desktop and mobile. Use `noteriv://open?vault=Main&file=Home.md&heading=Tasks` to open a note at a heading. To share a link across devices with different vault names, use an encoded Git remote, such as `noteriv://open?repo=https%3A%2F%2Fgithub.com%2Fexample%2Fnotes&file=Home.md`. The device opens its local vault already linked to that repository. HTTPS and SSH remotes on the same host and path match.
 - **Live sync**: the desktop app watches the vault and refreshes the sidebar and open files whenever the MCP server changes something
 - **Soft delete**: deleted notes go to `.noteriv/trash/` and can be restored from the app
 - **MCP resources**: notes are also exposed as `note:///` resources

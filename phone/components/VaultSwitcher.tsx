@@ -78,7 +78,10 @@ export default function VaultSwitcher({ visible, embedded, onClose, onVaultChang
         onClose();
         return;
       }
-      await switchVault(id);
+      if (!await switchVault(id)) {
+        Alert.alert('Could not switch vault', 'Check that the current note can be saved.');
+        return;
+      }
       onVaultChange?.();
       onClose();
     },

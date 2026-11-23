@@ -10,6 +10,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { MobilePluginHost } from '@/components/MobilePluginHost';
 
+export const unstable_settings = { anchor: 'index' };
+
 function AppThemeWrapper({ children }: { children: React.ReactNode }) {
   const { settings, vault } = useApp();
   const [customThemes, setCustomThemes] = useState<ThemeDefinition[]>([]);
@@ -70,6 +72,7 @@ function ThemedNavigation() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="editor" options={{ headerShown: false }} />
+        <Stack.Screen name="open" options={{ headerShown: false }} />
         <Stack.Screen
           name="settings"
           options={{

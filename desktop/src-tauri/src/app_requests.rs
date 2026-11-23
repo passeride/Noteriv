@@ -72,8 +72,8 @@ pub fn resolve(invocation: Invocation, grant: &dyn Fn(&str)) -> Option<Value> {
                 None => return Some(failed(from_link, "That file is not in one of your vaults.".into())),
             }
         }
-        Request::Open { file, line, heading, .. } => {
-            let vault = match chosen() {
+        Request::Open { repo, file, line, heading, .. } => {
+            let vault = match repo.as_deref().map_or_else(chosen, |repo| cli::find_vault_by_repo(&vaults, repo)) {
                 Ok(vault) => vault,
                 Err(e) => return Some(failed(from_link, e)),
             };
@@ -250,6 +250,7 @@ mod tests {
         let grant = |_: &str| granted.set(true);
         let open = Request::Open {
             vault: None,
+            repo: None,
             file: None,
             path: Some(file.to_string_lossy().into_owned()),
             line: None,
@@ -264,7 +265,7 @@ mod tests {
 
     #[test]
     fn a_path_inside_a_vault_is_built_from_its_parts() {
-        let vault = VaultRef { id: "v".into(), name: "V".into(), path: PathBuf::from("/tmp/vault") };
+        let vault = VaultRef { id: "v".into(), name: "V".into(), path: PathBuf::from("/tmp/vault"), git_remote: None };
         let path = full_path(&vault, "Projects/Alpha.md");
         assert_eq!(PathBuf::from(path), PathBuf::from("/tmp/vault").join("Projects").join("Alpha.md"));
     }

@@ -20,7 +20,7 @@ interface AppContextType {
   // Vault
   vault: Vault | null;
   vaults: Vault[];
-  switchVault: (id: string) => Promise<void>;
+  switchVault: (id: string) => Promise<boolean>;
   createVault: (name: string) => Promise<Vault>;
   deleteVault: (id: string) => Promise<void>;
   refreshVaults: () => Promise<void>;
@@ -285,27 +285,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const switchVault = useCallback(async (id: string) => {
-    if (vault?.id === id) return;
-    if (vault) await stopVaultPlugins(vault.path);
-    // Save current workspace
+    if (vault?.id === id) return true;
+    if (!flushFile()) return false;
+    const target = (await VaultOps.getVaults()).find(v => v.id === id);
+    if (!target) return false;
     if (vault) {
+      await stopVaultPlugins(vault.path);
       await VaultOps.saveWorkspace(vault.id, workspace);
     }
+    const ws = await VaultOps.loadWorkspace(id);
+    if (!flushFile()) return false;
     await VaultOps.setActiveVault(id);
-    const v = await VaultOps.getActiveVault();
-    if (v) {
-      hasPulledOnOpen.current = false; // Reset so new vault triggers pull
-      flushFile();
-      fileReadRequest.current++;
-      note.open(null, '');
-      setVault(v);
-      setCurrentDirState(initialFolder(v));
-      setCurrentFileState(null);
-      setContentState('');
-      setIsDirty(false);
-      const ws = await VaultOps.loadWorkspace(v.id);
-      setWorkspace(ws);
-    }
+    hasPulledOnOpen.current = false; // Reset so new vault triggers pull
+    fileReadRequest.current++;
+    note.open(null, '');
+    setVault(target);
+    setCurrentDirState(initialFolder(target));
+    setCurrentFileState(null);
+    setContentState('');
+    setIsDirty(false);
+    setWorkspace(ws);
+    return true;
   }, [vault, workspace, note, flushFile]);
 
   const createVaultFn = useCallback(async (name: string) => {

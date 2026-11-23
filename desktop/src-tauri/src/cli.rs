@@ -89,6 +89,9 @@ pub enum Request {
     Open {
         /// A vault's name, id or folder, as given. `find_vault` reads it.
         vault: Option<String>,
+        /// The Git remote configured for a vault, independent of its name.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        repo: Option<String>,
         /// The note, as a `[[link]]` names one: its name, or its path inside
         /// the vault with `/` between folders. `.md` may be missing.
         file: Option<String>,
@@ -201,6 +204,7 @@ pub struct VaultRef {
     pub id: String,
     pub name: String,
     pub path: PathBuf,
+    pub git_remote: Option<String>,
 }
 
 // ============================================================
@@ -472,7 +476,7 @@ fn line_number(text: &str) -> Result<u32, String> {
 struct Fields(Vec<(String, String)>);
 
 const FIELDS: &[&str] = &[
-    "vault", "file", "path", "name", "content", "append", "prepend", "overwrite", "silent",
+    "vault", "repo", "file", "path", "name", "content", "append", "prepend", "overwrite", "silent",
     "query", "line", "heading",
 ];
 
@@ -595,7 +599,7 @@ pub fn parse_url(url: &str) -> Result<Request, String> {
     let mut fields = Fields::default();
     let action = match (host.as_str(), path) {
         // Nothing at all: bring the app to the front.
-        ("", "" | "/") => "open",
+        ("", "" | "/" | "/open" | "/open/") => "open",
         ("", path) => {
             // `noteriv:///C:/notes/a.md` is the Windows path `C:/notes/a.md`.
             let decoded = decode_part(path)?;
@@ -634,8 +638,14 @@ pub fn parse_url(url: &str) -> Result<Request, String> {
     }
 
     let vault = fields.vault()?;
+    if action != "open" && fields.get("repo").is_some() {
+        return Err("The repo parameter is supported for opening notes.".into());
+    }
     match action {
         "open" => {
+            let repo = fields.get("repo")
+                .map(|value| short_text("The repository in this link", value, MAX_NAME_BYTES))
+                .transpose()?.flatten();
             let line = fields.get("line").map(line_number).transpose()?;
             let mut heading = match fields.get("heading") {
                 Some(heading) => short_text("The heading in this link", heading, MAX_NAME_BYTES)?,
@@ -643,6 +653,9 @@ pub fn parse_url(url: &str) -> Result<Request, String> {
             };
             // As in Obsidian, a full path stands in for the vault and file.
             let path = fields.get("path").map(full_path).transpose()?;
+            if repo.is_some() && path.is_some() {
+                return Err("A repository link opens a note by its path inside the vault.".into());
+            }
             let mut file = None;
             if path.is_none() {
                 if let Some(raw) = fields.get("file") {
@@ -668,6 +681,7 @@ pub fn parse_url(url: &str) -> Result<Request, String> {
             }
             Ok(Request::Open {
                 vault: if path.is_some() { None } else { vault },
+                repo,
                 file,
                 path,
                 line,
@@ -1110,6 +1124,7 @@ fn launch(args: &[String], cwd: &Path) -> Invocation {
     if let Some(path) = args.iter().find_map(|arg| note_file(arg, cwd)) {
         return Invocation::App(Some(Request::Open {
             vault,
+            repo: None,
             file: None,
             path: Some(path),
             line: None,
@@ -1118,6 +1133,7 @@ fn launch(args: &[String], cwd: &Path) -> Invocation {
     }
     Invocation::App(vault.map(|vault| Request::Open {
         vault: Some(vault),
+        repo: None,
         file: None,
         path: None,
         line: None,
@@ -1164,6 +1180,7 @@ fn interpret(line: &Line, cwd: &Path) -> Result<Invocation, String> {
             };
             window(Request::Open {
                 vault: vault.clone(),
+                repo: None,
                 file,
                 path,
                 line: number,
@@ -1359,9 +1376,61 @@ pub fn vaults_from_store() -> (Vec<VaultRef>, Option<String>) {
             id: vault.id.clone(),
             name: vault.name.clone(),
             path: crate::paths::expand_tilde(&vault.path),
+            git_remote: vault.git_remote.clone(),
         })
         .collect();
     (vaults, config.active_vault_id)
+}
+
+/// Compare repository identity across HTTPS and SSH without connecting to it.
+fn repository_key(remote: &str) -> Option<String> {
+    let value = remote.trim();
+    let url = if value.contains("://") {
+        url::Url::parse(value).ok()?
+    } else {
+        let (address, path) = value.split_once(':')?;
+        let host = address.rsplit('@').next()?;
+        if host.is_empty() || host.contains(['/', '\\']) || path.is_empty() || path.contains('\\') {
+            return None;
+        }
+        url::Url::parse(&format!("ssh://{host}/{path}")).ok()?
+    };
+    let default_port = match url.scheme() {
+        "https" => 443,
+        "http" => 80,
+        "ssh" => 22,
+        "git" => 9418,
+        _ => return None,
+    };
+    let host = url.host_str()?.to_ascii_lowercase();
+    let port = url.port().filter(|port| *port != default_port);
+    let path = decode_part(url.path()).ok()?;
+    let path = path.trim_matches('/');
+    let github_path;
+    let path = if host == "github.com" {
+        github_path = path.to_lowercase();
+        github_path.as_str()
+    } else {
+        path
+    };
+    let path = path.strip_suffix(".git").unwrap_or(path);
+    if path.is_empty() {
+        return None;
+    }
+    let port = port.map(|port| format!(":{port}")).unwrap_or_default();
+    Some(format!("{host}{port}/{path}"))
+}
+
+pub fn find_vault_by_repo<'v>(vaults: &'v [VaultRef], repo: &str) -> Result<&'v VaultRef, String> {
+    let key = repository_key(repo).ok_or("This link does not contain a valid Git repository URL.")?;
+    let mut matches = vaults.iter().filter(|vault| {
+        vault.git_remote.as_deref().and_then(repository_key).as_ref() == Some(&key)
+    });
+    let found = matches.next().ok_or("No vault on this device uses this Git repository.")?;
+    if matches.next().is_some() {
+        return Err("Several vaults use this repository. Open the link using a vault name or ID.".into());
+    }
+    Ok(found)
 }
 
 fn describe(vault: &VaultRef) -> String {
@@ -1947,6 +2016,7 @@ mod tests {
     fn open(vault: Option<&str>, file: Option<&str>) -> Request {
         Request::Open {
             vault: vault.map(String::from),
+            repo: None,
             file: file.map(String::from),
             path: None,
             line: None,
@@ -2088,6 +2158,7 @@ mod tests {
             request(&["open", "Projects/Alpha.md", "--line", "12", "--heading", "Tasks"]),
             Request::Open {
                 vault: None,
+                repo: None,
                 file: Some("Projects/Alpha.md".into()),
                 path: None,
                 line: Some(12),
@@ -2098,6 +2169,7 @@ mod tests {
             request(&["open", "--line=3", "--heading=To do", "Alpha"]),
             Request::Open {
                 vault: None,
+                repo: None,
                 file: Some("Alpha".into()),
                 path: None,
                 line: Some(3),
@@ -2418,6 +2490,7 @@ mod tests {
     fn open_links_go_to_a_heading_or_a_line() {
         let at = |heading: &str, line: Option<u32>| Request::Open {
             vault: None,
+            repo: None,
             file: Some("Note".into()),
             path: None,
             line,
@@ -2431,16 +2504,41 @@ mod tests {
         assert_eq!(parse_url("noteriv://vault/Work/Note#Heading").map(|r| r.vault().map(String::from)), Ok(Some("Work".into())));
         assert_eq!(
             parse_url("noteriv://open?file=Note&line=12"),
-            Ok(Request::Open { vault: None, file: Some("Note".into()), path: None, line: Some(12), heading: None })
+            Ok(Request::Open { vault: None, repo: None, file: Some("Note".into()), path: None, line: Some(12), heading: None })
         );
         // A heading with no file is a heading in whatever note is open.
         assert_eq!(
             parse_url("noteriv://open?file=%23Top"),
-            Ok(Request::Open { vault: None, file: None, path: None, line: None, heading: Some("Top".into()) })
+            Ok(Request::Open { vault: None, repo: None, file: None, path: None, line: None, heading: Some("Top".into()) })
         );
         for link in ["noteriv://open?file=a&line=0", "noteriv://open?file=a&line=-1", "noteriv://open?file=a&line=x"] {
             assert!(parse_url(link).unwrap_err().contains("line number"), "{link}");
         }
+    }
+
+    #[test]
+    fn repository_link_works_across_vault_names_and_remote_protocols() {
+        let mut vaults = Vaults::new("repository-link");
+        vaults.list[0].git_remote = Some("git@github.com:Passeride/Obsidian.git".into());
+        let link = "noteriv://open?repo=https%3A%2F%2Fgithub.com%2Fpasseride%2Fobsidian&file=Inbox.md&heading=%F0%9F%93%A5%20Rutiner%20og%20fangst";
+        let expected = Request::Open {
+            vault: None,
+            repo: Some("https://github.com/passeride/obsidian".into()),
+            file: Some("Inbox.md".into()),
+            path: None,
+            line: None,
+            heading: Some("📥 Rutiner og fangst".into()),
+        };
+        assert_eq!(parse_url(link), Ok(expected.clone()));
+        assert_eq!(parse_url(&link.replacen("://", ":///", 1)), Ok(expected.clone()));
+        let Request::Open { repo: Some(repo), .. } = expected else { unreachable!() };
+        let vault = find_vault_by_repo(&vaults.list, &repo).unwrap();
+        assert_eq!(vault.id, "w1");
+        assert_eq!(find_note(&vault.path, "Inbox.md").unwrap(), "Inbox.md");
+
+        vaults.list[1].git_remote = Some("ssh://git@github.com:22/passeride/obsidian.git/".into());
+        assert!(find_vault_by_repo(&vaults.list, &repo).unwrap_err().contains("Several vaults"));
+        assert!(find_vault_by_repo(&vaults.list, "https://example.com/obsidian").unwrap_err().contains("No vault"));
     }
 
     #[test]
@@ -2460,6 +2558,7 @@ mod tests {
             parse_url("noteriv://vault/Work/Note?line=4#Tasks"),
             Ok(Request::Open {
                 vault: Some("Work".into()),
+                repo: None,
                 file: Some("Note".into()),
                 path: None,
                 line: Some(4),
@@ -2478,7 +2577,7 @@ mod tests {
     #[test]
     fn a_full_path_is_only_for_opening() {
         let at = |path: &str| {
-            Ok(Request::Open { vault: None, file: None, path: Some(path.into()), line: None, heading: None })
+            Ok(Request::Open { vault: None, repo: None, file: None, path: Some(path.into()), line: None, heading: None })
         };
         assert_eq!(parse_url("noteriv://open?path=%2Fhome%2Fme%2Fnotes%2FMy%20Note.md"), at("/home/me/notes/My Note.md"));
         assert_eq!(parse_url("noteriv:///home/me/notes/My%20Note.md"), at("/home/me/notes/My Note.md"));
@@ -2832,6 +2931,7 @@ mod tests {
                 id: id.into(),
                 name: name.into(),
                 path: dir.0.join(folder),
+                git_remote: None,
             };
             let list = vec![vault("w1", "Work", "work"), vault("p1", "Personal", "personal")];
             Vaults { dir, list }
@@ -3172,7 +3272,7 @@ mod tests {
 
         // A vault whose own folder is reached through a link still works.
         symlink(&work, vaults.dir.0.join("alias")).unwrap();
-        let aliased = vec![VaultRef { id: "a1".into(), name: "Alias".into(), path: vaults.dir.0.join("alias") }];
+        let aliased = vec![VaultRef { id: "a1".into(), name: "Alias".into(), path: vaults.dir.0.join("alias"), git_remote: None }];
         let ran = run_in(&aliased, Some("a1"), &["create", "Through", "--content", "ok"], "");
         assert_eq!((ran.code, ran.out.as_str()), (0, "Through.md\n"));
         assert_eq!(vaults.dir.read("work/Through.md"), "ok");
@@ -3255,7 +3355,7 @@ mod tests {
     fn a_name_two_vaults_share_is_an_error_that_lists_them() {
         let vaults = Vaults::new("ambiguous");
         let mut list = vaults.list.clone();
-        list.push(VaultRef { id: "w2".into(), name: "WORK".into(), path: vaults.dir.0.join("personal") });
+        list.push(VaultRef { id: "w2".into(), name: "WORK".into(), path: vaults.dir.0.join("personal"), git_remote: None });
         let ran = run_in(&list, Some("p1"), &["list", "--vault", "work"], "");
         assert_eq!((ran.code, ran.out.as_str()), (EXIT_FAILED, ""));
         assert!(ran.err.contains("More than one vault is named \"work\""), "{}", ran.err);
@@ -3269,7 +3369,7 @@ mod tests {
         let ran = run_in(&list, Some("p1"), &["list", "--vault", &work], "");
         assert_eq!(ran.out.lines().next(), Some("Inbox.md"));
         // An id is matched before a name.
-        list.push(VaultRef { id: "x9".into(), name: "w1".into(), path: vaults.dir.0.join("personal") });
+        list.push(VaultRef { id: "x9".into(), name: "w1".into(), path: vaults.dir.0.join("personal"), git_remote: None });
         assert_eq!(find_vault(&list, None, Some("w1")).unwrap().name, "Work");
     }
 
@@ -3278,7 +3378,7 @@ mod tests {
         let vaults = Vaults::new("locate");
         vaults.dir.write("work/Inner/Deep/Note.md", "x");
         let mut list = vaults.list.clone();
-        list.push(VaultRef { id: "i1".into(), name: "Inner".into(), path: vaults.dir.0.join("work/Inner") });
+        list.push(VaultRef { id: "i1".into(), name: "Inner".into(), path: vaults.dir.0.join("work/Inner"), git_remote: None });
         let found = |rel: &str| {
             locate(&vaults.dir.0.join(rel), &list).map(|(vault, inside)| (vault.id.clone(), inside))
         };

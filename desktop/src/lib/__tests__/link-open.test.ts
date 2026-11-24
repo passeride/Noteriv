@@ -114,6 +114,14 @@ describe("linkOpenTag", () => {
     );
     expect(linkOpenTag('https://example.com "Example"')).toBe('<a href="https://example.com" class="md-link">');
     expect(linkOpenTag("mailto:me@example.com")).toBe('<a href="mailto:me@example.com" class="md-link">');
+    expect(linkOpenTag("HTTPS://example.com")).toBe('<a href="HTTPS://example.com" class="md-link">');
+    expect(linkOpenTag("//example.com/path")).toBe('<a href="https://example.com/path" class="md-link">');
+    expect(linkOpenTag("tel:+4712345678")).toBe('<a href="tel:+4712345678" class="md-link">');
+  });
+
+  it("leaves unsupported external schemes inactive", () => {
+    expect(linkOpenTag("javascript:example")).toBe("<a>");
+    expect(linkOpenTag("file:///local")).toBe("<a>");
   });
 
   it("gives a link into the vault no address the window could go to", () => {

@@ -68,6 +68,7 @@ import { splitWikiTarget, findAnchorLine, findLinkedFile, findLinkedNote, linkKe
 import { pdfPage } from "@/lib/embed-utils";
 import { linkUpdateMessage, updateOpenNote } from "@/lib/link-updates";
 import { linkPlace } from "@/lib/link-open";
+import { isOpenableMarkdownUrl } from "@/components/markdown/renderers/links";
 import { pageTakesOutsideDrops, refuseStrayDrops } from "@/lib/outside-drops";
 import { noteContaining } from "@/lib/note-path";
 import { countWords, plural } from "@/lib/text-stats";
@@ -2301,19 +2302,13 @@ function Home() {
 
   // External link click handler — open in system browser
   useEffect(() => {
+    const openableHref = (target: EventTarget | null) => {
+      const href = target instanceof Element ? target.closest("a.md-link")?.getAttribute("href") : null;
+      return href && isOpenableMarkdownUrl(href) ? href : null;
+    };
     const handleLinkClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const anchor = target.closest("a.md-link") as HTMLAnchorElement | null;
-      if (!anchor) return;
-
-      const href = anchor.getAttribute("href");
-      if (
-        !href ||
-        (!href.startsWith("http://") &&
-          !href.startsWith("https://") &&
-          !href.startsWith("mailto:"))
-      )
-        return;
+      const href = openableHref(e.target);
+      if (!href) return;
 
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -2327,10 +2322,7 @@ function Home() {
     // link away before the click arrives. Keeping the press from the editor
     // leaves the link where it is; a wiki link is handled the same way.
     const holdLinkPress = (e: MouseEvent) => {
-      if (e.button !== 0) return;
-      const anchor = (e.target as HTMLElement).closest?.("a.md-link") as HTMLAnchorElement | null;
-      const href = anchor?.getAttribute("href");
-      if (!href || !/^(https?:|mailto:)/i.test(href)) return;
+      if (e.button !== 0 || !openableHref(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
     };

@@ -8,21 +8,19 @@ function escapeAttr(text: string): string {
 /** The attribute that marks a link to a file in the vault, holding its destination as written. */
 export const VAULT_LINK_ATTRIBUTE = "data-vault-link";
 
-/**
- * The opening tag for a markdown link with this destination (the text
- * between `](` and `)`).
- *
- * A web or mail address keeps its `href`, which the app opens in the
- * browser. Anything else is a link to a file in the vault, or to a heading
- * in this note: it carries its destination in `data-vault-link` and has no
- * `href`, so a click can only do what the app's own handler does with it
- * and never sends the window somewhere.
- */
+/** The external URL schemes the system opener handles for note links. */
+export function isOpenableMarkdownUrl(url: string): boolean {
+  return !/[\x00-\x1f\x7f]/.test(url) && /^(https?:\/\/|mailto:|tel:)\S/i.test(url);
+}
+
+/** Render a link for the system opener or the app's vault navigation. */
 export function linkOpenTag(destination: string): string {
   const { path, fragment } = parseDestination(destination);
-  if (isExternalPath(path)) {
-    return `<a href="${escapeAttr(path + fragment)}" class="md-link">`;
+  const url = (path.startsWith("//") ? `https:${path}` : path) + fragment;
+  if (isOpenableMarkdownUrl(url)) {
+    return `<a href="${escapeAttr(url)}" class="md-link">`;
   }
+  if (isExternalPath(path) || path.startsWith("//")) return '<a>';
   return `<a class="md-link" ${VAULT_LINK_ATTRIBUTE}="${escapeAttr(destination)}">`;
 }
 

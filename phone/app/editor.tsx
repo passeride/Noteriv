@@ -295,9 +295,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   }, [vault, currentFile, flushFile, router]);
 
   const handleMarkdownLink = useCallback((url: string) => {
-    if (!/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith('//')) {
-      void openNoteLink(url, true);
-    }
+    void openNoteLink(url, true);
   }, [openNoteLink]);
 
   const handleLint = useCallback(async () => {

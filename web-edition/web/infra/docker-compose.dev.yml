@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: noteriv-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: noteriv
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: noteriv
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - noteriv-pgdata:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U noteriv"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: noteriv-redis
+    restart: unless-stopped
+    # noeviction: this Redis now backs BullMQ (sync job queue) as well as being
+    # a general cache — BullMQ requires noeviction so queued/in-flight job keys
+    # are never silently dropped under memory pressure (allkeys-lru would).
+    command: ["redis-server", "--maxmemory", "100mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:56379:6379"
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # S3-compatible object storage for attachments (Phase C3). Originally
+  # planned as MinIO, but as of 2026-10-13 `minio/minio` and `bitnami/minio`
+  # are both gone from Docker Hub (confirmed via the Hub API, not a pull
+  # fluke) — switched to Garage (dxflrs/garage), a lightweight Rust S3-API
+  # server (~20MB image) that's actually a better fit for this disk/mem
+  # -constrained host anyway. The app code only ever talks the S3 API
+  # (@aws-sdk/client-s3), so this swap is invisible above the storage layer.
+  garage:
+    image: dxflrs/garage:v1.0.1
+    container_name: noteriv-garage
+    restart: unless-stopped
+    environment:
+      RUST_LOG: garage=info
+    ports:
+      - "127.0.0.1:59000:3900"
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - noteriv-garagedata:/var/lib/garage
+    # Host disk is at 92% capacity (see 2026-10-13 capacity check) — the real
+    # cap on attachment storage is enforced at the application layer (see
+    # web/server/src/lib/attachments.ts's per-vault quota check against the
+    # sum of Attachment.size rows), NOT by this container's own limits. This
+    # mem_limit is just for the Garage process itself, unrelated to disk quota.
+    mem_limit: 192m
+
+volumes:
+  noteriv-pgdata:
+  noteriv-garagedata:

@@ -2,7 +2,7 @@ name: Android test APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'experiment/web-live-edit']
     paths:
       - 'phone/**'
       - 'crates/noteriv-git/**'

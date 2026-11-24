@@ -1,0 +1,297 @@
+# Production stack, deployed via Dokploy (see docs/plans/2026-10-12-noteriv-web-version.md
+# §9 Phase 7). Relative build paths below resolve against this file's own
+# directory (web/infra/), per standard docker-compose behavior — not the
+# invocation cwd. Secrets (POSTGRES_PASSWORD, JWT_*, ENCRYPTION_KEY) are
+# injected by Dokploy's compose-level env at deploy time, never committed
+# here. No service publishes a host port; Dokploy's Traefik reaches
+# `noteriv-web` and `noteriv-collab` directly over the compose network via
+# domain.create.
+#
+# Service names are prefixed `noteriv-*` rather than generic names like
+# `api`/`web` — Dokploy puts every project's domain-routed containers on one
+# shared `dokploy-network` overlay, and Docker's embedded DNS does NOT scope
+# hostnames per compose project on a shared network. A generic name collided
+# with another, unrelated project's identically-named service here during
+# deploy testing: this project's `web` container resolved `api` to a
+# different project's `api` container on dokploy-network and got
+# ECONNREFUSED. Prefixing avoids the collision; it is not just a style choice.
+#
+# The same file also deploys staging (second Dokploy compose, branch `next`,
+# staging-noteriv.dsc.edu.vn). Everything environment-specific is a variable whose
+# default is the production value, so production needs no extra env:
+#   PUBLIC_ORIGIN     CORS origin of the API        (default https://noteriv.dsc.edu.vn)
+#   PUBLIC_WS_ORIGIN  collab WebSocket origin       (default wss://noteriv.dsc.edu.vn)
+#   BACKUP_REPLICAS   0 on staging = no backup job  (default 1)
+# See docs/plans/2026-10-15-phien-0-2-staging.md.
+
+services:
+  noteriv-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: noteriv
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: noteriv
+    volumes:
+      - noteriv-prod-pgdata:/var/lib/postgresql/data
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U noteriv"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  noteriv-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # noeviction: backs BullMQ's sync job queue — allkeys-lru would silently
+    # drop queued/in-flight job keys under memory pressure.
+    command: ["redis-server", "--maxmemory", "100mb", "--maxmemory-policy", "noeviction"]
+    mem_limit: 160m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  noteriv-api:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["node", "dist/index.js"]
+    environment:
+      NODE_ENV: production
+      PORT: "4001"
+      DATABASE_URL: postgresql://noteriv:${POSTGRES_PASSWORD}@noteriv-postgres:5432/noteriv?schema=public
+      REDIS_URL: redis://noteriv-redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY}
+      CORS_ORIGIN: ${PUBLIC_ORIGIN:-https://noteriv.dsc.edu.vn}
+      # Signups: invite (default) | open | closed. ADMIN_EMAILS may manage invite codes.
+      REGISTRATION_MODE: ${REGISTRATION_MODE:-invite}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # Account emails (verification, password reset, email change). EMAIL_PROVIDER=resend with RESEND_API_KEY
+      # turns them on; unset = off, and the web app hides "Forgot password?". Links point at APP_ORIGIN.
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Noteriv <no-reply@noteriv.dsc.edu.vn>}
+      APP_ORIGIN: ${PUBLIC_ORIGIN:-https://noteriv.dsc.edu.vn}
+      # Cloudflare Turnstile bot check on sign-up and forgot-password; on only when both are set.
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      ATTACHMENTS_S3_ENDPOINT: http://noteriv-garage:3900
+      ATTACHMENTS_S3_REGION: garage
+      ATTACHMENTS_S3_BUCKET: noteriv-attachments
+      ATTACHMENTS_S3_ACCESS_KEY_ID: ${ATTACHMENTS_S3_ACCESS_KEY_ID:-}
+      ATTACHMENTS_S3_SECRET_ACCESS_KEY: ${ATTACHMENTS_S3_SECRET_ACCESS_KEY:-}
+      # "Tải PDF" is rendered by the internal noteriv-pdf service (headless Chromium).
+      PDF_SERVICE_URL: http://noteriv-pdf:4003
+      PDF_SERVICE_TOKEN: ${PDF_SERVICE_TOKEN:?set PDF_SERVICE_TOKEN}
+      # Error reports to Sentry (lib/sentry.ts); unset DSN = off. Release = the deployed commit when Dokploy provides
+      # SOURCE_COMMIT, else empty: the SDK reads SENTRY_RELEASE itself, so a placeholder would show up as a release.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SOURCE_COMMIT:-}
+      # Public status page (UptimeRobot) linked in the page footers; unset = no link.
+      STATUS_PAGE_URL: ${STATUS_PAGE_URL:-}
+      # Only admins may use the Claude Code relay: it runs on the owner's personal subscription, which is not shared.
+      CLAUDE_CLI_ADMIN_ONLY: "1"
+    volumes:
+      - noteriv-prod-claude:/claude-config
+    depends_on:
+      noteriv-postgres:
+        condition: service_healthy
+      noteriv-redis:
+        condition: service_healthy
+    mem_limit: 768m
+
+  noteriv-worker:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["node", "dist/sync-worker/index.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://noteriv:${POSTGRES_PASSWORD}@noteriv-postgres:5432/noteriv?schema=public
+      REDIS_URL: redis://noteriv-redis:6379
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY}
+      # Git sync also moves attachments between Garage and the repo, so the worker needs the same
+      # object-storage settings as the API (without them the SDK defaults to 127.0.0.1:59000).
+      ATTACHMENTS_S3_ENDPOINT: http://noteriv-garage:3900
+      ATTACHMENTS_S3_REGION: garage
+      ATTACHMENTS_S3_BUCKET: noteriv-attachments
+      ATTACHMENTS_S3_ACCESS_KEY_ID: ${ATTACHMENTS_S3_ACCESS_KEY_ID:-}
+      ATTACHMENTS_S3_SECRET_ACCESS_KEY: ${ATTACHMENTS_S3_SECRET_ACCESS_KEY:-}
+      # Error reports to Sentry (lib/sentry.ts); unset DSN = off. Release = the deployed commit.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SOURCE_COMMIT:-}
+    depends_on:
+      noteriv-postgres:
+        condition: service_healthy
+      noteriv-redis:
+        condition: service_healthy
+    # git clone/rebase of a large vault repo plus the Node heap: 256m was too tight.
+    mem_limit: 384m
+
+  # S3-compatible object storage for attachments (Phase C3), same Garage setup
+  # as web/infra/docker-compose.dev.yml (MinIO is gone from Docker Hub as of
+  # 2026-10-13 — see that file's comment for the full story).
+  #
+  # dxflrs/garage is a scratch-style image with no /bin/sh (confirmed via
+  # `docker inspect` — Entrypoint is empty, Cmd is `["/garage","server"]`
+  # directly), so the config file can't be generated with a shell heredoc
+  # inside the Garage container itself like a normal image. A tiny busybox
+  # init container writes it to a shared volume first and must finish before
+  # Garage starts (service_completed_successfully) — this keeps the secrets
+  # env-var-driven (never committed to git) without needing a shell in the
+  # Garage image.
+  noteriv-garage-config:
+    image: busybox:1.36
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        cat > /etc/garage-conf/garage.toml <<EOF
+        metadata_dir = "/var/lib/garage/meta"
+        data_dir = "/var/lib/garage/data"
+        db_engine = "sqlite"
+        replication_factor = 1
+        rpc_bind_addr = "[::]:3901"
+        rpc_public_addr = "127.0.0.1:3901"
+        rpc_secret = "${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET}"
+        [s3_api]
+        s3_region = "garage"
+        api_bind_addr = "[::]:3900"
+        root_domain = ".s3.garage.localhost"
+        [admin]
+        api_bind_addr = "[::]:3903"
+        admin_token = "${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN}"
+        EOF
+    volumes:
+      - noteriv-prod-garageconf:/etc/garage-conf
+
+  noteriv-garage:
+    image: dxflrs/garage:v1.0.1
+    restart: unless-stopped
+    command: ["/garage", "-c", "/etc/garage-conf/garage.toml", "server"]
+    depends_on:
+      noteriv-garage-config:
+        condition: service_completed_successfully
+    volumes:
+      - noteriv-prod-garageconf:/etc/garage-conf:ro
+      - noteriv-prod-garagedata:/var/lib/garage
+    # Real quota is enforced app-side (web/server/src/lib/attachments.ts),
+    # same as dev — this mem_limit is just for the Garage process itself.
+    mem_limit: 192m
+
+  # Internal HTML -> PDF renderer (headless Chromium). Not published: only noteriv-api reaches it on
+  # the compose network, authenticated with PDF_SERVICE_TOKEN (set in Dokploy's compose env). It renders
+  # untrusted HTML with JavaScript and all network access disabled; see pdf-service/src/index.mjs.
+  noteriv-pdf:
+    build:
+      context: ../pdf-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PDF_SERVICE_TOKEN: ${PDF_SERVICE_TOKEN:?set PDF_SERVICE_TOKEN}
+    mem_limit: 768m
+
+  noteriv-collab:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["node", "dist/collab-server/index.js"]
+    environment:
+      NODE_ENV: production
+      COLLAB_PORT: "4002"
+      DATABASE_URL: postgresql://noteriv:${POSTGRES_PASSWORD}@noteriv-postgres:5432/noteriv?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
+      APP_ORIGIN: ${PUBLIC_ORIGIN:-https://noteriv.dsc.edu.vn}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      # Error reports to Sentry (lib/sentry.ts); unset DSN = off. Release = the deployed commit.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SOURCE_COMMIT:-}
+    depends_on:
+      noteriv-postgres:
+        condition: service_healthy
+    mem_limit: 256m
+
+  # Nightly (02:00 Asia/Ho_Chi_Minh) age-encrypted backup of Postgres + Garage attachments
+  # to the private GitHub repo covuaduongsinh/noteriv-backups. See web/infra/backup/README.md
+  # and docs/ops/sao-luu-khoi-phuc.md. BACKUP_* use `:-` rather than `:?` on purpose: a
+  # missing backup setting must make the backup fail (and alert via healthchecks), not
+  # block the whole production deploy. The secrets below are passed in only so backup.sh
+  # can store them encrypted (secrets.env.age); they are needed to restore.
+  noteriv-backup:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Staging sets BACKUP_REPLICAS=0: it must never push test data into the production backup repo.
+    deploy:
+      replicas: ${BACKUP_REPLICAS:-1}
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      DATABASE_URL: postgresql://noteriv:${POSTGRES_PASSWORD}@noteriv-postgres:5432/noteriv?schema=public
+      ATTACHMENTS_S3_ENDPOINT: http://noteriv-garage:3900
+      ATTACHMENTS_S3_REGION: garage
+      ATTACHMENTS_S3_BUCKET: noteriv-attachments
+      ATTACHMENTS_S3_ACCESS_KEY_ID: ${ATTACHMENTS_S3_ACCESS_KEY_ID:-}
+      ATTACHMENTS_S3_SECRET_ACCESS_KEY: ${ATTACHMENTS_S3_SECRET_ACCESS_KEY:-}
+      BACKUP_REPO: git@github.com:covuaduongsinh/noteriv-backups.git
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+      BACKUP_DEPLOY_KEY_B64: ${BACKUP_DEPLOY_KEY_B64:-}
+      BACKUP_HEALTHCHECK_URL: ${BACKUP_HEALTHCHECK_URL:-}
+      SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-}
+      PDF_SERVICE_TOKEN: ${PDF_SERVICE_TOKEN:-}
+    # Only the deploy key lives in tmpfs. Work files (already encrypted) go to /tmp on the
+    # container's disk layer: tmpfs pages count against mem_limit and the dump keeps growing.
+    tmpfs:
+      - /run/backup:mode=700
+    depends_on:
+      noteriv-postgres:
+        condition: service_healthy
+    # pg_dump, age and rclone all stream; nothing is held in memory whole.
+    mem_limit: 128m
+
+  noteriv-web:
+    build:
+      context: ../../
+      dockerfile: web/Dockerfile
+      args:
+        # Both are build args, not runtime environment — see Dockerfile's
+        # comment on why: rewrites() and NEXT_PUBLIC_* are both resolved at
+        # `next build` time, not re-read per request in a standalone build.
+        NEXT_PUBLIC_COLLAB_WS_URL: ${PUBLIC_WS_ORIGIN:-wss://noteriv.dsc.edu.vn}
+        NOTERIV_API_ORIGIN: http://noteriv-api:4001
+    restart: unless-stopped
+    depends_on:
+      - noteriv-api
+    mem_limit: 384m
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.noteriv-api.rule=Host(`noteriv.dsc.edu.vn`) && PathPrefix(`/api`)
+      - traefik.http.routers.noteriv-api.entrypoints=websecure,web
+      - traefik.http.services.noteriv-api.loadbalancer.server.port=3000
+      - traefik.http.routers.noteriv-collab.rule=Host(`noteriv.dsc.edu.vn`) && PathPrefix(`/collab`)
+      - traefik.http.routers.noteriv-collab.entrypoints=websecure,web
+      - traefik.http.services.noteriv-collab.loadbalancer.server.port=3000
+
+volumes:
+  noteriv-prod-pgdata:
+  noteriv-prod-garagedata:
+  noteriv-prod-garageconf:
+  noteriv-prod-claude:

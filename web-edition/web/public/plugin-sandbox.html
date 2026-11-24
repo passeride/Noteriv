@@ -1,0 +1,415 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Noteriv plugin sandbox</title>
+</head>
+<body>
+<script>
+"use strict";
+
+// This page only ever runs inside an <iframe sandbox="allow-scripts"> with NO
+// allow-same-origin. That combination gives the browser an opaque origin for
+// this frame: it cannot read the parent's cookies/localStorage/DOM, and the
+// parent cannot read this frame's — regardless of which URL actually serves
+// this file. The postMessage bridge below is the *only* channel in or out,
+// and every call the plugin makes goes through the parent, which enforces
+// the plugin's declared permissions before doing anything real.
+
+var pendingCalls = Object.create(null);
+var nextCallId = 1;
+var registeredCommands = Object.create(null);
+var eventHandlers = Object.create(null);
+var pluginOnUnload = null;
+
+function rpcCall(method, args) {
+  var callId = String(nextCallId++);
+  return new Promise(function (resolve, reject) {
+    pendingCalls[callId] = { resolve: resolve, reject: reject };
+    parent.postMessage({ type: "noteriv:call", callId: callId, method: method, args: args }, "*");
+  });
+}
+
+// desktop's api.editor.getContent()/getSelection() are synchronous, so plugins
+// call them as plain strings. postMessage can't be sync, so the host pushes a
+// snapshot (noteriv:editor-state) on every change and the getters read from it.
+// Without the editor:read permission the host never sends one: content stays null.
+var editorState = { content: null, selection: "", cursor: { line: 0, ch: 0 }, currentFile: null };
+var statusClickHandlers = Object.create(null);
+
+var codeBlockProcessors = Object.create(null);
+// kind:id -> { container, nodes, cleanup, observer, timer }
+var mirrors = Object.create(null);
+
+// Plugins inject <style> into document.head (the iframe's own head). The host re-applies that
+// CSS inside a shadow root next to the mirrored HTML, so collect it here.
+function collectCss() {
+  var out = "";
+  var styles = document.querySelectorAll("style");
+  for (var i = 0; i < styles.length; i++) out += styles[i].textContent + "\n";
+  return out.slice(0, 200000);
+}
+
+// Serialise a container with a data-nrv index on every element of the COPY, remembering the
+// matching originals so forwarded events can be replayed on the plugin's real elements.
+function snapshot(container) {
+  var clone = container.cloneNode(true);
+  var originals = container.querySelectorAll("*");
+  var copies = clone.querySelectorAll("*");
+  var nodes = [];
+  for (var i = 0; i < copies.length; i++) {
+    copies[i].setAttribute("data-nrv", String(i));
+    nodes.push(originals[i]);
+  }
+  // Live control state isn't in the markup: copy it so the mirror shows what the plugin shows.
+  for (var j = 0; j < originals.length; j++) {
+    var o = originals[j];
+    var c = copies[j];
+    if (o.tagName === "INPUT" || o.tagName === "TEXTAREA") {
+      if (o.type === "checkbox" || o.type === "radio") { if (o.checked) c.setAttribute("checked", ""); else c.removeAttribute("checked"); }
+      else c.setAttribute("value", o.value);
+      if (o.tagName === "TEXTAREA") c.textContent = o.value;
+    } else if (o.tagName === "SELECT") {
+      var opts = c.querySelectorAll("option");
+      for (var k = 0; k < opts.length; k++) { if (k === o.selectedIndex) opts[k].setAttribute("selected", ""); else opts[k].removeAttribute("selected"); }
+    }
+  }
+  return { html: clone.innerHTML, nodes: nodes };
+}
+
+function mountMirror(kind, def, rpcMethod, title) {
+  var key = kind + ":" + def.id;
+  if (mirrors[key]) unmountMirror(kind, def.id);
+  var container = document.createElement("div");
+  var entry = { container: container, nodes: [], cleanup: null, observer: null, timer: null };
+  mirrors[key] = entry;
+
+  function push() {
+    var snap = snapshot(container);
+    entry.nodes = snap.nodes;
+    parent.postMessage({ type: "noteriv:mirror-html", kind: kind, id: def.id, html: snap.html, css: collectCss() }, "*");
+  }
+  entry.observer = new MutationObserver(function () {
+    clearTimeout(entry.timer);
+    entry.timer = setTimeout(push, 30);
+  });
+  entry.observer.observe(container, { childList: true, subtree: true, attributes: true, characterData: true });
+
+  return rpcCall(rpcMethod, [{ id: def.id, title: title, icon: def.icon }]).then(function () {
+    try {
+      var cleanup = def.render(container);
+      if (typeof cleanup === "function") entry.cleanup = cleanup;
+    } catch (err) {
+      parent.postMessage({ type: "noteriv:log", level: "error", message: kind + " render error: " + (err && err.message) }, "*");
+    }
+    push();
+  });
+}
+
+function unmountMirror(kind, id) {
+  var key = kind + ":" + id;
+  var entry = mirrors[key];
+  if (!entry) return;
+  clearTimeout(entry.timer);
+  if (entry.observer) entry.observer.disconnect();
+  if (typeof entry.cleanup === "function") { try { entry.cleanup(); } catch (e) { /* ignore */ } }
+  delete mirrors[key];
+}
+
+// Plugin API v1 calls that hand out real app DOM exist for core plugins only (docs/plugin-api/v1.md, "Sandbox subset").
+function coreOnly(name) {
+  return function () {
+    throw new Error(name + " is only available to core plugins");
+  };
+}
+
+function buildApi(boot) {
+  return {
+    vault: {
+      read: function (path) { return rpcCall("vault.read", [path]); },
+      write: function (path, content) { return rpcCall("vault.write", [path, content]); },
+      list: function (dir) { return rpcCall("vault.list", [dir]); },
+      exists: function (path) { return rpcCall("vault.exists", [path]); },
+      delete: function (path) { return rpcCall("vault.delete", [path]); },
+      edit: coreOnly("vault.edit"),
+      frontmatter: coreOnly("vault.frontmatter"),
+      stats: coreOnly("vault.stats"),
+      saveAttachment: coreOnly("vault.saveAttachment"),
+      versionSources: coreOnly("vault.versionSources"),
+      snapshots: coreOnly("vault.snapshots"),
+      readSnapshot: coreOnly("vault.readSnapshot"),
+      gitLog: coreOnly("vault.gitLog"),
+      readAtCommit: coreOnly("vault.readAtCommit"),
+      resolve: coreOnly("vault.resolve"),
+      listAttachments: coreOnly("vault.listAttachments"),
+      attachmentUrl: coreOnly("vault.attachmentUrl"),
+      readAttachment: coreOnly("vault.readAttachment"),
+      getAttachmentData: coreOnly("vault.getAttachmentData"),
+      setAttachmentData: coreOnly("vault.setAttachmentData"),
+    },
+    ui: {
+      addCommand: function (cmd) {
+        registeredCommands[cmd.id] = cmd.callback;
+        return rpcCall("ui.addCommand", [{ id: cmd.id, name: cmd.name, icon: cmd.icon }]);
+      },
+      removeCommand: function (id) {
+        delete registeredCommands[id];
+        return rpcCall("ui.removeCommand", [id]);
+      },
+      showNotice: function (message, duration) { return rpcCall("ui.showNotice", [message, duration]); },
+      // Declarative status bar item: the host renders text/title; onClick is
+      // kept here and invoked via noteriv:invoke-status-click.
+      addStatusBarItem: function (item) {
+        if (typeof item.onClick === "function") statusClickHandlers[item.id] = item.onClick;
+        else delete statusClickHandlers[item.id];
+        return rpcCall("ui.addStatusBarItem", [{
+          id: item.id,
+          text: String(item.text == null ? "" : item.text),
+          title: item.title == null ? undefined : String(item.title),
+          clickable: typeof item.onClick === "function",
+        }]);
+      },
+      removeStatusBarItem: function (id) {
+        delete statusClickHandlers[id];
+        return rpcCall("ui.removeStatusBarItem", [id]);
+      },
+      // Need real DOM access, which the sandbox deliberately doesn't give plugins.
+      addSidebarPanel: function (panel) {
+        return mountMirror("sidebar", panel, "ui.addSidebarPanel", panel.title);
+      },
+      removeSidebarPanel: function (id) {
+        unmountMirror("sidebar", id);
+        return rpcCall("ui.removeSidebarPanel", [id]);
+      },
+      toggleSidebarPanel: coreOnly("ui.toggleSidebarPanel"),
+      addSettingsTab: function (tab) {
+        return mountMirror("settings", tab, "ui.addSettingsTab", tab.name);
+      },
+      removeSettingsTab: function (id) {
+        unmountMirror("settings", id);
+        return rpcCall("ui.removeSettingsTab", [id]);
+      },
+      registerView: coreOnly("ui.registerView"),
+      unregisterView: coreOnly("ui.unregisterView"),
+      addRibbonIcon: coreOnly("ui.addRibbonIcon"),
+      removeRibbonIcon: coreOnly("ui.removeRibbonIcon"),
+      addNoteToolbarButton: coreOnly("ui.addNoteToolbarButton"),
+      removeNoteToolbarButton: coreOnly("ui.removeNoteToolbarButton"),
+      registerFileView: coreOnly("ui.registerFileView"),
+      unregisterFileView: coreOnly("ui.unregisterFileView"),
+      registerAttachmentViewer: coreOnly("ui.registerAttachmentViewer"),
+      unregisterAttachmentViewer: coreOnly("ui.unregisterAttachmentViewer"),
+    },
+    events: {
+      on: function (event, handler) {
+        if (!eventHandlers[event]) eventHandlers[event] = [];
+        eventHandlers[event].push(handler);
+      },
+      off: function (event, handler) {
+        if (!eventHandlers[event]) return;
+        eventHandlers[event] = eventHandlers[event].filter(function (h) { return h !== handler; });
+      },
+      // Plugin-to-plugin emit isn't bridged; deliver within this plugin only.
+      emit: function (event) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        (eventHandlers[event] || []).forEach(function (h) {
+          try { h.apply(null, args); } catch (e) { /* ignore plugin handler errors */ }
+        });
+      },
+    },
+    editor: {
+      getContent: function () { return editorState.content; },
+      setContent: function (content) { rpcCall("editor.setContent", [content]).catch(function () {}); },
+      insertAtCursor: function (text) { rpcCall("editor.insertAtCursor", [text]).catch(function () {}); },
+      getSelection: function () { return editorState.selection; },
+      replaceSelection: function (text) { rpcCall("editor.replaceSelection", [text]).catch(function () {}); },
+      getCursorPosition: function () { return { line: editorState.cursor.line, ch: editorState.cursor.ch }; },
+      setCursor: coreOnly("editor.setCursor"),
+    },
+    markdown: {
+      registerCodeBlockProcessor: function (language, processor) {
+        var lang = String(language || "").trim().toLowerCase();
+        if (!lang || typeof processor !== "function") return;
+        codeBlockProcessors[lang] = processor;
+        return rpcCall("markdown.registerCodeBlockProcessor", [lang]);
+      },
+      unregisterCodeBlockProcessor: function (language) {
+        var lang = String(language || "").trim().toLowerCase();
+        delete codeBlockProcessors[lang];
+        return rpcCall("markdown.unregisterCodeBlockProcessor", [lang]);
+      },
+      registerPostProcessor: coreOnly("markdown.registerPostProcessor"),
+      renderReadOnly: coreOnly("markdown.renderReadOnly"),
+    },
+    workspace: {
+      openFile: function (path) { return rpcCall("workspace.openFile", [path]); },
+      openView: coreOnly("workspace.openView"),
+      closeView: coreOnly("workspace.closeView"),
+    },
+    settings: {
+      load: function () { return rpcCall("app.loadSettings", []); },
+      save: function (data) { return rpcCall("app.saveSettings", [data]); },
+    },
+    app: {
+      version: typeof boot.version === "string" ? boot.version : "web",
+      platform: boot.platform === "desktop" ? "desktop" : "web",
+      vaultPath: null,
+      get currentFile() { return editorState.currentFile; },
+      loadSettings: function () { return rpcCall("app.loadSettings", []); },
+      saveSettings: function (data) { return rpcCall("app.saveSettings", [data]); },
+    },
+  };
+}
+
+window.addEventListener("message", function (event) {
+  var data = event.data;
+  if (!data || typeof data !== "object") return;
+
+  if (data.type === "noteriv:response") {
+    var pending = pendingCalls[data.callId];
+    if (!pending) return;
+    delete pendingCalls[data.callId];
+    if (data.ok) pending.resolve(data.result);
+    else pending.reject(new Error(data.error || "plugin call failed"));
+    return;
+  }
+
+  if (data.type === "noteriv:invoke-command") {
+    var cb = registeredCommands[data.commandId];
+    if (typeof cb === "function") {
+      try {
+        Promise.resolve(cb()).catch(function (err) {
+          parent.postMessage({ type: "noteriv:log", level: "error", message: "command error: " + (err && err.message) }, "*");
+        });
+      } catch (err) {
+        parent.postMessage({ type: "noteriv:log", level: "error", message: "command error: " + (err && err.message) }, "*");
+      }
+    }
+    return;
+  }
+
+  if (data.type === "noteriv:render-codeblock") {
+    var processor = codeBlockProcessors[data.language];
+    var replyBlock = function (fields) {
+      parent.postMessage(Object.assign({ type: "noteriv:codeblock-result", callId: data.callId }, fields), "*");
+    };
+    if (typeof processor !== "function") {
+      replyBlock({ ok: false, error: "no processor for " + data.language });
+      return;
+    }
+    var el = document.createElement("div");
+    var finish = function () {
+      var snap = snapshot(el);
+      replyBlock({ ok: true, html: snap.html, css: collectCss() });
+    };
+    try {
+      var ret = processor(String(data.source), el, { source: String(data.source), language: data.language, sourcePath: data.sourcePath || null });
+      // Processors usually write synchronously; a tick covers ones that defer to a microtask/promise.
+      Promise.resolve(ret).then(function () { setTimeout(finish, 0); }, function (err) { replyBlock({ ok: false, error: (err && err.message) || "render failed" }); });
+    } catch (err) {
+      replyBlock({ ok: false, error: (err && err.message) || "render failed" });
+    }
+    return;
+  }
+
+  if (data.type === "noteriv:mirror-event") {
+    var mirror = mirrors[data.kind + ":" + data.id];
+    var target = mirror && mirror.nodes[data.index];
+    if (target) {
+      try {
+        if (data.type === "noteriv:mirror-event" && data.eventType === "click") {
+          target.click();
+        } else {
+          if (typeof data.value === "string" && "value" in target) target.value = data.value;
+          if (typeof data.checked === "boolean" && "checked" in target) target.checked = data.checked;
+          target.dispatchEvent(new Event(data.eventType, { bubbles: true }));
+        }
+      } catch (err) {
+        parent.postMessage({ type: "noteriv:log", level: "error", message: "event error: " + (err && err.message) }, "*");
+      }
+    }
+    return;
+  }
+
+  if (data.type === "noteriv:editor-state") {
+    var s = data.state || {};
+    editorState = {
+      content: typeof s.content === "string" ? s.content : null,
+      selection: typeof s.selection === "string" ? s.selection : "",
+      cursor: s.cursor && typeof s.cursor.line === "number" ? { line: s.cursor.line, ch: s.cursor.ch | 0 } : { line: 0, ch: 0 },
+      currentFile: typeof s.currentFile === "string" ? s.currentFile : null,
+    };
+    return;
+  }
+
+  if (data.type === "noteriv:invoke-status-click") {
+    var click = statusClickHandlers[data.itemId];
+    if (typeof click === "function") {
+      try {
+        Promise.resolve(click()).catch(function (err) {
+          parent.postMessage({ type: "noteriv:log", level: "error", message: "status item error: " + (err && err.message) }, "*");
+        });
+      } catch (err) {
+        parent.postMessage({ type: "noteriv:log", level: "error", message: "status item error: " + (err && err.message) }, "*");
+      }
+    }
+    return;
+  }
+
+  if (data.type === "noteriv:emit-event") {
+    var handlers = eventHandlers[data.event] || [];
+    handlers.forEach(function (h) {
+      try { h.apply(null, data.args || []); } catch (e) { /* ignore plugin handler errors */ }
+    });
+    return;
+  }
+
+  if (data.type === "noteriv:unload") {
+    if (typeof pluginOnUnload === "function") {
+      try { pluginOnUnload(); } catch (e) { /* ignore */ }
+    }
+    return;
+  }
+
+  if (data.type === "noteriv:boot") {
+    var api = buildApi(data);
+    var wrapped = [
+      '"use strict";',
+      "var module = { exports: {} };",
+      "var exports = module.exports;",
+      data.mainJs,
+      "return module.exports;",
+    ].join("\n");
+
+    var pluginExports;
+    try {
+      var factory = new Function(wrapped);
+      pluginExports = factory();
+    } catch (execError) {
+      parent.postMessage({ type: "noteriv:boot-result", ok: false, error: "execute: " + execError.message }, "*");
+      return;
+    }
+
+    if (typeof pluginExports.onUnload === "function") {
+      pluginOnUnload = pluginExports.onUnload;
+    }
+
+    if (typeof pluginExports.onLoad === "function") {
+      Promise.resolve()
+        .then(function () { return pluginExports.onLoad(api); })
+        .then(function () {
+          parent.postMessage({ type: "noteriv:boot-result", ok: true }, "*");
+        })
+        .catch(function (err) {
+          parent.postMessage({ type: "noteriv:boot-result", ok: false, error: "onLoad: " + (err && err.message) }, "*");
+        });
+    } else {
+      parent.postMessage({ type: "noteriv:boot-result", ok: true }, "*");
+    }
+  }
+});
+
+parent.postMessage({ type: "noteriv:ready" }, "*");
+</script>
+</body>
+</html>

@@ -46,7 +46,7 @@ export interface WorkspaceState {
   openTabs: string[];
   activeTab: string | null;
   expandedFolders: string[];
-  viewMode: 'edit' | 'preview';
+  viewMode: 'edit' | 'live' | 'preview';
   fileOrder?: Record<string, string[]>;
   bookmarks?: string[];
   fileIcons?: Record<string, { symbol: string; color: string }>;

@@ -1,0 +1,17 @@
+{
+  "name": "@noteriv/plugin-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Noteriv Plugin API v1 (draft, 0.x): TypeScript types only. One surface shared by core plugins (run in-app) and community plugins (run in a sandboxed iframe).",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

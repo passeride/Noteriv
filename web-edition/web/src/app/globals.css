@@ -1,0 +1,21 @@
+@import "tailwindcss";
+@import "@noteriv/ui/styles/app.css";
+/* Tailwind v4 scans only the project tree; classes used by the shared UI and plugin packages must be sourced explicitly. */
+@source "../../../packages/ui";
+@source "../../../packages/plugins/src";
+
+/* In a layer so Tailwind utilities (px-3, py-1, m-2 …) can override it. Unlayered, this rule beat every
+   spacing utility in the app: buttons and rows written with them rendered with zero padding. The
+   desktop-ported component classes (.ribbon-btn, .st-*, …) are unlayered and still win as before. */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+}
+
+/* Held until the page has switched to its language (web/src/lib/i18n.ts, LOCALE_BOOT_SCRIPT). */
+html.i18n-pending body {
+  visibility: hidden;
+}

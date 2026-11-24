@@ -1,0 +1,9 @@
+{
+  // Tests run on Node (fs, path), the sources under ../src must not. The root tsconfig therefore loads no
+  // @types/node and covers only src; this one adds Node types for the test files.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["../src", "."]
+}

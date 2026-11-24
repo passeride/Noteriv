@@ -1,0 +1,2774 @@
+{
+  "editor": {
+    "toolbar": {
+      "label": "Thanh định dạng",
+      "bold": "In đậm",
+      "italic": "In nghiêng",
+      "strikethrough": "Gạch ngang",
+      "code": "Mã trong dòng",
+      "link": "Chèn liên kết",
+      "image": "Chèn ảnh",
+      "blockquote": "Trích dẫn",
+      "codeBlock": "Khối mã",
+      "taskList": "Danh sách việc",
+      "table": "Chèn bảng",
+      "rule": "Đường kẻ ngang",
+      "short": {
+        "link": "Link",
+        "image": "Ảnh",
+        "blockquote": "Trích",
+        "codeBlock": "Mã",
+        "taskList": "Việc",
+        "table": "Bảng",
+        "rule": "Kẻ"
+      }
+    },
+    "codeBlock": {
+      "copy": "Sao chép",
+      "copied": "Đã chép!"
+    },
+    "toc": {
+      "title": "Mục lục",
+      "empty": "Không có heading nào"
+    },
+    "embed": {
+      "open": "Mở note này",
+      "loading": "Đang tải…",
+      "notFound": "Vault chưa có “{target}”",
+      "anchorNotFound": "Note này không có “{anchor}”",
+      "loop": "Note này đã hiện ở phía trên (nó tự nhúng chính nó)",
+      "tooDeep": "Nhúng lồng quá sâu, không hiển thị",
+      "unavailable": "Không hiển thị được note nhúng ở đây"
+    },
+    "slash": {
+      "h1": "Tiêu đề 1",
+      "h2": "Tiêu đề 2",
+      "h3": "Tiêu đề 3",
+      "bullet": "Danh sách gạch đầu dòng",
+      "numbered": "Danh sách đánh số",
+      "task": "Việc cần làm",
+      "quote": "Trích dẫn",
+      "callout": "Khung ghi chú",
+      "code": "Khối code",
+      "math": "Khối công thức",
+      "table": "Bảng",
+      "divider": "Đường kẻ ngang",
+      "bold": "In đậm",
+      "italic": "In nghiêng",
+      "strike": "Gạch ngang chữ",
+      "highlight": "Tô sáng",
+      "inlineCode": "Code trong dòng",
+      "link": "Liên kết",
+      "wikilink": "Liên kết tới note",
+      "embed": "Nhúng note",
+      "footnote": "Chú thích cuối trang",
+      "date": "Ngày hôm nay",
+      "time": "Giờ hiện tại"
+    }
+  },
+  "panels": {
+    "quickOpen": {
+      "placeholder": "Gõ để tìm note...",
+      "empty": "Không tìm thấy note nào"
+    },
+    "commandPalette": {
+      "placeholder": "Gõ để tìm lệnh…",
+      "recent": "Gần đây",
+      "empty": "Không tìm thấy lệnh nào"
+    },
+    "vaultSearch": {
+      "placeholder": "Tìm trong nội dung các note…",
+      "noResults": "Không có kết quả",
+      "hint": "Gõ để tìm. Toán tử: OR, -từ, \"cụm từ\", /regex/, file:, path:, tag:, line:(…), match-case:, [thuộc_tính:giá_trị]",
+      "noResultsHint": "Thử ít từ hơn hoặc từ khác, hay tìm theo #thẻ.",
+      "replace": "Thay thế",
+      "replaceToggle": "Hiện hoặc ẩn ô thay thế",
+      "replacePlaceholder": "Thay bằng…",
+      "replaceAll": "Thay tất cả",
+      "replaceConfirm": {
+        "one": "Bấm lần nữa để thay trong {count} note",
+        "other": "Bấm lần nữa để thay trong {count} note"
+      },
+      "replaceFailed": "Không thay được: tìm kiếm bị lỗi",
+      "replaceNoTarget": "Thay thế cần đúng một từ, cụm từ hoặc /regex/ để thay (được kèm bộ lọc như path:, không dùng OR).",
+      "replaced": {
+        "one": "Đã thay trong {count} note",
+        "other": "Đã thay trong {count} note"
+      },
+      "replacedSome": "Đã thay trong {count} note; {failed} note không đổi được",
+      "invalid": "Hãy xem lại ô tìm: {what}",
+      "errors": {
+        "quote": "thiếu dấu nháy đóng",
+        "regex": "/regex/ không hợp lệ",
+        "paren": "thiếu dấu ngoặc đóng",
+        "bracket": "thiếu dấu ] của [thuộc tính]",
+        "operator": "toán tử chưa có giá trị"
+      }
+    },
+    "bookmarks": {
+      "title": "Bookmarks",
+      "empty": "Chưa có bookmark nào.",
+      "hint": "Bấm nút bookmark để đánh dấu.",
+      "close": "Đóng",
+      "remove": "Bỏ bookmark"
+    },
+    "conflict": {
+      "banner": "Đây là bản xung đột của {original}: phiên bản thứ hai, được giữ lại lúc {stamp} (UTC) vì ghi chú bị sửa ở hai nơi cùng lúc.",
+      "compare": "So sánh",
+      "hideCompare": "Ẩn so sánh",
+      "keepOriginal": "Giữ bản gốc (xoá bản này)",
+      "useThisVersion": "Dùng bản này (thay bản gốc)",
+      "keepBoth": "Giữ cả hai",
+      "originalMissing": "Ghi chú gốc không còn nữa. Bản này giờ là một ghi chú bình thường.",
+      "legendOriginal": "chỉ có trong bản gốc",
+      "legendThis": "chỉ có trong bản này",
+      "identical": "Hai bản giống hệt nhau.",
+      "working": "Đang xử lý…"
+    },
+    "tags": {
+      "title": "Tags",
+      "expandAll": "Mở hết",
+      "collapseAll": "Thu gọn hết",
+      "refresh": "Làm mới tag",
+      "filter": "Lọc tag...",
+      "clearFilter": "Xoá bộ lọc",
+      "scanning": "Đang quét tag...",
+      "noMatch": "Không có tag khớp bộ lọc",
+      "empty": "Vault chưa có tag nào",
+      "tagTitle": {
+        "other": "{tag} ({count} note)"
+      },
+      "groupTitle": "Nhóm {segment} ({count} tổng)"
+    },
+    "backlinks": {
+      "title": "Backlinks",
+      "count": {
+        "other": "{count} liên kết"
+      },
+      "scanning": "Đang quét vault...",
+      "empty": "Chưa có note nào link tới note này.",
+      "line": "Dòng {line}",
+      "unlinked": "Nhắc đến chưa liên kết",
+      "unlinkedEmpty": "Không note nào nhắc tên note này mà chưa có liên kết.",
+      "link": "Liên kết",
+      "linkTitle": "Biến chỗ nhắc đến này thành liên kết",
+      "unlinkedFailed": "Không tìm được các chỗ nhắc đến. Hãy thử lại sau."
+    },
+    "outline": {
+      "title": "Dàn ý",
+      "empty": "Không có heading nào"
+    },
+    "outgoing": {
+      "title": "Liên kết đi ra",
+      "empty": "Note này chưa có liên kết nào.",
+      "unresolved": "“{target}” chưa có",
+      "unlinked": "Nhắc đến chưa liên kết",
+      "unlinkedEmpty": "Không thấy tên note nào được nhắc mà chưa liên kết.",
+      "linkTitle": "Liên kết chỗ nhắc đến đầu tiên của {path}"
+    },
+    "hoverPreview": {
+      "loading": "Đang tải…",
+      "empty": "Note này đang trống.",
+      "notFound": "Không tìm thấy note",
+      "noSection": "Note không có tiêu đề hoặc khối này",
+      "readFailed": "Không tải được nội dung"
+    },
+    "appImport": {
+      "title": "Nhập từ app khác",
+      "close": "Đóng",
+      "source": "Nhập từ",
+      "sources": {
+        "notion": {
+          "name": "Notion",
+          "hint": "File .zip từ mục Export của Notion, chọn \"Markdown & CSV\": trang, trang con, database, tệp."
+        },
+        "evernote": {
+          "name": "Evernote",
+          "hint": "Một hoặc nhiều file .enex (xuất sổ tay từ Evernote): note, tag, ngày, ảnh và tệp."
+        },
+        "html": {
+          "name": "Trang HTML",
+          "hint": "Thư mục hoặc .zip trang HTML (Bear, Google Keep từ Takeout, trang web đã lưu); cả file Markdown trong đó."
+        }
+      },
+      "pickZip": "Chọn file…",
+      "pickEnex": "Chọn file .enex…",
+      "pickFolder": "Chọn thư mục…",
+      "reading": "Đang đọc bản xuất…",
+      "found": "Tìm thấy {notes} note và {files} tệp đính kèm.",
+      "skipped": {
+        "one": "Bỏ qua {count} file",
+        "other": "Bỏ qua {count} file"
+      },
+      "reasons": {
+        "unsupported": "không phải loại file mà cách nhập này nhận",
+        "unreadable": "không đọc được",
+        "empty": "trống"
+      },
+      "folder": "Đặt vào thư mục",
+      "folderHint": "Thư mục mới giúp tách riêng khỏi note của bạn; không gì có sẵn trong vault bị ghi đè (note trùng tên được đánh số).",
+      "import": "Nhập",
+      "importing": "Đang nhập… {done}/{total}",
+      "done": {
+        "one": "Đã nhập {count} mục.",
+        "other": "Đã nhập {count} mục."
+      },
+      "kept": {
+        "one": "{count} mục đã có sẵn ở đúng chỗ trong vault nên được giữ nguyên.",
+        "other": "{count} mục đã có sẵn ở đúng chỗ trong vault nên được giữ nguyên."
+      },
+      "failed": {
+        "one": "{count} mục không nhập được",
+        "other": "{count} mục không nhập được"
+      },
+      "open": "Mở note đầu tiên",
+      "nothing": "Không có note nào trong thứ bạn chọn. Hãy kiểm tra đó có đúng là bản xuất loại này không.",
+      "readFailed": "Không đọc được thứ bạn chọn.",
+      "writeFailed": "Việc nhập đã dừng vì không ghi thêm được. Hãy thử lại.",
+      "cancel": "Huỷ",
+      "stopped": {
+        "one": "Đã dừng. {count} mục nhập trước đó vẫn nằm trong vault.",
+        "other": "Đã dừng. {count} mục nhập trước đó vẫn nằm trong vault."
+      },
+      "tooLarge": "Bản xuất này quá lớn để nhập một lần (trên {max}). Hãy xuất thành nhiều phần, hoặc mỗi lần vài thư mục.",
+      "tooManyFiles": "Bản xuất này có quá nhiều file để nhập một lần (trên {max}). Hãy xuất thành nhiều phần, hoặc mỗi lần vài thư mục."
+    }
+  },
+  "settings": {
+    "corePlugins": {
+      "intro": "Plugin có sẵn của Noteriv, bật/tắt riêng cho vault này. Plugin tắt thì mã của nó không được tải.",
+      "empty": "Chưa có core plugin nào.",
+      "loading": "Đang tải…",
+      "failed": "Không tải được",
+      "enable": "Bật",
+      "disable": "Tắt",
+      "settings": "Tuỳ chọn",
+      "hideSettings": "Ẩn tuỳ chọn",
+      "saveFailed": "Không lưu được lựa chọn: {detail}"
+    },
+    "title": "Cài đặt",
+    "sections": {
+      "general": "Chung",
+      "appearance": "Giao diện",
+      "editor": "Editor",
+      "shortcuts": "Phím tắt",
+      "sync": "Đồng bộ",
+      "corePlugins": "Core plugins",
+      "ecosystem": "Hệ sinh thái",
+      "clipper": "Clipper",
+      "plan": "Gói và mức dùng"
+    },
+    "on": "Bật",
+    "off": "Tắt",
+    "duration": {
+      "seconds": {
+        "other": "{count} giây"
+      },
+      "minutes": {
+        "other": "{count} phút"
+      }
+    },
+    "pdfColumns": {
+      "other": "{count} cột"
+    },
+    "autoCollapse": {
+      "label": "Tự thu gọn sidebar",
+      "desc": "Thu gọn sidebar khi cửa sổ hẹp."
+    },
+    "spellCheck": {
+      "label": "Kiểm tra chính tả",
+      "desc": "Gạch chân từ sai theo trình duyệt (ngôn ngữ do trình duyệt quyết định)."
+    },
+    "autoSave": {
+      "label": "Auto-save",
+      "descWeb": "Tự động lưu sau khi dừng gõ bao lâu.",
+      "descDesktop": "Tự động lưu file theo chu kỳ.",
+      "instant": "500ms (gần như tức thì)",
+      "default": "800ms (mặc định)"
+    },
+    "accent": {
+      "label": "Màu nhấn (accent)",
+      "descWeb": "Ghi đè màu nhấn của theme; chọn ô đầu để dùng màu của theme.",
+      "descDesktop": "Màu chính cho phần tô sáng, liên kết và trạng thái đang chọn.",
+      "themeDefault": "Mặc định theo theme",
+      "blue": "Xanh dương",
+      "lavender": "Oải hương",
+      "mauve": "Tím",
+      "pink": "Hồng",
+      "peach": "Cam đào",
+      "yellow": "Vàng",
+      "green": "Xanh lá",
+      "teal": "Xanh ngọc"
+    },
+    "fontSize": {
+      "label": "Cỡ chữ",
+      "desc": "Cỡ chữ cơ bản trong editor (px)."
+    },
+    "lineHeight": {
+      "label": "Giãn dòng",
+      "desc": "Khoảng cách giữa các dòng."
+    },
+    "editorFont": {
+      "label": "Font editor",
+      "desc": "Font monospace dùng trong editor."
+    },
+    "tabSize": {
+      "label": "Độ rộng Tab",
+      "desc": "Số khoảng trắng của một lần thụt lề (phím Tab).",
+      "spaces": {
+        "other": "{count} khoảng trắng"
+      }
+    },
+    "vimMode": {
+      "label": "Vim mode",
+      "desc": "Dùng phím tắt kiểu Vim trong editor (chế độ Sửa)."
+    },
+    "pdfColumnLayout": {
+      "label": "PDF: số cột",
+      "descWeb": "Bố cục khi xuất PDF.",
+      "descDesktop": "Số cột khi in; nội dung chảy từ cột trái sang cột phải."
+    },
+    "pdfExport": "Xuất PDF",
+    "exportAccountHint": "Xuất dữ liệu / xoá tài khoản nằm ở trang danh sách vault (menu \"Tài khoản\").",
+    "pluginTabGone": "Tab này không còn khả dụng (plugin đã tắt?).",
+    "thisVault": "vault này",
+    "shortcuts": {
+      "hint": "Bấm vào một phím tắt để gán lại",
+      "resetAll": "Đặt lại tất cả",
+      "search": "Tìm lệnh hoặc phím",
+      "searchLabel": "Tìm phím tắt",
+      "clear": "Xoá",
+      "clearLabel": "Xoá ô tìm phím tắt",
+      "results": {
+        "other": "{count} phím tắt"
+      },
+      "recording": "Nhấn phím...",
+      "reset": "Đặt lại mặc định",
+      "empty": "Không có phím tắt nào khớp \"{query}\"."
+    },
+    "ecosystem": {
+      "plugins": "Plugin cộng đồng",
+      "pluginsDesc": "Mở rộng Noteriv bằng plugin — cài, bật/tắt, gỡ.",
+      "snippets": "CSS Snippets",
+      "snippetsDesc": "Tuỳ biến giao diện bằng CSS snippet riêng.",
+      "themes": "Theme cộng đồng",
+      "themesDesc": "Xem trong tab Giao diện > Theme."
+    },
+    "sync": {
+      "direction": {
+        "both": "Hai chiều (đẩy và kéo)",
+        "push": "Chỉ đẩy lên",
+        "pull": "Chỉ kéo về"
+      }
+    },
+    "language": {
+      "label": "Ngôn ngữ",
+      "desc": "Ngôn ngữ của giao diện.",
+      "autoWeb": "Theo trình duyệt",
+      "autoDesktop": "Theo hệ điều hành"
+    },
+    "autoUpdateLinks": {
+      "label": "Cập nhật liên kết khi đổi tên",
+      "desc": "Đổi tên hoặc chuyển chỗ một note sẽ sửa các liên kết trỏ tới nó."
+    }
+  },
+  "plugins": {
+    "sandbox": {
+      "renderFailed": "Plugin không render được khối này.",
+      "pluginError": "Plugin \"{id}\" lỗi: {error}"
+    },
+    "wordCount": {
+      "words": {
+        "other": "{count} từ"
+      },
+      "title": "{characters} ký tự · khoảng {minutes} phút đọc",
+      "command": "Đếm từ: thống kê ghi chú",
+      "ribbon": "Đếm từ",
+      "notice": {
+        "other": "{count} từ · {characters} ký tự · khoảng {minutes} phút đọc"
+      },
+      "noNote": "Chưa mở ghi chú nào.",
+      "name": "Đếm từ",
+      "description": "Hiện số từ của ghi chú đang mở trên thanh trạng thái; lệnh và nút ribbon xem thống kê (Ctrl+Alt+W)."
+    },
+    "flashcards": {
+      "name": "Flashcards",
+      "description": "Ôn tập ngắt quãng (SM-2) từ các cặp dòng Q:/A: và {{cloze}} trong ghi chú; mở bằng nút ribbon hoặc bảng lệnh.",
+      "command": "Flashcards: ôn tập",
+      "ribbon": "Flashcards",
+      "title": "Ôn tập flashcard",
+      "cards": {
+        "other": "{count} thẻ"
+      },
+      "due": "{count} cần ôn",
+      "done": "{count} đã ôn",
+      "scanning": "Đang tìm flashcard trong vault…",
+      "caughtUp": "Đã ôn hết!",
+      "noCards": "Chưa có flashcard. Thêm cặp dòng Q:/A: hoặc {{cloze}} vào ghi chú.",
+      "comeBack": {
+        "other": "Đã ôn {count} thẻ. Mai quay lại ôn tiếp."
+      },
+      "showAnswer": "Xem đáp án (Space)",
+      "close": "Đóng",
+      "grade": {
+        "again": "Lại",
+        "hard": "Khó",
+        "ok": "Tạm",
+        "good": "Tốt",
+        "easy": "Dễ"
+      }
+    },
+    "templates": {
+      "name": "Templates",
+      "description": "Tạo note mới từ template hoặc chèn template vào note đang mở. Template là các note trong thư mục Templates.",
+      "create": "Templates: tạo note từ template",
+      "insert": "Templates: chèn template vào note",
+      "search": "Tìm template…",
+      "emptyTitle": "Chưa có template nào",
+      "emptyFolder": "Tạo một thư mục \"{folder}\" ở gốc vault và thêm note vào đó để dùng làm template.",
+      "emptyVariables": "Dùng biến như {{date}}, {{title}}, {{time}} để chèn nội dung động.",
+      "noMatch": "Không có template khớp",
+      "preview": "Xem trước",
+      "previewEmpty": "Chọn một template để xem trước",
+      "enterCreate": "tạo note",
+      "enterInsert": "chèn",
+      "close": "đóng",
+      "move": "di chuyển",
+      "count": {
+        "other": "{count} template"
+      },
+      "noNote": "Hãy mở một ghi chú trước khi chèn template."
+    },
+    "noteComposer": {
+      "name": "Note composer",
+      "description": "Gộp nhiều note vào note đang mở, hoặc tách note đang mở thành nhiều note theo heading.",
+      "command": "Note composer: gộp / tách note",
+      "title": "Note Composer",
+      "merge": "Gộp",
+      "split": "Tách",
+      "noNote": "Chưa chọn note",
+      "searchMerge": "Tìm note để gộp…",
+      "selected": "{count} đã chọn",
+      "noNotes": "Không tìm thấy note",
+      "addHeadings": "Thêm tên file làm tiêu đề (h2) giữa các note gộp",
+      "deleteAfter": {
+        "web": "Chuyển note nguồn vào thùng rác sau khi gộp",
+        "desktop": "Xoá file nguồn sau khi gộp"
+      },
+      "splitBy": "Tách theo:",
+      "noHeadings": "Không tìm thấy heading {level} nào để tách",
+      "exists": "đã có, sẽ bỏ qua",
+      "cancel": "Huỷ",
+      "merging": "Đang gộp…",
+      "mergeN": {
+        "other": "Gộp {count} note"
+      },
+      "splitting": "Đang tách…",
+      "splitN": {
+        "other": "Tách thành {count} note"
+      },
+      "skipped": {
+        "other": "Bỏ qua {count} phần vì đã có note cùng tên."
+      }
+    },
+    "calendar": {
+      "name": "Lịch và daily notes",
+      "description": "Lịch tháng với daily note và việc đến hạn; mở daily note hôm nay bằng Ctrl+D hoặc nút ribbon.",
+      "openCalendar": "Lịch: mở lịch",
+      "todayNote": "Daily note hôm nay",
+      "ribbonCalendar": "Lịch",
+      "ribbonDaily": "Daily note hôm nay",
+      "months": "Tháng 1,Tháng 2,Tháng 3,Tháng 4,Tháng 5,Tháng 6,Tháng 7,Tháng 8,Tháng 9,Tháng 10,Tháng 11,Tháng 12",
+      "weekdays": "CN,T2,T3,T4,T5,T6,T7",
+      "today": "Hôm nay",
+      "dailyNote": "Daily note",
+      "dueTasks": "Việc đến hạn",
+      "notes": "Ghi chú",
+      "tasksDue": "Việc đến hạn",
+      "nothing": "Không có ghi chú hay việc nào trong ngày này.",
+      "createDaily": "Tạo daily note",
+      "loading": "Đang đọc vault…",
+      "close": "Đóng",
+      "previousMonth": "Tháng trước",
+      "nextMonth": "Tháng sau"
+    },
+    "vaultInsights": {
+      "name": "Vault insights",
+      "description": "Thống kê vault: biểu đồ hoạt động, note kết nối nhiều và note mồ côi, tag phổ biến, tăng trưởng, sức khoẻ vault.",
+      "command": "Vault insights: thống kê vault",
+      "title": "Vault Insights",
+      "close": "Đóng",
+      "loading": "Đang phân tích vault…",
+      "activity": "Hoạt động ghi chú",
+      "heatTip": {
+        "other": "{date}: {count} note sửa đổi"
+      },
+      "less": "Ít",
+      "more": "Nhiều",
+      "overview": "Tổng quan",
+      "notes": "Notes",
+      "words": "Từ",
+      "tags": "Tags",
+      "links": "Links",
+      "avgWords": "TB từ/note",
+      "streak": "Chuỗi ngày viết liên tục",
+      "current": "Hiện tại",
+      "longest": "Dài nhất",
+      "last": "Gần nhất: {date}",
+      "hubs": "Note kết nối nhiều nhất",
+      "noHubs": "Chưa có note nào kết nối",
+      "inOut": "{incoming} vào / {outgoing} ra",
+      "orphans": "Note mồ côi (không link)",
+      "noOrphans": "Không có note mồ côi",
+      "topTags": "Tag phổ biến",
+      "noTags": "Chưa có tag nào",
+      "growth": "Tăng trưởng theo thời gian",
+      "noData": "Chưa có dữ liệu",
+      "health": "Sức khoẻ vault",
+      "withBacklinks": "Có backlink",
+      "withTags": "Có tag",
+      "withFrontmatter": "Có frontmatter",
+      "overall": "Sức khoẻ tổng thể",
+      "undated": {
+        "other": "{count} note không có ngày tháng nên không có trong biểu đồ."
+      },
+      "dayLabels": ",T2,,T4,,T6,",
+      "months": "Th1,Th2,Th3,Th4,Th5,Th6,Th7,Th8,Th9,Th10,Th11,Th12"
+    },
+    "markdownLint": {
+      "name": "Markdown lint",
+      "description": "Panel bên phải liệt kê vấn đề của note đang mở (link hỏng, heading…); bấm một mục để nhảy tới dòng. Ctrl+Shift+L.",
+      "title": "Lint",
+      "command": "Lint: bật/tắt panel",
+      "errors": {
+        "other": "{count} lỗi"
+      },
+      "warnings": {
+        "other": "{count} cảnh báo"
+      },
+      "infos": "{count} gợi ý",
+      "ok": "Không có vấn đề",
+      "none": "Không tìm thấy vấn đề nào",
+      "noNote": "Chưa mở ghi chú.",
+      "groupErrors": "Lỗi",
+      "groupWarnings": "Cảnh báo",
+      "groupInfos": "Gợi ý",
+      "line": "dòng {line}"
+    },
+    "audioRecorder": {
+      "name": "Ghi âm",
+      "description": "Ghi âm từ microphone, lưu thành file đính kèm và chèn link vào note đang mở.",
+      "command": "Ghi âm: ghi và chèn vào note",
+      "title": "Ghi âm",
+      "close": "Đóng",
+      "idle": "Sẵn sàng ghi âm",
+      "requesting": "Đang xin quyền microphone...",
+      "recording": "Đang ghi âm...",
+      "recorded": "Đã ghi xong",
+      "saving": "Đang lưu...",
+      "start": "Bắt đầu ghi âm",
+      "stop": "Dừng ghi âm",
+      "discard": "Huỷ",
+      "save": "Lưu bản ghi",
+      "denied": "Quyền truy cập microphone bị từ chối. Vui lòng cho phép và thử lại.",
+      "noMic": "Không thể truy cập microphone: {message}",
+      "saveFailed": {
+        "web": "Lưu bản ghi âm thất bại — có thể đã vượt hạn mức lưu trữ của vault.",
+        "desktop": "Lưu bản ghi âm thất bại."
+      },
+      "savedNoNote": "Đã lưu bản ghi ({time}). Mở một ghi chú để chèn link."
+    },
+    "graph": {
+      "name": "Graph view",
+      "description": "Sơ đồ mọi note và wiki-link giữa chúng, hoặc đồ thị cục bộ của note đang mở theo độ sâu chọn được; tô màu theo thư mục; bấm một note để mở. Ctrl+G hoặc nút ribbon.",
+      "command": "Mở graph view",
+      "localCommand": "Mở đồ thị cục bộ",
+      "title": "Graph view",
+      "filter": "Lọc note...",
+      "close": "Đóng",
+      "zoomIn": "Phóng to",
+      "zoomOut": "Thu nhỏ",
+      "building": "Đang dựng graph...",
+      "notes": "note",
+      "connections": "liên kết",
+      "connectionCount": {
+        "other": "{count} liên kết"
+      },
+      "oneWay": "một chiều",
+      "reciprocal": "hai chiều",
+      "legend": "Chú thích chiều liên kết",
+      "allNotes": "Tất cả note",
+      "thisNote": "Note này",
+      "noNote": "Hãy mở một note trước",
+      "depth": "Độ sâu",
+      "colorByFolder": "Tô màu theo thư mục",
+      "rootFolder": "(gốc vault)"
+    },
+    "slides": {
+      "name": "Trình chiếu",
+      "description": "Trình chiếu note đang mở toàn màn hình, mỗi đoạn ngăn bởi --- là một trang; có ghi chú người trình bày và tổng quan.",
+      "command": "Trình chiếu note hiện tại",
+      "title": "Trình chiếu",
+      "noNote": "Mở một ghi chú để trình chiếu.",
+      "exit": "Thoát",
+      "notes": "Ghi chú",
+      "overview": "Tổng quan",
+      "print": "In",
+      "speakerNotes": "Ghi chú người trình bày",
+      "overviewTitle": {
+        "other": "Tổng quan ({count} trang)"
+      },
+      "closeOverview": "Đóng tổng quan",
+      "separatorHint": "Dùng --- trên một dòng riêng để tách trang"
+    },
+    "noteHistory": {
+      "name": "Lịch sử note",
+      "description": "Time scrubber xem lại các bản lưu tự động của note (Ctrl+Shift+H) và lịch sử git khi vault có đồng bộ git; khôi phục phiên bản cũ.",
+      "gitCommand": "Lịch sử git của note",
+      "scrubberCommand": "Time scrubber: xem lại các phiên bản của note",
+      "gitTitle": "Lịch sử note (git)",
+      "scrubberTitle": "Time scrubber",
+      "noNote": "Mở một ghi chú để xem lịch sử.",
+      "close": "Đóng",
+      "restore": "Khôi phục phiên bản này",
+      "restoreHint": "Thay nội dung hiện tại bằng phiên bản này",
+      "restored": "Đã khôi phục phiên bản cũ.",
+      "loadingHistory": "Đang tải lịch sử...",
+      "loadingVersion": "Đang tải phiên bản...",
+      "gitEmpty": "Không có lịch sử git cho note này.",
+      "gitEmptyHint": {
+        "web": "Cần một kết nối đồng bộ git đã chạy ít nhất một lần và note này đã được commit.",
+        "desktop": "Hãy chắc rằng vault là một repository git và đã có commit."
+      },
+      "oldest": "Cũ nhất",
+      "latest": "Mới nhất",
+      "commits": "Commit",
+      "noMessage": "(không có mô tả)",
+      "changesFrom": "Thay đổi từ {hash} tới hiện tại",
+      "loadingSnapshots": "Đang tải các bản lưu...",
+      "scrubberEmpty": "Note này chưa có bản lưu nào",
+      "scrubberEmptyHint": {
+        "web": "Bản lưu được tạo tự động khoảng 10 phút một lần khi note thay đổi. Cứ tiếp tục viết, dòng thời gian sẽ hiện ở đây.",
+        "desktop": "Mỗi lần lưu là một bản lưu. Cứ tiếp tục viết, dòng thời gian sẽ hiện ở đây."
+      },
+      "now": "Hiện tại (chưa lưu)",
+      "isCurrent": "Đây là phiên bản hiện tại",
+      "play": "Phát (Space)",
+      "pause": "Dừng (Space)",
+      "keysHint": "← → từng bước · Space phát/dừng · Esc đóng",
+      "ago": {
+        "justNow": "vừa xong",
+        "seconds": "{count} giây trước",
+        "minutes": "{count} phút trước",
+        "hours": "{count} giờ trước",
+        "days": "{count} ngày trước"
+      }
+    },
+    "pdfViewer": {
+      "name": "Đọc PDF",
+      "description": "Đọc PDF đính kèm (bấm PDF trong hộp Attachments) và chú thích: tô sáng, gạch chân, ghi chú; xuất chú thích ra note.",
+      "loading": "Đang tải PDF...",
+      "loadFailed": "Không tải được PDF",
+      "openFailed": "Không mở được tệp PDF",
+      "previousPage": "Trang trước",
+      "nextPage": "Trang sau",
+      "zoomIn": "Phóng to",
+      "zoomOut": "Thu nhỏ",
+      "fitWidth": "Vừa chiều rộng",
+      "fitPage": "Vừa trang",
+      "select": "Công cụ chọn",
+      "highlight": "Tô sáng",
+      "note": "Ghi chú",
+      "underline": "Gạch chân",
+      "toggleSidebar": "Hiện/ẩn danh sách chú thích",
+      "export": "Xuất chú thích ra note",
+      "close": "Đóng",
+      "notePlaceholder": "Nhập ghi chú...",
+      "commentPlaceholder": "Thêm nhận xét...",
+      "addNote": "Thêm ghi chú",
+      "cancel": "Huỷ",
+      "save": "Lưu",
+      "delete": "Xoá",
+      "annotations": "Chú thích",
+      "empty": "Chưa có chú thích. Dùng công cụ tô sáng, ghi chú hoặc gạch chân.",
+      "pageShort": "tr.",
+      "exportFailed": "Không xuất được chú thích.",
+      "markdown": {
+        "title": "Chú thích: {file}",
+        "highlights": "Tô sáng",
+        "underlines": "Gạch chân",
+        "notes": "Ghi chú",
+        "page": "trang {page}"
+      }
+    },
+    "board": {
+      "name": "Board (Kanban)",
+      "description": "Hiện file .board.md hoặc note có frontmatter board: true thành bảng Kanban (cột là heading ##, thẻ là - [ ]); lệnh tạo board mới.",
+      "create": "Board: tạo board mới",
+      "failed": "Không tạo được board mới.",
+      "addCard": "Thêm thẻ",
+      "deleteColumn": "Xoá cột",
+      "confirmDeleteColumn": {
+        "other": "Xoá cột \"{title}\" cùng {count} thẻ của nó?"
+      },
+      "cardPlaceholder": "Nội dung thẻ...",
+      "addCardButton": "+ Thêm thẻ",
+      "columnPlaceholder": "Tên cột...",
+      "add": "Thêm",
+      "cancel": "Huỷ",
+      "addColumn": "+ Thêm cột"
+    },
+    "canvas": {
+      "name": "Canvas",
+      "description": "Bảng tự do gồm khối chữ, note, giấy nhớ, ảnh và nhóm nối bằng mũi tên; mở note có frontmatter canvas: true. Lệnh tạo canvas mới.",
+      "create": "Canvas: tạo canvas mới",
+      "failed": "Không tạo được canvas mới.",
+      "searchNotes": "Tìm note...",
+      "noMatchingNotes": "Không có note phù hợp",
+      "noteNotFound": "(không tìm thấy note)",
+      "pickImage": "Chọn ảnh",
+      "upload": "Tải ảnh lên…",
+      "uploading": "Đang tải lên…",
+      "noImages": "Chưa có ảnh nào trong vault. Tải ảnh lên bằng nút bên trên.",
+      "loading": "Đang tải…",
+      "group": "Nhóm",
+      "select": "Chọn (V)",
+      "addText": "Thêm khối chữ",
+      "addSticky": "Thêm giấy nhớ",
+      "addImage": "Thêm ảnh",
+      "addFile": "Thêm khối note",
+      "addGroup": "Thêm nhóm",
+      "draw": "Vẽ (D)",
+      "zoomIn": "Phóng to",
+      "zoomOut": "Thu nhỏ",
+      "resetZoom": "Về 100%",
+      "zoomToFit": "Vừa màn hình",
+      "deleteSelected": "Xoá mục đã chọn",
+      "menu": {
+        "duplicate": "Nhân bản",
+        "stickyColor": "Màu giấy nhớ",
+        "color": "Màu",
+        "delete": "Xoá",
+        "addText": "Thêm khối chữ",
+        "addSticky": "Thêm giấy nhớ",
+        "addImage": "Thêm ảnh"
+      }
+    },
+    "drawing": {
+      "name": "Drawing",
+      "description": "Vẽ tay, hình, chữ và tẩy; mở note có frontmatter drawing: true. Lệnh tạo bản vẽ mới.",
+      "create": "Drawing: tạo bản vẽ mới",
+      "failed": "Không tạo được bản vẽ mới.",
+      "tool": {
+        "select": "Chọn (V)",
+        "pencil": "Bút chì (P)",
+        "rectangle": "Hình chữ nhật (R)",
+        "ellipse": "Hình elip (O)",
+        "line": "Đường thẳng (L)",
+        "arrow": "Mũi tên (A)",
+        "text": "Chữ (T)",
+        "eraser": "Tẩy (E)"
+      },
+      "pickColor": "Chọn màu bất kỳ",
+      "fillOn": "Tô nền: bật",
+      "fillOff": "Tô nền: tắt",
+      "resetView": "Đặt lại khung nhìn",
+      "clear": "Xoá hết",
+      "confirmClear": "Chắc chắn xoá hết?",
+      "saving": "Đang lưu…"
+    },
+    "dataview": {
+      "name": "Dataview",
+      "description": "Truy vấn note bằng khối ```dataview (TABLE / LIST / TASK, lọc theo thư mục, tag, frontmatter); lệnh chèn truy vấn mẫu.",
+      "insert": "Dataview: chèn truy vấn",
+      "running": "Đang chạy truy vấn...",
+      "error": "Lỗi: {message}"
+    },
+    "mermaid": {
+      "name": "Mermaid",
+      "description": "Vẽ sơ đồ từ khối ```mermaid trong editor, chế độ đọc và khi xuất PDF. Thư viện chỉ tải khi gặp sơ đồ đầu tiên.",
+      "rendering": "Đang vẽ sơ đồ...",
+      "error": "Lỗi sơ đồ"
+    },
+    "views": {
+      "name": "Chế độ xem",
+      "description": "Hiện note theo thuộc tính bằng khối ```view hoặc file chế độ xem: bảng, thẻ, danh sách hoặc kanban; sửa giá trị ngay tại chỗ; lệnh Chèn chế độ xem và Chế độ xem mới.",
+      "insert": "Chèn chế độ xem",
+      "create": "Chế độ xem mới",
+      "failed": "Không tạo được chế độ xem.",
+      "notes": {
+        "one": "{count} note",
+        "other": "{count} note"
+      },
+      "error": "Hãy xem lại mục “{setting}” của chế độ xem này.",
+      "empty": "Không note nào khớp chế độ xem này.",
+      "none": "Không có",
+      "open": "Mở note",
+      "edit": "Bấm để sửa",
+      "layouts": {
+        "table": "Bảng",
+        "cards": "Thẻ",
+        "list": "Danh sách",
+        "kanban": "Kanban"
+      },
+      "fileHint": "Đổi nội dung chế độ xem này trong chế độ source."
+    },
+    "footnotes": {
+      "name": "Chú thích cuối trang",
+      "description": "Ô bên cạnh liệt kê chú thích cuối trang (cả chú thích trong dòng) của note đang mở; bấm để tới định nghĩa hoặc chỗ tham chiếu, thấy ngay chú thích thiếu định nghĩa hoặc chưa được dùng.",
+      "title": "Chú thích cuối trang",
+      "command": "Bật/tắt ô Chú thích cuối trang",
+      "noNote": "Mở một note để xem chú thích của nó.",
+      "none": "Note này chưa có chú thích nào.",
+      "count": {
+        "one": "{count} chú thích",
+        "other": "{count} chú thích"
+      },
+      "inline": "trong dòng",
+      "noDefinition": "Chưa có định nghĩa",
+      "unused": "Chưa được dùng",
+      "goToRef": "Tới chỗ tham chiếu {n}"
+    },
+    "uniqueNote": {
+      "name": "Tạo note mã thời gian",
+      "description": "Lệnh tạo note đặt tên theo thời điểm hiện tại (ví dụ 202610231430) trong thư mục bạn chọn, tiện cho cách ghi chép Zettelkasten.",
+      "command": "Tạo note mã thời gian",
+      "failed": "Không tạo được note.",
+      "settings": "Note mã thời gian",
+      "folder": "Thư mục",
+      "folderHint": "Nơi đặt note mới; để trống là gốc vault.",
+      "format": "Định dạng tên",
+      "preview": "Note kế tiếp: {path}",
+      "saveFailed": "Không lưu được cài đặt."
+    },
+    "chessboard": {
+      "name": "Bàn cờ vua",
+      "description": "Vẽ thế cờ từ khối mã ```chessboard: vị trí FEN, có thể thêm ô tô sáng và mũi tên, chọn bộ quân và màu bàn cờ.",
+      "settings": "Bàn cờ vua",
+      "pieceSet": "Bộ quân",
+      "boardTheme": "Giao diện bàn cờ",
+      "save": "Lưu làm mặc định",
+      "saved": "Đã lưu mặc định bàn cờ.",
+      "saveFailed": "Không lưu được mặc định bàn cờ.",
+      "hint": "Các bàn cờ đang mở trong ghi chú giữ nguyên giao diện cho tới khi bạn mở lại ghi chú.",
+      "missingFen": "Thiếu trường \"fen:\"",
+      "invalidFen": "FEN không hợp lệ: {error}",
+      "renderError": "Lỗi vẽ bàn cờ: {message}",
+      "diagramLabel": "Sơ đồ bàn cờ vua: {fen}",
+      "syntax": "Các tuỳ chọn trong khối ```chessboard:\nfen: <thế cờ>              bắt buộc\norientation: white | black\nlabels: true               hiện a-h và 1-8\nsize: 280                  rộng bao nhiêu px, từ 100 đến 600\nstrict: false              vẽ cả FEN sai cấu trúc\npieceset: classic | spatial | minimal\nboardtheme: classic | forest | ocean | midnight\nannotations: He4/g, Ae2-e4\n  H<ô>/g|r|b|y       tô sáng một ô\n  A<ô>-<ô>          vẽ mũi tên\nKhông bắt buộc phải có Vua."
+    }
+  },
+  "web": {
+    "bookmarks": {
+      "hint": "Bấm icon bookmark trên thanh công cụ note để đánh dấu."
+    },
+    "ribbon": {
+      "quickOpen": "Mở nhanh (Ctrl+K)",
+      "commandPalette": "Bảng lệnh (Ctrl+Shift+P hoặc F1)",
+      "outline": "Dàn ý",
+      "tags": "Tags",
+      "bookmarks": "Bookmarks",
+      "more": "Thêm công cụ",
+      "sync": "Đồng bộ Git / WebDAV",
+      "plugins": "Plugins",
+      "attachments": "File đính kèm",
+      "themes": "Themes",
+      "snippets": "CSS Snippets",
+      "trash": "Thùng rác"
+    },
+    "menu": {
+      "file": "File",
+      "edit": "Sửa",
+      "view": "Xem",
+      "plugin": "Plugin",
+      "settings": "Cài đặt",
+      "developer": "Nhà phát triển",
+      "items": {
+        "newNote": "Note mới",
+        "save": "Lưu",
+        "previewPDF": "Xem trước PDF",
+        "exportPDF": "Tải PDF",
+        "printNote": "In…",
+        "importVault": "Import thư mục / zip…",
+        "importNewVault": "Import thành vault mới…",
+        "newVaultFromGithub": "Vault mới từ GitHub…",
+        "exportVault": "Xuất vault (.zip)",
+        "openTrash": "Thùng rác",
+        "closeTab": "Đóng tab",
+        "findInVault": "Tìm trong vault",
+        "toggleBold": "In đậm",
+        "toggleItalic": "In nghiêng",
+        "toggleCode": "Code trong dòng",
+        "insertLink": "Chèn liên kết",
+        "toggleSidebar": "Ẩn/hiện sidebar",
+        "toggleViewMode": "Đổi Sửa / Xem / Mã nguồn",
+        "splitEditor": "Chia đôi editor",
+        "zenMode": "Chế độ Zen",
+        "focusMode": "Chế độ tập trung",
+        "toggleOutline": "Dàn ý",
+        "toggleTags": "Tags",
+        "toggleBacklinks": "Backlinks",
+        "randomNote": "Note ngẫu nhiên",
+        "commandPalette": "Bảng lệnh",
+        "settings": "Tuỳ chọn…",
+        "gitSync": "Đồng bộ ngay",
+        "syncSettings": "Cài đặt đồng bộ (Git / WebDAV)…",
+        "pluginManager": "Plugins…",
+        "themePicker": "Themes…",
+        "cssSnippets": "CSS Snippets…",
+        "devToolsHint": "Công cụ nhà phát triển (F12)",
+        "reloadApp": "Tải lại trang",
+        "diagnostics": "Chẩn đoán…",
+        "toggleOutgoingLinks": "Liên kết đi ra",
+        "toggleProperties": "Tất cả thuộc tính",
+        "importFromApp": "Nhập từ Notion, Evernote, HTML…"
+      }
+    },
+    "noteToolbar": {
+      "bookmark": "Bookmark note này",
+      "unbookmark": "Bỏ bookmark",
+      "backlinks": "Backlinks",
+      "collab": "Cộng tác",
+      "exportPDF": "Tải PDF",
+      "publish": "Xem trước bản xuất (HTML tĩnh)",
+      "fileRecovery": "Khôi phục file"
+    },
+    "header": {
+      "collapseSidebar": "Thu gọn sidebar"
+    },
+    "status": {
+      "openSync": "Mở Settings > Sync"
+    },
+    "sync": {
+      "notConnected": "Git: chưa kết nối",
+      "conflict": "sync: xung đột",
+      "error": "sync: lỗi",
+      "at": "sync: {time}",
+      "never": "sync: chưa chạy",
+      "direction": {
+        "label": "Hướng đồng bộ",
+        "both": "Hai chiều",
+        "push": "Chỉ đẩy lên (web → repo)",
+        "pull": "Chỉ kéo về (repo → web)"
+      },
+      "status": {
+        "queued": "đang chờ",
+        "running": "đang chạy",
+        "success": "thành công",
+        "error": "lỗi",
+        "conflict": "xung đột"
+      },
+      "forbidden": "Bạn không có quyền thực hiện thao tác này.",
+      "on": "Bật",
+      "auto": {
+        "label": "Tự động đồng bộ",
+        "desc": "Chạy nền theo chu kỳ, không cần bấm nút."
+      },
+      "every": {
+        "other": "mỗi {count} phút"
+      },
+      "onSave": {
+        "label": "Đồng bộ khi lưu",
+        "desc": "Đẩy lên khoảng 30 giây sau lần lưu đầu tiên."
+      },
+      "pullOnOpen": {
+        "label": "Kéo về khi mở vault",
+        "desc": "Lấy thay đổi mới từ repo mỗi khi bạn mở vault."
+      },
+      "commitTemplate": {
+        "label": "Mẫu commit message",
+        "desc": "Dùng {date} {time} {count}."
+      },
+      "connections": "Kết nối Sync",
+      "loading": "Đang tải…",
+      "none": "Chưa có kết nối nào. Kết nối GitHub để sao lưu và đồng bộ vault này với một repository.",
+      "lastSynced": "Lần cuối: {time}",
+      "neverSynced": "Chưa sync lần nào",
+      "syncing": " · đang sync…",
+      "unsynced": {
+        "other": " · {count} note chưa sync"
+      },
+      "remoteChanged": " · remote có thay đổi mới",
+      "remoteUnreachable": " · không tới được remote ({error})",
+      "autoEvery": {
+        "other": " · tự động mỗi {count} phút"
+      },
+      "errorPrefix": "Lỗi: {message}",
+      "conflictTitle": "Xung đột: web và repo cùng sửa một số file",
+      "moreFiles": {
+        "other": "… và {count} file khác"
+      },
+      "conflictHint": "Chọn bên được giữ lại. Bên còn lại vẫn nằm trong lịch sử git của repo.",
+      "keepWeb": "Giữ bản web",
+      "keepWebConfirm": "Bấm lần nữa: giữ bản web",
+      "keepRepo": "Lấy bản repo",
+      "keepRepoConfirm": "Bấm lần nữa: lấy bản repo",
+      "resolveFailed": "Không xử lý được xung đột.",
+      "syncNow": "Sync ngay",
+      "syncingButton": "Đang sync…",
+      "startFailed": "Không bắt đầu được sync.",
+      "test": "Kiểm tra kết nối",
+      "testOk": "Kết nối hoạt động.",
+      "testFailed": "Không kết nối được.",
+      "testError": "Không kiểm tra được kết nối.",
+      "checkRemote": "Kiểm tra remote",
+      "edit": "Chỉnh sửa",
+      "closeEdit": "Đóng chỉnh sửa",
+      "log": "Nhật ký",
+      "logEmpty": "Chưa có lần chạy nào.",
+      "remove": "Xoá",
+      "removeConfirm": "Bấm lần nữa để xoá",
+      "removeFailed": "Không xoá được kết nối.",
+      "addGithub": "+ Kết nối GitHub",
+      "addGit": "+ Git khác (GitLab, Gitea…)",
+      "addWebdav": "+ WebDAV",
+      "branch": "Branch",
+      "newToken": {
+        "label": "Đổi access token",
+        "desc": "Để trống nếu giữ token hiện tại.",
+        "placeholder": "token mới"
+      },
+      "save": "Lưu",
+      "saveChanges": "Lưu thay đổi",
+      "saving": "Đang lưu…",
+      "saveFailed": "Không lưu được thay đổi.",
+      "cancel": "Huỷ",
+      "github": {
+        "title": "Kết nối GitHub",
+        "step1": "Bước 1 — dán Personal Access Token (quyền repo).",
+        "createToken": "Tạo token →",
+        "tokenPlaceholder": "ghp_xxxx… hoặc github_pat_xxxx…",
+        "verifying": "Đang kiểm tra…",
+        "verify": "Xác thực & chọn repo",
+        "verifyFailed": "Không xác thực được token.",
+        "signedIn": "Đã xác thực:",
+        "step2": "Bước 2 — chọn repository có sẵn hoặc tạo mới.",
+        "filter": "Lọc repository…",
+        "noMatch": "Không có repository nào khớp.",
+        "newRepoPlaceholder": "tên repo mới, vd: my-notes",
+        "private": "Private",
+        "createRepo": "Tạo repo",
+        "createRepoFailed": "Không tạo được repository.",
+        "step3": "Bước 3 — repo",
+        "changeRepo": "Đổi repo",
+        "emptyRepo": "Repo trống: sẽ tạo branch này ở lần sync đầu.",
+        "firstSync": "Lần sync đầu tiên: nếu repo đã có note, chúng được nhập vào vault; note trùng đường dẫn giữ nội dung của web.",
+        "connecting": "Đang kết nối…",
+        "connect": "Kết nối",
+        "connectFailed": "Không tạo được kết nối."
+      },
+      "git": {
+        "remoteDesc": "GitLab, Gitea/Forgejo, Bitbucket… — HTTPS.",
+        "createToken": "Tạo access token →",
+        "usernameDesc": "Bỏ trống nếu không cần (GitLab). Dùng login cho Gitea/Forgejo.",
+        "token": "Access token",
+        "required": "Cần remote URL và access token.",
+        "addFailed": "Không thêm được kết nối — kiểm tra lại remote URL/token."
+      },
+      "webdav": {
+        "serverDesc": "Nextcloud, ownCloud, hoặc WebDAV bất kỳ.",
+        "required": "Cần URL, username và password.",
+        "addFailed": "Không thêm được kết nối WebDAV — kiểm tra lại thông tin."
+      },
+      "field": {
+        "remoteUrl": "Remote URL",
+        "username": "Tên đăng nhập",
+        "password": "Mật khẩu",
+        "remotePath": "Thư mục trên server",
+        "serverUrl": "Địa chỉ server"
+      }
+    },
+    "vaults": {
+      "title": "Vaults",
+      "noVault": "Chưa có vault",
+      "rename": "Đổi tên vault",
+      "delete": "Xoá vault",
+      "confirmDelete": "Bấm lần nữa để xoá vĩnh viễn",
+      "newPlaceholder": "Tên vault mới",
+      "renameFailed": "Không đổi tên được vault.",
+      "deleteFailed": "Không xoá được vault (chỉ chủ sở hữu mới xoá được).",
+      "new": "Vault mới",
+      "newFromGithub": "Vault mới từ GitHub…",
+      "importZip": "Import thư mục / zip…"
+    },
+    "collab": {
+      "title": "Cộng tác",
+      "live": "Đang đồng bộ trực tiếp",
+      "connecting": "Đang kết nối…",
+      "alone": "Chưa có ai khác đang mở note này.",
+      "peers": {
+        "other": "{count} người khác đang xem"
+      }
+    },
+    "files": {
+      "nameTaken": "Đã có mục cùng tên ở thư mục đích.",
+      "moveIntoSelf": "Không thể di chuyển thư mục vào chính nó.",
+      "moveFailed": "Không di chuyển được.",
+      "renameTaken": "Đã có mục tên \"{name}\" ở đây.",
+      "renameFailed": "Không đổi tên được.",
+      "newNoteFailed": "Không tạo được note mới.",
+      "newFolderFailed": "Không tạo được thư mục mới."
+    },
+    "notice": {
+      "noteMissing": "Note không còn tồn tại (có thể đã bị xoá hoặc nằm trong Trash).",
+      "openFailed": "Không mở được note, vui lòng thử lại.",
+      "tabsNotRestored": "Không khôi phục được một số tab do lỗi kết nối; tải lại trang để thử lại.",
+      "devTools": "Nhấn F12 (hoặc Ctrl+Shift+I) để mở công cụ nhà phát triển của trình duyệt.",
+      "pdfCreating": "Đang tạo PDF…",
+      "pdfDone": "Đã tải PDF.",
+      "pdfFailed": "Không tạo được PDF. Bạn có thể dùng File → In… rồi chọn Save as PDF.",
+      "previewCreating": "Đang tạo bản xem trước…",
+      "previewFailed": "Không tạo được bản xem trước PDF.",
+      "newNoteFailed": "Không tạo được note mới. Kiểm tra kết nối hoặc quyền ghi vault rồi thử lại."
+    },
+    "empty": {
+      "title": "Chọn hoặc tạo một note để bắt đầu",
+      "newNote": "Tạo note mới",
+      "newNoteHint": "Bắt đầu viết ngay",
+      "connect": "Kết nối GitHub / WebDAV",
+      "connectHint": "Đồng bộ vault với repo của bạn",
+      "import": "Import thư mục / zip",
+      "importHint": "Đưa vault có sẵn lên web",
+      "plugins": "Cài plugin",
+      "pluginsHint": "Mở rộng bằng plugin cộng đồng",
+      "quickOpen": "Mở nhanh (⌘K)"
+    },
+    "zenExit": "Thoát Zen (Esc)",
+    "tabs": {
+      "newTab": "Tạo note trong tab mới"
+    },
+    "newVaultGithub": {
+      "title": "Vault mới từ repo GitHub",
+      "createFailed": "Không tạo được vault mới.",
+      "preparing": "Đang chuẩn bị…"
+    },
+    "clipper": {
+      "saved": "Đã lưu vào Noteriv",
+      "errorStatus": "Noteriv: lỗi ",
+      "blocked": "Không gửi được tới Noteriv (trang này có thể chặn kết nối ngoài)",
+      "defaultName": "Trình duyệt của tôi",
+      "fallbackName": "Trình duyệt",
+      "createFailed": "Không tạo được token (tối đa 20 token, và cần quyền ghi vault).",
+      "revokeFailed": "Không thu hồi được token.",
+      "intro": "Lưu nhanh trang web đang xem vào vault \"{vault}\" (thư mục Clippings/). Bôi đen đoạn cần lưu rồi bấm bookmarklet; không bôi đen thì lưu nội dung chính của trang.",
+      "new": {
+        "label": "Tạo bookmarklet mới",
+        "desc": "Mỗi trình duyệt/thiết bị nên có một token riêng để thu hồi được."
+      },
+      "creating": "Đang tạo…",
+      "create": "Tạo",
+      "ready": "“{name}” đã sẵn sàng",
+      "dragHint": "Kéo nút dưới đây lên thanh bookmark của trình duyệt (hoặc chuột phải → Add to bookmarks). Token chỉ hiện ở đây một lần; bookmarklet chứa token nên đừng chia sẻ nó.",
+      "cspHint": "Một số trang (CSP nghiêm ngặt) chặn bookmarklet gửi dữ liệu ra ngoài; khi đó bạn sẽ thấy thông báo lỗi kết nối.",
+      "active": "Token đang hoạt động",
+      "loading": "Đang tải…",
+      "none": "Chưa có token nào.",
+      "usage": "Vault: {vault} · {used}",
+      "lastUsed": "dùng lần cuối {time}",
+      "unused": "chưa dùng",
+      "revoke": "Thu hồi",
+      "revokeConfirm": "Bấm lần nữa để thu hồi"
+    },
+    "pluginManager": {
+      "permission": {
+        "vaultRead": "Đọc note trong vault",
+        "vaultWrite": "Tạo/sửa/xoá note trong vault",
+        "editorRead": "Đọc nội dung đang mở",
+        "editorWrite": "Sửa nội dung đang mở",
+        "uiCommands": "Thêm lệnh vào giao diện",
+        "uiStatusbar": "Hiện thông tin trên thanh trạng thái",
+        "uiPanel": "Thêm panel bên cạnh và tab trong Settings",
+        "markdownRender": "Hiển thị nội dung đặc biệt trong note (code block)"
+      },
+      "communityLoadFailed": "Không tải được danh sách plugin cộng đồng (repo có thể chưa sẵn sàng).",
+      "sourceMissing": "Không tải được \"{name}\" — thiếu manifest.json hoặc main.js trong repo.",
+      "installFailed": "Cài \"{name}\" thất bại.",
+      "manifestInvalid": "manifest.json không hợp lệ (phải là JSON).",
+      "mainJsMissing": "Thiếu mã nguồn main.js.",
+      "title": "Plugins",
+      "close": "Đóng",
+      "tabs": {
+        "installed": "Đã cài",
+        "community": "Cộng đồng",
+        "manual": "Cài thủ công"
+      },
+      "confirmTitle": "Cài \"{name}\"?",
+      "grants": "Plugin này sẽ được cấp quyền: {permissions}",
+      "noPermissions": "không có quyền nào",
+      "confirm": "Xác nhận cài",
+      "cancel": "Huỷ",
+      "noneInstalled": "Chưa cài plugin nào.",
+      "noneGranted": "Chưa được cấp quyền nào",
+      "disable": "Tắt",
+      "enable": "Bật",
+      "uninstall": "Gỡ",
+      "blocked": "Plugin đã thử dùng nhưng bị chặn vì thiếu quyền: {permissions}.",
+      "needsMore": "Mã plugin có dùng API cần thêm quyền; plugin có thể không hoạt động đầy đủ.",
+      "grantNeeded": "Cấp quyền cần thiết",
+      "unused": "Quyền mà mã plugin không dùng đến: {permissions}.",
+      "keepNeeded": "Chỉ giữ quyền cần thiết",
+      "editPermissions": "Chỉnh quyền",
+      "loadingList": "Đang tải danh sách…",
+      "installed": "Đã cài",
+      "installing": "Đang cài…",
+      "install": "Cài đặt",
+      "noneCommunity": "Chưa có plugin cộng đồng nào.",
+      "manualTitle": "Cài plugin mới (dán thủ công)",
+      "manifestPlaceholder": "manifest.json, vd: {\"id\":\"hello\",\"name\":\"Hello\",\"version\":\"1.0.0\",\"description\":\"\",\"author\":\"\",\"main\":\"main.js\",\"permissions\":[\"ui:commands\"]}",
+      "browseCommunity": "Xem plugin cộng đồng"
+    },
+    "attachments": {
+      "uploadFailed": "Tải lên thất bại — có thể đã vượt hạn mức lưu trữ của vault.",
+      "nearlyFull": "Sắp đầy hạn mức",
+      "maxSize": "Tối đa 25MB mỗi tệp",
+      "deleteConfirm": "Bấm lần nữa để xoá",
+      "used": "{used} / {quota} đã dùng (cả tài khoản)",
+      "clickView": "Bấm để xem: {name}",
+      "footerView": "xem",
+      "usedNoLimit": "{used} đã dùng (cả tài khoản, không giới hạn)"
+    },
+    "fileRecovery": {
+      "scrubTitle": "Chuyển sang xem bằng Time scrubber",
+      "scrub": "Tua dòng thời gian"
+    },
+    "diagnostics": {
+      "title": "Chẩn đoán",
+      "serverFailed": "Không lấy được báo cáo từ máy chủ (API không phản hồi?).",
+      "copyFailed": "Trình duyệt không cho sao chép tự động; hãy chọn và copy thủ công.",
+      "server": "MÁY CHỦ",
+      "checking": "Đang kiểm tra…",
+      "database": "Cơ sở dữ liệu",
+      "redis": "Redis (hàng đợi)",
+      "gitMissing": "chưa cài — sync sẽ lỗi",
+      "storage": "Kho file đính kèm (S3)",
+      "unreachable": "không kết nối được",
+      "worker": "Worker (sync nền)",
+      "heartbeat": "heartbeat {seconds}s trước",
+      "noHeartbeat": "không thấy heartbeat — sync/auto-sync sẽ không chạy",
+      "pdf": "Dịch vụ tạo PDF",
+      "ready": "sẵn sàng",
+      "notResponding": "không phản hồi",
+      "notConfigured": "chưa cấu hình (PDF_SERVICE_URL)",
+      "scratch": "Đĩa tạm cho sync",
+      "diskFree": "{free} MB trống / {total} MB",
+      "noConnections": "Chưa có kết nối.",
+      "neverRun": "chưa chạy",
+      "noPlugins": "Chưa cài plugin nào.",
+      "off": "(tắt)",
+      "permissions": "quyền: {list}",
+      "none": "không",
+      "blocked": "BỊ CHẶN: {list}",
+      "browser": "TRÌNH DUYỆT",
+      "unknown": "không rõ",
+      "recheck": "Kiểm tra lại",
+      "copied": "Đã sao chép ✓",
+      "copy": "Sao chép báo cáo",
+      "sync": "ĐỒNG BỘ",
+      "plugins": "PLUGIN"
+    },
+    "pdfPreview": {
+      "download": "Tải PDF",
+      "print": "In",
+      "hint": "Trình duyệt không hiển thị được bản xem trước? Bấm “Tải PDF” để mở bằng ứng dụng khác.",
+      "title": "Xem trước · {file}",
+      "frameTitle": "Xem trước {file}"
+    },
+    "import": {
+      "nothing": "Không tìm thấy file .md hoặc file đính kèm nào để nhập.",
+      "readFailed": "Không đọc được nguồn đã chọn (file zip có hợp lệ không?).",
+      "interrupted": "Import bị gián đoạn. Bạn có thể chạy lại — những file đã nhập sẽ được bỏ qua.",
+      "pickFolder": "Chọn thư mục…",
+      "pickZip": "Chọn file .zip…",
+      "pickFiles": "Chọn file .md…",
+      "folder": "Nhập vào thư mục",
+      "vaultRoot": "(Gốc vault)",
+      "scanning": "Đang quét…",
+      "newName": "Tên vault mới",
+      "conflict": "Nếu note đã tồn tại cùng đường dẫn",
+      "running": "Đang nhập…",
+      "start": "Bắt đầu import",
+      "stop": "Dừng",
+      "stopped": "Đã dừng giữa chừng",
+      "done": "Import xong",
+      "open": "Mở vault",
+      "reason": {
+        "hidden": "file ẩn",
+        "tooBig": "lớn hơn 25MB",
+        "quota": "hết dung lượng đính kèm",
+        "unreadable": "không đọc được file",
+        "unverified": "email chưa được xác minh"
+      },
+      "phase": {
+        "attachments": "Đang tải file đính kèm",
+        "notes": "Đang nhập note",
+        "finalize": "Đang cập nhật liên kết",
+        "done": "Hoàn tất"
+      },
+      "into": "Import vào \"{vault}\"",
+      "newVault": "Import vault mới",
+      "intro": "Chọn một hoặc nhiều file .md, thư mục vault (có thể đang dùng với desktop/Obsidian) hoặc file .zip. Note .md giữ nguyên cấu trúc thư mục; ảnh, PDF, audio… được tải lên làm file đính kèm và liên kết trong note được cập nhật theo.",
+      "found": "{notes} note · {attachments} file đính kèm",
+      "skipped": {
+        "other": "Bỏ qua {count} file"
+      },
+      "keepExisting": "Giữ bản trong vault (bỏ qua)",
+      "overwrite": "Ghi đè bằng bản nhập vào",
+      "reportNotes": "Note: {created} mới, {updated} ghi đè, {skipped} bỏ qua",
+      "reportAttachments": "Đính kèm: {uploaded} tải lên, {reused} dùng lại",
+      "failures": {
+        "other": "{count} mục lỗi"
+      },
+      "errorStatus": "lỗi {status}",
+      "uploadFailed": "không tải lên được",
+      "sendFailed": "không gửi được"
+    },
+    "auth": {
+      "badLogin": "Email hoặc mật khẩu không đúng.",
+      "error": "Có lỗi xảy ra.",
+      "loginTitle": "Đăng nhập Noteriv",
+      "password": "Mật khẩu",
+      "signingIn": "Đang đăng nhập…",
+      "signIn": "Đăng nhập",
+      "noAccount": "Chưa có tài khoản?",
+      "signUp": "Đăng ký",
+      "terms": "Điều khoản",
+      "privacy": "Quyền riêng tư",
+      "badInvite": "Mã mời không đúng, đã hết lượt, đã hết hạn hoặc đã bị thu hồi. Hãy kiểm tra lại với người gửi mã.",
+      "closed": "Hiện chưa mở đăng ký tài khoản mới.",
+      "emailTaken": "Email này đã được sử dụng.",
+      "tooMany": "Bạn thử quá nhiều lần. Vui lòng đợi một phút rồi thử lại.",
+      "registerError": "Có lỗi xảy ra. Kiểm tra lại email/mật khẩu (tối thiểu 8 ký tự).",
+      "closedTitle": "Đăng ký chưa mở",
+      "closedDesc": "Noteriv hiện chưa nhận tài khoản mới.",
+      "registerTitle": "Tạo tài khoản Noteriv",
+      "inviteCode": "Mã mời",
+      "displayName": "Tên hiển thị",
+      "newPassword": "Mật khẩu (tối thiểu 8 ký tự)",
+      "acceptBefore": "Tôi đã đọc và đồng ý với",
+      "termsOfUse": "Điều khoản sử dụng",
+      "and": "và",
+      "privacyPolicy": "Chính sách quyền riêng tư",
+      "creating": "Đang tạo…",
+      "haveAccount": "Đã có tài khoản?",
+      "language": "Ngôn ngữ",
+      "forgotLink": "Quên mật khẩu?",
+      "forgotTitle": "Đặt lại mật khẩu",
+      "forgotDesc": "Nhập email của tài khoản. Nếu có tài khoản dùng email này, chúng tôi sẽ gửi liên kết để chọn mật khẩu mới.",
+      "sendLink": "Gửi liên kết",
+      "sending": "Đang gửi…",
+      "forgotSent": "Nếu có tài khoản dùng email này, liên kết đang được gửi tới. Liên kết dùng được trong 1 giờ. Hãy xem cả thư mục spam.",
+      "emailOff": "Chưa đặt lại mật khẩu qua email được. Hãy nhờ người quản lý Noteriv này đặt lại giúp bạn.",
+      "backToSignIn": "Quay lại đăng nhập",
+      "resetTitle": "Chọn mật khẩu mới",
+      "resetSubmit": "Lưu mật khẩu mới",
+      "saving": "Đang lưu…",
+      "resetDone": "Đã đổi mật khẩu. Hãy đăng nhập bằng mật khẩu mới; mọi thiết bị khác đã được đăng xuất.",
+      "badLink": "Liên kết không hợp lệ, đã dùng hoặc đã hết hạn. Hãy yêu cầu liên kết mới.",
+      "verifyTitle": "Xác minh email",
+      "verifying": "Đang kiểm tra liên kết…",
+      "verifyDone": "Email của bạn đã được xác minh. Cảm ơn bạn!",
+      "emailChangedDone": "Đã đổi email. Hãy đăng nhập bằng địa chỉ mới.",
+      "continue": "Tiếp tục",
+      "captchaFailed": "Bước kiểm tra chống bot chưa qua. Hãy thử lại.",
+      "locked": "Tài khoản này đã bị khoá. Nếu bạn nghĩ đây là nhầm lẫn, hãy viết cho {email}."
+    },
+    "vaultList": {
+      "title": "Vault của bạn",
+      "signOut": "Đăng xuất",
+      "loading": "Đang tải…",
+      "empty": "Chưa có vault nào.",
+      "create": "Tạo",
+      "account": "Tài khoản",
+      "invites": "Quản lý mã mời (quản trị)",
+      "export": "Tải xuống toàn bộ dữ liệu (JSON)",
+      "deleteConfirm": "Bấm lần nữa để xoá vĩnh viễn tài khoản + toàn bộ dữ liệu",
+      "delete": "Xoá tài khoản",
+      "emptyHint": "Đặt tên cho vault đầu tiên ở ô bên dưới. Trong vault, bạn cũng có thể nhập một thư mục note Markdown có sẵn.",
+      "unreachable": "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.",
+      "signedInAs": "Đang đăng nhập: {email}",
+      "unverified": "Email của bạn chưa được xác minh. Hãy bấm liên kết trong thư chúng tôi đã gửi.",
+      "resendVerification": "Gửi lại liên kết",
+      "verificationSent": "Đã gửi liên kết. Hãy xem hộp thư.",
+      "changeEmail": "Đổi email",
+      "newEmail": "Email mới",
+      "currentPassword": "Mật khẩu hiện tại",
+      "sendConfirmation": "Gửi liên kết xác nhận",
+      "changeEmailSent": "Đã gửi liên kết tới {email}. Email chỉ đổi sau khi bạn bấm liên kết đó.",
+      "wrongPassword": "Mật khẩu không đúng.",
+      "sameEmail": "Đây đã là email của bạn.",
+      "tooSoon": "Một thư vừa được gửi chưa tới một phút. Hãy đợi một chút rồi thử lại.",
+      "emailOff": "Chưa gửi email được.",
+      "emailFailed": "Không gửi được thư. Hãy thử lại sau.",
+      "cancel": "Huỷ",
+      "admin": "Quản trị (admin)",
+      "deletePasswordPrompt": "Vui lòng nhập mật khẩu để xác nhận xoá tài khoản:"
+    },
+    "termsGate": {
+      "title": "Chúng tôi đã cập nhật Điều khoản và Chính sách quyền riêng tư",
+      "intro": "Vui lòng đọc và đồng ý để tiếp tục dùng Noteriv. Những thay đổi chính:",
+      "change1": "Vì sao chúng tôi xử lý từng loại dữ liệu, và cơ sở pháp lý cho việc đó.",
+      "change2": "Mỗi loại dữ liệu được giữ bao lâu (nhật ký bảo mật nay tự xoá sau 12 tháng).",
+      "change3": "Những nhà cung cấp dịch vụ xử lý dữ liệu cho chúng tôi, và ở đâu (máy chủ đặt tại Singapore).",
+      "change4": "Quyền của bạn, kể cả cách phản đối hoặc khiếu nại.",
+      "readBefore": "Đọc",
+      "accept": "Tôi đồng ý",
+      "accepting": "Đang lưu…",
+      "failed": "Không lưu được. Kiểm tra kết nối rồi thử lại.",
+      "otherwise": "Nếu không đồng ý, bạn có thể tải dữ liệu về, xoá tài khoản hoặc đăng xuất."
+    },
+    "invites": {
+      "createFailed": "Không tạo được mã. Thử lại sau.",
+      "title": "Mã mời đăng ký",
+      "back": "← Về danh sách vault",
+      "noteLabel": "Ghi chú (ví dụ: lớp thứ Bảy)",
+      "maxUses": "Số lượt dùng",
+      "expiresIn": "Hết hạn sau (ngày)",
+      "create": "Tạo mã",
+      "code": "Mã",
+      "note": "Ghi chú",
+      "used": "Đã dùng",
+      "expires": "Hết hạn",
+      "statusCol": "Trạng thái",
+      "empty": "Chưa có mã nào.",
+      "copied": "Đã chép",
+      "copy": "Chép mã",
+      "revoke": "Thu hồi",
+      "status": {
+        "active": "Đang dùng được",
+        "usedUp": "Hết lượt",
+        "expired": "Hết hạn",
+        "revoked": "Đã thu hồi"
+      },
+      "noExpiryHint": "Đặt “Hết hạn sau” = 0 để mã không hết hạn."
+    },
+    "quick": {
+      "open": "Ghi nhanh",
+      "title": "Ghi nhanh",
+      "allVaults": "Tất cả vault",
+      "vault": "Vault",
+      "folder": "Thư mục",
+      "text": "Nội dung note",
+      "placeholder": "Gõ một ý, một link, một việc cần làm… Dòng đầu sẽ thành tên note.",
+      "save": "Lưu",
+      "saving": "Đang lưu…",
+      "saved": "Đã lưu vào {path} lúc {time}.",
+      "openVault": "Mở vault",
+      "failed": "Chưa lưu được. Chữ vẫn giữ trên máy này — hãy thử lại.",
+      "offline": "Bạn đang offline. Chữ vẫn giữ trên máy này — có mạng thì bấm Lưu.",
+      "noVault": "Hãy tạo một vault trước, rồi quay lại đây.",
+      "fallbackName": "Ghi nhanh {stamp}"
+    },
+    "install": {
+      "link": "Cài lên điện thoại",
+      "title": "Cài Noteriv",
+      "intro": "Đưa Noteriv ra màn hình chính để mở như một app: toàn màn hình, có biểu tượng riêng, và Ghi nhanh chỉ cách một chạm.",
+      "already": "Noteriv đã được cài và đang chạy như một app.",
+      "button": "Cài app",
+      "android": {
+        "title": "Android (Chrome)",
+        "step1": "Mở trang này bằng Chrome và đăng nhập.",
+        "step2": "Bấm menu ⋮, chọn “Cài đặt ứng dụng” (hoặc “Thêm vào màn hình chính”).",
+        "step3": "Xác nhận. Noteriv hiện trên màn hình chính; giữ lâu biểu tượng để mở Ghi nhanh."
+      },
+      "ios": {
+        "title": "iPhone và iPad (Safari)",
+        "step1": "Mở trang này bằng Safari và đăng nhập.",
+        "step2": "Bấm nút Chia sẻ (hình vuông có mũi tên), chọn “Thêm vào MH chính”.",
+        "step3": "Bấm “Thêm”. Noteriv mở toàn màn hình từ biểu tượng."
+      },
+      "quick": "Ghi nhanh (/quick) là trang nhẹ để ghi một ý trong vài giây; note vào thư mục Inbox của vault bạn chọn.",
+      "offlineNote": "Không có mạng app vẫn mở được: vault và note đã mở gần đây đọc và sửa được, chỉnh sửa sẽ được gửi khi có mạng lại."
+    },
+    "offline": {
+      "banner": "Đang offline — hiển thị bản lưu trên máy. Chỉnh sửa sẽ được gửi khi có mạng.",
+      "conflict": "Note này vừa được sửa ở nơi khác. Không có gì bị ghi đè: bản của bạn được lưu thành “{name}”.",
+      "needsNetwork": "Việc này cần có mạng. Note và chỉnh sửa của bạn vẫn được giữ trên máy.",
+      "notKept": "Note này chưa được lưu trên máy; hãy mở nó một lần khi có mạng để đọc được lúc offline.",
+      "vaultListKept": "Đang offline — đây là danh sách lưu trên máy.",
+      "signOutUnsent": {
+        "other": "Còn {count} chỉnh sửa offline chưa tới máy chủ; đăng xuất trên máy này sẽ bỏ chúng. Bấm Đăng xuất lần nữa nếu vẫn muốn đăng xuất."
+      }
+    },
+    "account": {
+      "verifyFirst": "Hãy xác minh email trước: bấm liên kết trong thư chúng tôi đã gửi. Có thể gửi lại ở Vault của bạn → Tài khoản."
+    },
+    "usage": {
+      "label": "Mức dùng AI tháng này",
+      "tokens": "Token đã dùng: {used} / {limit}",
+      "remaining": "còn {remaining}",
+      "budget": "Ngân sách: {cost} / {budget}",
+      "progress": "Đã dùng {percent}% hạn mức tháng",
+      "model": "Mô hình: {model}",
+      "warning": "Đã dùng {percent}% hạn mức AI của tháng này.",
+      "critical": "Sắp hết: đã dùng {percent}% hạn mức AI của tháng này.",
+      "exceeded": "Đã hết hạn mức AI của tháng. Không thể đổi mô hình cho đến khi hạn mức được đặt lại."
+    },
+    "plan": {
+      "current": "Gói hiện tại",
+      "hint": "Hạn mức tính mọi thứ trong các vault bạn sở hữu.",
+      "vaults": "Vault",
+      "storage": "Dung lượng đính kèm (cả tài khoản)",
+      "sync": "Kết nối đồng bộ",
+      "history": "Số bản lịch sử giữ cho mỗi note",
+      "unlimited": "Không giới hạn",
+      "of": "{used} / {max}",
+      "needMore": "Cần thêm? Liên hệ chúng tôi",
+      "loadFailed": "Không tải được thông tin gói. Hãy thử lại sau.",
+      "seePlan": "Xem Cài đặt → Gói và mức dùng.",
+      "limit": {
+        "vaults": "Gói của bạn cho phép {max} vault. Hãy xoá vault không dùng nữa, hoặc liên hệ để có thêm.",
+        "attachmentBytes": "Không đủ chỗ: gói của bạn có {max} dung lượng đính kèm cho cả tài khoản. Hãy xoá đính kèm không cần nữa, hoặc liên hệ để có thêm.",
+        "syncConnections": "Gói của bạn cho phép {max} kết nối đồng bộ. Hãy gỡ một kết nối, hoặc liên hệ để có thêm."
+      }
+    },
+    "admin": {
+      "title": "Quản trị",
+      "tabs": {
+        "users": "Người dùng",
+        "invites": "Mã mời",
+        "audit": "Nhật ký",
+        "stats": "Số liệu"
+      },
+      "search": "Tìm theo email hoặc tên, rồi nhấn Enter",
+      "total": {
+        "one": "{count} người dùng",
+        "other": "{count} người dùng"
+      },
+      "none": "Chưa có gì.",
+      "col": {
+        "user": "Người dùng",
+        "plan": "Gói",
+        "usage": "Mức dùng",
+        "actions": "Thao tác"
+      },
+      "badge": {
+        "admin": "admin",
+        "locked": "đã khoá",
+        "unverified": "chưa xác minh"
+      },
+      "usage": "Vault {vaults} · {storage} · Đồng bộ {sync}",
+      "lock": "Khoá",
+      "unlock": "Mở khoá",
+      "makeAdmin": "Cấp quyền admin",
+      "removeAdmin": "Thu quyền admin",
+      "sendReset": "Gửi liên kết đặt lại",
+      "resetSent": "Đã gửi liên kết đặt lại mật khẩu.",
+      "markVerified": "Đánh dấu đã xác minh",
+      "delete": "Xoá",
+      "deleteConfirm": "Bấm lần nữa để xoá tài khoản và toàn bộ dữ liệu",
+      "deleted": "Đã xoá tài khoản.",
+      "emailOff": "Máy chủ này chưa bật gửi email.",
+      "notOnYourself": "Không thể làm việc này với chính tài khoản của bạn.",
+      "envAdminHint": "Là admin nhờ ADMIN_EMAILS của máy chủ: đổi ở đó.",
+      "removeAdminFirst": "Hãy thu quyền admin trước.",
+      "prev": "Trước",
+      "next": "Sau",
+      "pageOf": "Trang {page} / {pages}",
+      "audit": {
+        "action": "Hành động chứa…",
+        "email": "Email người dùng chứa…",
+        "filter": "Lọc",
+        "time": "Thời gian",
+        "actionCol": "Hành động",
+        "who": "Người dùng",
+        "target": "Đối tượng",
+        "details": "Chi tiết",
+        "more": "Tải thêm"
+      },
+      "stats": {
+        "users": "Tài khoản",
+        "usersHint": "{verified} đã xác minh · {locked} bị khoá",
+        "newUsers": "Mới trong 7 ngày qua",
+        "newUsersHint": "{count} trong 30 ngày qua",
+        "active": "Hoạt động trong 7 ngày qua",
+        "activeHint": "{today} hôm nay · {month} trong 30 ngày qua",
+        "content": "Dung lượng đính kèm",
+        "contentHint": "{vaults} vault · {notes} ghi chú",
+        "week": "Tuần bắt đầu",
+        "signups": "Đăng ký",
+        "activeWeek": "Hoạt động",
+        "retention1": "Quay lại tuần 2",
+        "retention4": "Quay lại tuần 5",
+        "explain": "Đếm từ dữ liệu của chính máy chủ này: một tài khoản được tính là hoạt động vào ngày nó đăng nhập hoặc còn giữ phiên. \"Quay lại tuần 2\" là tỉ lệ người đăng ký trong tuần đó có hoạt động vào ngày 7–13 sau khi đăng ký; \"Quay lại tuần 5\" là ngày 28–34. Dấu — nghĩa là chưa đủ thời gian. Tuần bắt đầu từ thứ Hai (giờ UTC)."
+      }
+    },
+    "errorPage": {
+      "title": "Đã xảy ra lỗi",
+      "body": "Trang này gặp một lỗi không lường trước. Lỗi đã được báo lại nếu tính năng báo lỗi đang bật.",
+      "retry": "Thử lại",
+      "reload": "Tải lại"
+    },
+    "footer": {
+      "status": "Trạng thái"
+    }
+  },
+  "desktop": {
+    "bookmarks": {
+      "hint": "Chuột phải vào file hoặc bấm Ctrl+B để đánh dấu."
+    },
+    "quickOpen": {
+      "placeholder": "Gõ để tìm file...",
+      "empty": "Không tìm thấy file nào"
+    },
+    "files": {
+      "mergeNotes": "Gộp {count} note",
+      "deleteFiles": "Xoá {count} file",
+      "openFolderLocation": "Mở thư mục chứa",
+      "openFileLocation": "Mở vị trí file",
+      "copyFolderPath": "Chép đường dẫn thư mục",
+      "copyFilePath": "Chép đường dẫn file",
+      "closeSidebar": "Đóng sidebar (Ctrl+B)",
+      "noVault": "Chưa chọn vault"
+    },
+    "window": {
+      "close": "Đóng",
+      "minimize": "Thu nhỏ",
+      "maximize": "Phóng to"
+    },
+    "editorMenu": {
+      "defaultLive": "Chế độ mặc định: Sửa",
+      "defaultSource": "Chế độ mặc định: Mã nguồn",
+      "defaultView": "Chế độ mặc định: Xem",
+      "clearDefault": "Bỏ chế độ mặc định",
+      "focusMode": "Chế độ tập trung",
+      "exitFocusMode": "Thoát chế độ tập trung",
+      "zenMode": "Chế độ Zen",
+      "exitZenMode": "Thoát chế độ Zen"
+    },
+    "status": {
+      "syncing": "đang đồng bộ",
+      "syncFailed": "đồng bộ lỗi",
+      "changes": {
+        "other": "{count} thay đổi"
+      },
+      "synced": "đã đồng bộ {time}",
+      "sync": "đồng bộ",
+      "lastSynced": "Lần đồng bộ gần nhất: {time}",
+      "clickToSync": "Bấm để đồng bộ"
+    },
+    "noFile": "Chưa mở file nào",
+    "createNote": "Tạo note mới",
+    "pdfPluginOff": "Bật core plugin Đọc PDF (Cài đặt → Core plugins) để đọc file này.",
+    "syncConflicts": {
+      "other": "Đồng bộ đã giữ cả hai phiên bản của {count} note bị sửa ở cả máy này lẫn remote. Bản trên remote được lưu cạnh nó với tên \"(conflict …)\": {files}"
+    },
+    "settings": {
+      "collapseBelow": {
+        "label": "Thu gọn khi hẹp hơn",
+        "desc": "Độ rộng cửa sổ mà cây thư mục tự đóng."
+      },
+      "updates": "Cập nhật",
+      "version": {
+        "label": "Phiên bản",
+        "desc": "Phiên bản Noteriv đang cài."
+      },
+      "autoUpdate": {
+        "label": "Tự động cập nhật",
+        "desc": "Kiểm tra bản mới khi khởi động và báo khi có.",
+        "managedDesc": "Cập nhật do trình quản lý gói lo (Flatpak/Flathub).",
+        "managed": "Quản lý bên ngoài"
+      },
+      "updater": {
+        "check": "Kiểm tra cập nhật",
+        "checking": "Đang kiểm tra...",
+        "upToDate": "Đã là bản mới nhất",
+        "checkAgain": "Kiểm tra lại",
+        "available": "Có bản v{version}",
+        "download": "Tải bản cập nhật",
+        "ready": "Bản v{version} đã sẵn sàng",
+        "install": "Khởi động lại và cài",
+        "failed": "Cập nhật thất bại",
+        "downloadFailed": "Tải thất bại",
+        "retry": "Thử lại"
+      }
+    },
+    "sync": {
+      "gitRepo": "Repository Git",
+      "openVault": "Mở một vault để cài đặt đồng bộ Git.",
+      "remote": {
+        "label": "Remote URL",
+        "desc": "Remote Git của vault này — GitHub, GitLab, Gitea/Forgejo, Bitbucket hoặc tự host. HTTPS hoặc SSH.",
+        "saveFailed": "Không lưu được remote"
+      },
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "saved": "Đã lưu",
+      "cancel": "Huỷ",
+      "credentials": {
+        "label": "Thông tin đăng nhập Git",
+        "desc": "Access token cho đồng bộ HTTPS, lưu mã hoá trên máy. Không cần với remote SSH.",
+        "generate": "Tạo token →",
+        "tokenSaved": "Đã lưu access token",
+        "encrypted": "Được mã hoá trên máy này",
+        "change": "Đổi",
+        "disconnect": "Ngắt kết nối",
+        "usernamePlaceholder": "Tên đăng nhập (không bắt buộc — để trống với GitLab; dùng tên đăng nhập với Gitea/Forgejo)",
+        "tokenPlaceholder": "Access token / app password",
+        "hint": "Token được lưu mã hoá và dùng làm mật khẩu HTTPS. Với Bitbucket, đặt tên đăng nhập là",
+        "required": "Cần nhập token",
+        "invalid": "Token không hợp lệ",
+        "saveFailed": "Không lưu được token"
+      },
+      "gitSync": "Đồng bộ Git",
+      "interval": {
+        "label": "Chu kỳ tự đồng bộ",
+        "desc": "Định kỳ commit và push thay đổi ở nền."
+      },
+      "onSave": {
+        "label": "Đồng bộ khi lưu",
+        "desc": "Commit và push mỗi lần bạn tự lưu file."
+      },
+      "pullOnOpen": {
+        "label": "Kéo về khi mở",
+        "desc": "Lấy thay đổi mới nhất từ remote khi mở vault."
+      },
+      "commitMessage": {
+        "label": "Commit message",
+        "desc": "Mẫu cho commit đồng bộ. Dùng {date}, {time}, {count}."
+      },
+      "extra": "Nơi đồng bộ thêm",
+      "provider": {
+        "label": "Nơi đồng bộ",
+        "desc": "Đồng bộ vault tới một nơi thứ hai bên cạnh Git."
+      },
+      "providers": {
+        "none": {
+          "name": "Không",
+          "desc": "Không đồng bộ thêm"
+        },
+        "folder": {
+          "name": "Ổ đám mây (thư mục)",
+          "desc": "Google Drive, Dropbox, OneDrive, iCloud — đồng bộ vào thư mục của chúng trên máy"
+        },
+        "webdav": {
+          "name": "WebDAV",
+          "desc": "Nextcloud, ownCloud hoặc bất kỳ server WebDAV nào"
+        }
+      },
+      "targetFolder": {
+        "label": "Thư mục đích",
+        "desc": "Đường dẫn tới thư mục đồng bộ của ổ đám mây trên máy."
+      },
+      "direction": {
+        "label": "Chiều đồng bộ",
+        "desc": "File được đồng bộ theo chiều nào."
+      },
+      "serverUrl": {
+        "label": "Địa chỉ server",
+        "desc": "Địa chỉ server WebDAV (ví dụ https://cloud.example.com/remote.php/dav/files/user)."
+      },
+      "username": {
+        "label": "Tên đăng nhập",
+        "desc": "Tên đăng nhập tài khoản WebDAV."
+      },
+      "password": {
+        "label": "Mật khẩu",
+        "desc": "Mật khẩu tài khoản WebDAV hoặc app token."
+      },
+      "remotePath": {
+        "label": "Thư mục trên server",
+        "desc": "Thư mục trên server để đồng bộ vào."
+      },
+      "test": "Thử kết nối",
+      "testing": "Đang thử...",
+      "connected": "Đã kết nối",
+      "failed": "Thất bại",
+      "unknownError": "Lỗi không rõ"
+    },
+    "pluginManager": {
+      "permission": {
+        "vaultRead": "đọc note",
+        "vaultWrite": "tạo, sửa và xoá note",
+        "editorRead": "đọc note đang mở",
+        "editorWrite": "sửa note đang mở",
+        "uiCommands": "thêm lệnh",
+        "uiStatusbar": "thêm mục trên thanh trạng thái",
+        "uiPanel": "thêm panel và tab cài đặt",
+        "markdownRender": "vẽ khối code"
+      },
+      "noPermissions": "không có quyền đặc biệt",
+      "loadFailed": "Không tải được plugin cộng đồng. Kiểm tra kết nối mạng.",
+      "title": "Plugins",
+      "installed": "Đã cài",
+      "community": "Cộng đồng",
+      "searchInstalled": "Tìm plugin đã cài...",
+      "install": "Cài đặt",
+      "noneInstalled": "Chưa cài plugin nào",
+      "browseBefore": "Xem tab",
+      "browseAfter": "hoặc bấm “Cài đặt” để thêm plugin từ một thư mục trên máy.",
+      "noMatchTitle": "Không có plugin khớp",
+      "noMatch": "Không có plugin đã cài nào khớp “{query}”.",
+      "sandbox": "Chạy trong sandbox. Được phép: {permissions}.",
+      "asks": "Plugin này xin quyền:",
+      "allowEnable": "Cho phép và bật",
+      "cancel": "Huỷ",
+      "blocked": "Bị chặn: {permissions}.",
+      "allow": "Cho phép",
+      "settings": "Cài đặt plugin",
+      "disable": "Tắt plugin",
+      "enable": "Bật plugin",
+      "confirmUninstall": "Bấm lần nữa để xác nhận",
+      "uninstall": "Gỡ plugin",
+      "confirm": "Xác nhận?",
+      "searchCommunity": "Tìm plugin cộng đồng...",
+      "loading": "Đang tải plugin cộng đồng...",
+      "retry": "Thử lại",
+      "noneFound": "Không tìm thấy plugin nào.",
+      "installing": "Đang cài...",
+      "submit": "Gửi plugin của bạn",
+      "noManifest": "Không thấy manifest.json trong thư mục đã chọn",
+      "invalidManifest": "Manifest không hợp lệ: thiếu trường bắt buộc (id, name, main)"
+    },
+    "attachments": {
+      "savedTo": "Tệp được lưu vào thư mục attachments/",
+      "readFailed": "Không đọc được file",
+      "importFailed": "Không nhập được đính kèm: {name}"
+    },
+    "fileRecovery": {
+      "delete": "Xoá bản lưu"
+    },
+    "setup": {
+      "invalidToken": "Token không hợp lệ",
+      "validateFailed": "Không kiểm tra được token",
+      "createFailed": "Không tạo được vault",
+      "tagline": "Ghi chú Markdown, ở mọi nơi",
+      "welcomeTitle": "Tạo không gian làm việc",
+      "welcomeDesc": "Vault là nơi chứa ghi chú của bạn. Chọn cách bắt đầu.",
+      "newVault": "Vault mới",
+      "newVaultDesc": "Bắt đầu với một thư mục trống",
+      "openFolder": "Mở thư mục",
+      "openFolderDesc": "Dùng một thư mục ghi chú có sẵn",
+      "clone": "Clone từ GitHub",
+      "cloneDesc": "Lấy ghi chú từ một repository",
+      "nameTitle": "Đặt tên vault",
+      "namePlaceholder": "Ghi chú của tôi",
+      "back": "Quay lại",
+      "continue": "Tiếp tục",
+      "chooseFolder": "Chọn thư mục",
+      "whereToStore": "Lưu ở đâu?",
+      "selectFolder": "Chọn thư mục chứa ghi chú của bạn.",
+      "pickParent": "Chọn thư mục cha, hoặc dùng thư mục mặc định.",
+      "clickToChoose": "Bấm để chọn thư mục...",
+      "connectGithub": "Kết nối GitHub",
+      "signIn": "Đăng nhập để xem các repo của bạn.",
+      "optional": "Không bắt buộc. Bạn có thể cài đồng bộ thư mục hoặc WebDAV sau trong Cài đặt.",
+      "createVault": "Tạo vault",
+      "disconnect": "Ngắt kết nối",
+      "pat": "Personal Access Token",
+      "connect": "Kết nối",
+      "autoSync": "Tự đồng bộ khi lưu",
+      "autoSyncDesc": "Đẩy lên mỗi khi bạn lưu file",
+      "pickRepoButton": "Chọn repo",
+      "skip": "Bỏ qua",
+      "pickRepo": "Chọn một repo",
+      "chooseRepo": "Chọn repo",
+      "repoDesc": "Chọn một repo có sẵn hoặc tạo repo mới.",
+      "createRepo": "Tạo repo mới",
+      "privateRepo": "Repo riêng tư",
+      "private": "riêng tư",
+      "cloneCreate": "Clone và tạo",
+      "cloning": "Đang clone repository...",
+      "creatingRepo": "Đang tạo repo và vault...",
+      "settingUp": "Đang thiết lập vault...",
+      "defaultPath": "Mặc định: {path}",
+      "scopeBefore": "Chọn quyền",
+      "scopeAfter": ". Token của bạn được mã hoá trên máy.",
+      "nameHint": "Chẳng hạn “Cá nhân”, “Công việc” hay “Nghiên cứu”.",
+      "sampleNotes": "Thêm các note hướng dẫn",
+      "sampleNotesDesc": "Vài note ngắn giới thiệu liên kết, thẻ và plugin. Xoá lúc nào cũng được."
+    },
+    "collab": {
+      "startFailed": "Không bắt đầu được cộng tác. Cài yjs và y-webrtc: npm install yjs y-webrtc",
+      "joinFailed": "Không vào được phiên. Cài yjs và y-webrtc: npm install yjs y-webrtc",
+      "title": "Cộng tác trực tiếp",
+      "connected": "Đã kết nối",
+      "room": "Phòng:",
+      "copy": "Chép",
+      "disconnect": "Ngắt kết nối",
+      "yourName": "Tên của bạn",
+      "newSession": "Bắt đầu phiên mới",
+      "joinSession": "Vào một phiên",
+      "roomPlaceholder": "Nhập ID phòng...",
+      "join": "Vào",
+      "peers": {
+        "other": "{count} người"
+      },
+      "connecting": "Đang kết nối...",
+      "start": "Bắt đầu phiên"
+    },
+    "vaults": {
+      "noVault": "Chưa có vault",
+      "title": "Vaults",
+      "gitSettings": "Cài đặt Git",
+      "remove": "Gỡ vault",
+      "new": "Vault mới",
+      "confirmRemove": "Gỡ vault \"{name}\"? File của bạn vẫn còn nguyên."
+    },
+    "noFileHint": "Chọn một note ở thanh bên, hoặc tạo note mới.",
+    "quickOpenNote": "Mở một note"
+  },
+  "common": {
+    "close": "Đóng",
+    "loading": "Đang tải...",
+    "loadingShort": "Đang tải…"
+  },
+  "shell": {
+    "ribbon": {
+      "quickOpen": "Mở nhanh",
+      "newNote": "Note mới",
+      "commandPalette": "Bảng lệnh",
+      "search": "Tìm trong vault",
+      "settings": "Cài đặt"
+    },
+    "tabs": {
+      "pin": "Ghim tab",
+      "unpin": "Bỏ ghim tab",
+      "close": "Đóng tab",
+      "closeOthers": "Đóng các tab khác",
+      "closeRight": "Đóng các tab bên phải",
+      "closeAll": "Đóng tất cả tab",
+      "openInSplit": "Mở ở khung chia đôi",
+      "revealInSidebar": "Hiện trong sidebar",
+      "copyFilePath": "Chép đường dẫn file",
+      "newFile": "File mới"
+    },
+    "files": {
+      "newFile": "Note mới",
+      "newFolder": "Thư mục mới",
+      "rename": "Đổi tên",
+      "delete": "Xoá",
+      "copyPath": "Chép đường dẫn",
+      "importHere": "Import file .md vào đây…",
+      "newFileButton": "Thêm note",
+      "empty": "Chưa có note nào",
+      "createNote": "Tạo một note",
+      "resize": "Kéo để đổi độ rộng cây thư mục",
+      "emptyHint": "Viết note đầu tiên, rồi gõ [[ để liên kết tới note khác.",
+      "linksUpdated": {
+        "one": "Đã cập nhật liên kết trong {count} note",
+        "other": "Đã cập nhật liên kết trong {count} note"
+      },
+      "linksNotUpdated": "Không cập nhật được một số liên kết. Hãy xem lại các note từng trỏ tới tên cũ."
+    },
+    "status": {
+      "mode": {
+        "live": "Sửa",
+        "view": "Xem",
+        "source": "Mã nguồn"
+      },
+      "saved": "đã lưu",
+      "unsaved": "chưa lưu",
+      "lines": {
+        "other": "{count} dòng"
+      },
+      "chars": {
+        "other": "{count} ký tự"
+      },
+      "saveFailed": "Chưa lưu được — đang thử lại",
+      "saveFailedHint": "Lần lưu cuối chưa tới được máy chủ (mất mạng?). Chữ của bạn vẫn còn đây và sẽ tự gửi lại.",
+      "keptLocally": "Đã giữ trên máy",
+      "keptLocallyHint": "Không có mạng: bản sửa này được giữ trên máy và sẽ gửi ngay khi kết nối được máy chủ."
+    },
+    "commands": {
+      "corePlugin": "Core plugin",
+      "plugin": "Plugin · {id}"
+    },
+    "closePanel": "Đóng panel",
+    "closeSplit": "Đóng khung chia đôi",
+    "toggleSidebar": "Ẩn/hiện sidebar (Ctrl+B)",
+    "settingsHotkey": "Cài đặt (Ctrl+,)"
+  },
+  "hotkeys": {
+    "category": {
+      "file": "File",
+      "navigation": "Điều hướng",
+      "search": "Tìm kiếm",
+      "view": "Hiển thị",
+      "edit": "Chỉnh sửa",
+      "formatting": "Định dạng",
+      "sync": "Đồng bộ",
+      "ecosystem": "Hệ sinh thái",
+      "developer": "Nhà phát triển"
+    },
+    "save": "Lưu ngay",
+    "saveAs": "Lưu thành",
+    "newFile": "File mới",
+    "newNote": "Note mới",
+    "newFolder": "Thư mục mới",
+    "openFile": "Mở file",
+    "closeTab": "Đóng tab",
+    "closeAllTabs": "Đóng tất cả tab",
+    "closeOtherTabs": "Đóng các tab khác",
+    "deleteFile": "Xoá file",
+    "nextTab": "Tab kế tiếp",
+    "prevTab": "Tab trước",
+    "togglePinTab": "Ghim/bỏ ghim tab",
+    "quickOpen": "Mở nhanh",
+    "commandPalette": "Bảng lệnh",
+    "findInFile": "Tìm trong file",
+    "findInVault": "Tìm trong vault",
+    "toggleSidebar": "Ẩn/hiện sidebar",
+    "toggleViewMode": "Đổi chế độ Sửa / Xem / Mã nguồn",
+    "toggleFullscreen": "Bật/tắt toàn màn hình",
+    "zenMode": "Chế độ Zen (ẩn mọi khung)",
+    "focusMode": "Chế độ tập trung (làm mờ dòng khác)",
+    "settings": "Cài đặt",
+    "undo": "Hoàn tác",
+    "redo": "Làm lại",
+    "toggleBold": "In đậm",
+    "toggleItalic": "In nghiêng",
+    "toggleCode": "Code trong dòng",
+    "toggleStrikethrough": "Gạch ngang",
+    "insertLink": "Chèn liên kết",
+    "insertImage": "Chèn ảnh",
+    "insertHorizontalRule": "Đường kẻ ngang",
+    "insertCodeBlock": "Khối code",
+    "insertBlockquote": "Trích dẫn",
+    "insertTaskList": "Danh sách việc",
+    "insertTable": "Chèn bảng",
+    "gitSync": "Đồng bộ ngay",
+    "syncSettings": "Cài đặt đồng bộ (Git / WebDAV)",
+    "toggleOutline": "Ẩn/hiện dàn ý",
+    "toggleBacklinks": "Ẩn/hiện backlinks",
+    "toggleTags": "Ẩn/hiện panel tag",
+    "toggleCollab": "Ẩn/hiện cộng tác",
+    "toggleBookmark": "Bookmark / bỏ bookmark",
+    "randomNote": "Mở một note ngẫu nhiên",
+    "fileRecovery": "Khôi phục file",
+    "exportPDF": "Tải PDF",
+    "previewPDF": "Xem trước PDF",
+    "printNote": "In… (hộp thoại in của trình duyệt)",
+    "attachments": "Quản lý file đính kèm",
+    "pluginManager": "Quản lý plugin",
+    "cssSnippets": "CSS Snippets",
+    "themePicker": "Themes",
+    "insertToc": "Chèn mục lục",
+    "updateToc": "Cập nhật mục lục",
+    "publishNote": "Xuất note ra HTML",
+    "startCollab": "Cộng tác trực tiếp",
+    "openTrash": "Mở thùng rác",
+    "splitEditor": "Chia đôi editor",
+    "closeSplit": "Đóng khung chia đôi",
+    "importVault": "Import thư mục / zip vào vault này…",
+    "importNewVault": "Import thư mục / zip thành vault mới…",
+    "newVaultFromGithub": "Vault mới từ repo GitHub…",
+    "exportVault": "Xuất vault ra zip",
+    "reloadApp": "Tải lại trang (lưu trước)",
+    "diagnostics": "Chẩn đoán (server, đồng bộ, plugin)…",
+    "devToolsHint": "Mở công cụ nhà phát triển của trình duyệt (F12)",
+    "toggleOutgoingLinks": "Bật/tắt Liên kết đi ra",
+    "toggleProperties": "Bật/tắt Tất cả thuộc tính",
+    "importFromApp": "Nhập từ Notion, Evernote, HTML…"
+  },
+  "snippets": {
+    "loadFailed": "Không tải được snippet cộng đồng. Kiểm tra kết nối mạng.",
+    "title": "CSS Snippets",
+    "installed": "Đã cài",
+    "community": "Cộng đồng",
+    "search": "Tìm snippet...",
+    "new": "Snippet mới",
+    "namePlaceholder": "Tên snippet...",
+    "create": "Tạo",
+    "cancel": "Huỷ",
+    "empty": "Chưa có CSS snippet nào",
+    "emptyBefore": "Tự tạo hoặc xem tab",
+    "emptyAfter": "để cài snippet làm sẵn.",
+    "edit": "Sửa snippet",
+    "delete": "Xoá",
+    "deleteTitle": "Xoá snippet",
+    "save": "Lưu",
+    "all": "Tất cả",
+    "loading": "Đang tải snippet cộng đồng...",
+    "retry": "Thử lại",
+    "noneFound": "Không tìm thấy snippet nào.",
+    "install": "Cài",
+    "submit": "Gửi snippet của bạn",
+    "storedBefore": "Snippet được lưu trong",
+    "storedAfter": "của vault",
+    "lines": {
+      "other": "{count} dòng"
+    }
+  },
+  "themes": {
+    "loadFailed": "Không tải được theme cộng đồng. Kiểm tra kết nối mạng.",
+    "invalid": "JSON của theme không hợp lệ. Cần có id, name và colors.",
+    "copyJson": "Chép JSON",
+    "delete": "Xoá",
+    "installed": "Đã cài",
+    "install": "Cài",
+    "community": "Cộng đồng",
+    "builtIn": "Có sẵn",
+    "cancel": "Huỷ",
+    "import": "Nhập",
+    "pastePlaceholder": "Dán JSON của theme vào đây...",
+    "importTheme": "Nhập theme",
+    "custom": "Tự thêm",
+    "loading": "Đang tải theme cộng đồng...",
+    "retry": "Thử lại",
+    "submit": "Gửi theme của bạn",
+    "noneFound": "Không tìm thấy theme nào.",
+    "noneOfType": "Không tìm thấy theme {type} nào."
+  },
+  "publish": {
+    "addNotes": "Thêm note",
+    "search": "Tìm note...",
+    "clear": "Bỏ chọn",
+    "addMore": "Thêm note khác",
+    "plusNotes": "+ Note",
+    "preview": "Xem trước",
+    "copied": "Đã chép!",
+    "copyHtml": "Chép HTML",
+    "saveHtml": "Lưu thành HTML",
+    "added": {
+      "other": "Đã thêm {count} note"
+    },
+    "downloaded": "Đã tải {file}",
+    "savedTo": "Đã lưu vào {path}",
+    "saving": "Đang lưu..."
+  },
+  "frontmatter": {
+    "add": "Thêm thuộc tính",
+    "title": "Thuộc tính",
+    "none": "Chưa có thuộc tính nào",
+    "clickToEdit": "Bấm để sửa",
+    "empty": "trống",
+    "remove": "Xoá thuộc tính",
+    "namePlaceholder": "Tên thuộc tính...",
+    "addOne": "Thêm thuộc tính"
+  },
+  "trash": {
+    "title": "Thùng rác",
+    "empty": "Xoá hết",
+    "filter": "Lọc trong thùng rác…",
+    "loading": "Đang tải…",
+    "noMatches": "Không có kết quả",
+    "isEmpty": "Thùng rác trống",
+    "restore": "Khôi phục",
+    "deleteForever": "Xoá vĩnh viễn",
+    "count": {
+      "other": "{count} mục"
+    },
+    "remaining": "còn {count} ngày",
+    "footer": "Mục trong thùng rác sẽ tự động bị xoá vĩnh viễn sau {days} ngày"
+  },
+  "attachments": {
+    "title": "Tệp đính kèm",
+    "sortName": "Tên",
+    "sortDate": "Ngày",
+    "loading": "Đang tải...",
+    "importing": "Đang tải lên...",
+    "dropHere": "Thả để thêm",
+    "empty": "Chưa có tệp đính kèm",
+    "tryFilter": "Thử đổi bộ lọc để xem loại đính kèm khác.",
+    "delete": "Xoá",
+    "dragHint": {
+      "web": "Kéo-thả hoặc bấm để chọn tệp",
+      "desktop": "Kéo-thả tệp để thêm đính kèm"
+    },
+    "emptyHint": {
+      "web": "Kéo-thả tệp phía trên, hoặc bấm vào vùng kéo-thả để chọn tệp.",
+      "desktop": "Kéo-thả tệp phía trên, hoặc dùng ghi âm để tạo bản ghi."
+    },
+    "filter": {
+      "all": "Tất cả ({count})",
+      "image": "Ảnh ({count})",
+      "audio": "Âm thanh ({count})",
+      "video": "Video ({count})",
+      "pdf": "PDF ({count})",
+      "other": "Khác ({count})"
+    },
+    "noneOfType": "Không có tệp {type}",
+    "clickInsert": "Bấm để chèn: {name}",
+    "count": {
+      "other": "{count} tệp"
+    },
+    "footerInsert": "chèn",
+    "footerClose": "đóng",
+    "confirmDelete": "Xoá \"{name}\"? Không thể hoàn tác."
+  },
+  "fileRecovery": {
+    "ago": {
+      "justNow": "vừa xong",
+      "minutes": "{count} phút trước",
+      "hours": "{count} giờ trước",
+      "days": "{count} ngày trước",
+      "months": "{count} tháng trước"
+    },
+    "title": "Khôi phục file",
+    "snapshots": "Bản lưu",
+    "loading": "Đang tải các bản lưu...",
+    "none": "Chưa có bản lưu nào",
+    "hint": {
+      "web": "Bản lưu được tạo tự động khoảng 10 phút một lần khi note thay đổi",
+      "desktop": "Bản lưu được tạo tự động trước mỗi lần lưu"
+    },
+    "preview": "Xem trước",
+    "restore": "Khôi phục",
+    "loadingPreview": "Đang tải bản xem trước...",
+    "select": "Chọn một bản lưu để xem trước"
+  },
+  "files": {
+    "untitled": "Chưa đặt tên",
+    "newFolder": "Thư mục mới"
+  },
+  "properties": {
+    "types": {
+      "text": "Văn bản",
+      "list": "Danh sách",
+      "number": "Số",
+      "checkbox": "Hộp chọn",
+      "date": "Ngày",
+      "datetime": "Ngày & giờ",
+      "tags": "Thẻ"
+    },
+    "typeTitle": "Kiểu thuộc tính (áp dụng cho mọi note trong vault)",
+    "complex": "Sửa ở chế độ Source",
+    "addValue": "Thêm…",
+    "removeItem": "Bỏ",
+    "view": {
+      "title": "Tất cả thuộc tính",
+      "empty": "Chưa note nào có thuộc tính.",
+      "failed": "Không đọc được thuộc tính của các note. Hãy thử lại sau.",
+      "rename": "Đổi tên",
+      "renameHint": "Bấm để xem các note, bấm đúp để đổi tên",
+      "renamed": {
+        "one": "Đã đổi tên trong {count} note",
+        "other": "Đã đổi tên trong {count} note"
+      },
+      "renamedSome": "Đã đổi tên trong {count} note; {skipped} note không đổi được",
+      "invalidName": "Không dùng được tên này cho thuộc tính: không có : # [ ] { } , và không bắt đầu bằng - ? ! & * | > dấu nháy % @ hay backtick."
+    }
+  },
+  "phone": {
+    "corePlugins": {
+      "title": "Core plugins",
+      "intro": "Plugin có sẵn của Noteriv, bật hoặc tắt riêng cho vault này (như trên web và desktop).",
+      "notOnPhone": "Chưa có trên điện thoại. Lựa chọn vẫn được lưu.",
+      "saveFailed": "Không lưu được lựa chọn: {error}",
+      "summary": "Đang bật {on}/{total}"
+    },
+    "settings": {
+      "autoSaveOff": "Tắt",
+      "syncCounts": "Đã tải về: {pulled}, Đã đẩy lên: {pushed}",
+      "syncCountsErrors": "{counts}, Lỗi: {errors}\n{first}",
+      "invalidTokenTitle": "Token không hợp lệ",
+      "invalidTokenMessage": "Không xác thực được. Hãy kiểm tra token có quyền \"repo\".",
+      "error": "Lỗi",
+      "networkError": "Lỗi mạng. Hãy kiểm tra kết nối.",
+      "syncing": "Đang đồng bộ...",
+      "syncFailed": "Đồng bộ thất bại: {error}",
+      "disconnectGitHubTitle": "Ngắt kết nối GitHub",
+      "disconnectGitHubMessage": "Xoá token đã lưu cho vault này?",
+      "cancel": "Huỷ",
+      "disconnect": "Ngắt kết nối",
+      "freshCloneTitle": "Clone mới",
+      "freshCloneMessage": "Thao tác này sẽ XÓA toàn bộ ghi chú trên máy và tải lại mọi thứ từ GitHub. Bạn có chắc không?",
+      "deleteAndClone": "Xoá và clone",
+      "deletingAndCloning": "Đang xoá tệp trên máy và clone...",
+      "clonedWithErrors": "Đã clone: {pulled} tệp, Lỗi: {errors}\n{first}",
+      "freshCloneDone": "Clone mới: đã tải {pulled} tệp",
+      "cloneFailed": "Clone thất bại: {error}",
+      "installed": "Đã cài đặt",
+      "install": "Cài đặt",
+      "themeInstalled": "Đã cài đặt chủ đề \"{name}\".",
+      "themeInstallFailed": "Không cài đặt được chủ đề.",
+      "resetApp": "Đặt lại ứng dụng",
+      "resetAppMessage": "Thao tác này sẽ xoá toàn bộ vault, cài đặt và dữ liệu. Bạn sẽ phải thiết lập lại từ đầu. Không thể hoàn tác.",
+      "resetEverything": "Đặt lại tất cả",
+      "general": "Chung",
+      "language": "Ngôn ngữ",
+      "languageAuto": "Theo ngôn ngữ máy",
+      "languageEn": "English",
+      "languageVi": "Tiếng Việt",
+      "autoSave": "Tự động lưu",
+      "spellCheck": "Kiểm tra chính tả",
+      "appearance": "Giao diện",
+      "theme": "Chủ đề",
+      "communityThemes": "Chủ đề cộng đồng",
+      "loadingCommunityThemes": "Đang tải chủ đề cộng đồng...",
+      "noCommunityThemes": "Chưa có chủ đề cộng đồng",
+      "themeBy": "bởi {author} · {type}",
+      "accentColor": "Màu nhấn",
+      "fontSize": "Cỡ chữ",
+      "editor": "Trình soạn thảo",
+      "lineHeight": "Chiều cao dòng",
+      "tabSize": "Độ rộng tab",
+      "ecosystem": "Hệ sinh thái",
+      "cssSnippets": "CSS snippet",
+      "snippetsInstalled": {
+        "other": "Đã cài {count} snippet"
+      },
+      "plugins": "Plugin",
+      "pluginsSummary": "{installed} đã cài · {enabled} đang bật",
+      "gitSync": "Đồng bộ Git",
+      "status": "Trạng thái",
+      "connected": "Đã kết nối",
+      "lastSync": "Lần đồng bộ gần nhất",
+      "syncNow": "Đồng bộ ngay",
+      "autoSync": "Tự động đồng bộ",
+      "autoSyncEvery": "Mỗi phút",
+      "disconnectRemote": "Ngắt kết nối remote",
+      "gitHint": "Kết nối GitHub, GitLab, Gitea hoặc Forgejo để đồng bộ ghi chú giữa các thiết bị.",
+      "connectGitHub": "Kết nối GitHub",
+      "customRemoteHint": "Với GitLab hoặc Gitea/Forgejo, nhập URL clone và token có quyền đọc/ghi repository.",
+      "tokenPlaceholder": "Personal access token",
+      "saving": "Đang lưu...",
+      "saveAndSyncRemote": "Lưu và đồng bộ remote",
+      "about": "Giới thiệu",
+      "version": "Phiên bản",
+      "sourceCode": "Mã nguồn",
+      "reportIssue": "Báo lỗi",
+      "dangerZone": "Vùng nguy hiểm",
+      "resetAppHint": "Xoá toàn bộ vault, cài đặt và bắt đầu lại",
+      "tagline": "Ứng dụng ghi chú markdown được làm tỉ mỉ.",
+      "tokenHint": "Nhập Personal Access Token có quyền repo.",
+      "connect": "Kết nối",
+      "pickRepo": "Chọn repository",
+      "authenticatedAs": "Đã xác thực là @{user}",
+      "private": "riêng tư",
+      "noRepos": "Không tìm thấy repository nào",
+      "back": "Quay lại",
+      "connectAndSync": "Kết nối và đồng bộ"
+    },
+    "layout": {
+      "settings": "Cài đặt",
+      "snippets": "CSS snippet",
+      "plugins": "Plugin",
+      "templates": "Templates",
+      "recovery": "Khôi phục tệp",
+      "composer": "Note composer",
+      "attachments": "Tệp đính kèm",
+      "backlinks": "Backlinks",
+      "frontmatter": "Frontmatter",
+      "calendar": "Lịch",
+      "flashcards": "Flashcards",
+      "graph": "Graph view",
+      "publish": "Xuất bản",
+      "trash": "Thùng rác"
+    },
+    "setup": {
+      "invalidToken": "Token không hợp lệ. Hãy chắc chắn token có quyền \"repo\".",
+      "networkError": "Lỗi mạng. Hãy kiểm tra kết nối.",
+      "createRepoFailed": "Không tạo được repo",
+      "nameRequiredTitle": "Cần nhập tên",
+      "nameRequiredMessage": "Vui lòng nhập tên cho vault của bạn.",
+      "error": "Lỗi",
+      "createVaultFailed": "Không tạo được vault. Vui lòng thử lại.",
+      "welcomeTitle": "Chào mừng đến với Noteriv",
+      "welcomeSubtitle": "Trình soạn thảo markdown đẹp cho ghi chú, ý tưởng và mọi thứ bạn muốn lưu lại.",
+      "featureWrite": "Viết bằng Markdown với xem trước trực tiếp",
+      "featureOrganize": "Sắp xếp ghi chú trong vault và thư mục",
+      "featureSync": "Đồng bộ với GitHub để sao lưu và quản lý phiên bản",
+      "getStarted": "Bắt đầu",
+      "vaultTitle": "Tạo vault của bạn",
+      "vaultSubtitle": "Vault là thư mục chứa ghi chú của bạn. Hãy đặt tên để bắt đầu.",
+      "vaultPlaceholder": "Ghi chú của tôi",
+      "continue": "Tiếp tục",
+      "connectTitle": "Kết nối GitHub",
+      "connectSubtitle": "Sao lưu và đồng bộ ghi chú lên repo GitHub. Bạn có thể bỏ qua và thiết lập sau.",
+      "generateToken": "Tạo token trên GitHub →",
+      "tokenHint": "Chọn quyền \"repo\". Token chỉ được lưu trên thiết bị này.",
+      "connect": "Kết nối",
+      "disconnect": "Ngắt kết nối",
+      "createNewRepo": "Tạo repo mới",
+      "privateRepo": "Repo riêng tư",
+      "pickExisting": "Hoặc chọn repo có sẵn:",
+      "private": "riêng tư",
+      "autoSync": "Tự động đồng bộ",
+      "autoSyncHint": "Tự động đẩy các thay đổi lên",
+      "back": "Quay lại",
+      "createVault": "Tạo vault",
+      "skipAndCreate": "Bỏ qua và tạo",
+      "doneTitle": "Đã xong!",
+      "vaultReady": "Vault \"{name}\" của bạn đã sẵn sàng.",
+      "githubConfigured": "Đã cấu hình đồng bộ GitHub.",
+      "connectLater": "Bạn có thể kết nối GitHub sau trong Cài đặt.",
+      "startWriting": "Bắt đầu viết",
+      "sampleNotes": "Thêm các note hướng dẫn",
+      "sampleNotesHint": "Vài note ngắn giới thiệu liên kết, thẻ và plugin. Xoá lúc nào cũng được. Không thêm khi nối với một repo đã có sẵn note."
+    },
+    "plugins": {
+      "uninstallTitle": "Gỡ cài đặt plugin",
+      "uninstallMessage": "Gỡ cài đặt \"{name}\"? Toàn bộ tệp của plugin sẽ bị xoá.",
+      "cancel": "Huỷ",
+      "uninstall": "Gỡ cài đặt",
+      "installed": "Đã cài đặt",
+      "installedMessage": "Đã cài đặt \"{name}\".",
+      "error": "Lỗi",
+      "installFailed": "Không cài đặt được plugin.",
+      "install": "Cài đặt",
+      "tabInstalled": "Đã cài",
+      "tabCommunity": "Cộng đồng",
+      "empty": "Chưa cài plugin nào",
+      "emptyHint": "Xem tab Cộng đồng để tìm plugin",
+      "by": "bởi {author}",
+      "longPressHint": "Nhấn giữ một plugin để gỡ cài đặt",
+      "fetching": "Đang tải plugin cộng đồng...",
+      "communityEmpty": "Chưa có plugin cộng đồng",
+      "communityEmptyHint": "Hãy kiểm tra kết nối mạng hoặc thử lại sau"
+    },
+    "snippets": {
+      "deleteTitle": "Xoá snippet",
+      "deleteMessage": "Xoá \"{name}\"? Không thể hoàn tác.",
+      "cancel": "Huỷ",
+      "delete": "Xoá",
+      "installed": "Đã cài đặt",
+      "installedMessage": "Đã cài đặt \"{name}\".",
+      "error": "Lỗi",
+      "installFailed": "Không cài đặt được snippet.",
+      "install": "Cài đặt",
+      "tabInstalled": "Đã cài",
+      "tabCommunity": "Cộng đồng",
+      "newSnippet": "Snippet mới",
+      "empty": "Chưa có CSS snippet nào",
+      "emptyHint": "Tạo mới hoặc xem snippet cộng đồng",
+      "fetching": "Đang tải snippet cộng đồng...",
+      "communityEmpty": "Chưa có snippet cộng đồng",
+      "communityEmptyHint": "Hãy kiểm tra kết nối mạng hoặc thử lại sau",
+      "all": "Tất cả",
+      "save": "Lưu",
+      "cssPlaceholder": "/* Viết CSS của bạn ở đây */",
+      "newTitle": "CSS snippet mới",
+      "namePlaceholder": "Tên snippet",
+      "create": "Tạo"
+    },
+    "editor": {
+      "errorTitle": "Lỗi",
+      "saveFailed": "Không lưu được file.",
+      "deleteTitle": "Xoá file",
+      "deleteConfirm": "Bạn có chắc muốn xoá file này không?",
+      "cancel": "Huỷ",
+      "delete": "Xoá",
+      "rename": "Đổi tên",
+      "renameFile": "Đổi tên file",
+      "renameNoSlash": "Tên ghi chú không được chứa \"/\".",
+      "renameSaveFailed": "Không lưu được ghi chú trước khi đổi tên.",
+      "renameFailed": "Không đổi được tên: có thể đã có ghi chú tên \"{name}\".",
+      "renameLinksFailed": {
+        "other": "Đã đổi tên, nhưng không cập nhật được liên kết trong {count} ghi chú."
+      },
+      "untitled": "Chưa đặt tên",
+      "save": "Lưu",
+      "bookmark": "Bookmark",
+      "removeBookmark": "Bỏ bookmark",
+      "templates": "Templates",
+      "noteComposer": "Note composer",
+      "backlinks": "Backlinks",
+      "fileRecovery": "Khôi phục file",
+      "frontmatter": "Frontmatter",
+      "publishAsHtml": "Xuất bản dạng HTML",
+      "presentAsSlides": "Trình chiếu dạng slide",
+      "attachments": "Tệp đính kèm",
+      "lint": "Lint",
+      "lintNoIssues": "Không có vấn đề nào",
+      "lintMeta": "Dòng {line} · {rule}",
+      "words": {
+        "other": "{count} từ"
+      },
+      "chars": {
+        "other": "{count} ký tự"
+      },
+      "lines": {
+        "other": "{count} dòng"
+      },
+      "swipeHint": "{current}/{total} ← vuốt →"
+    },
+    "composer": {
+      "selectFilesTitle": "Chọn file",
+      "selectFilesMessage": "Hãy chọn ít nhất 2 file để gộp.",
+      "nameRequiredTitle": "Cần đặt tên",
+      "nameRequiredMessage": "Hãy nhập tên cho file sau khi gộp.",
+      "errorTitle": "Lỗi",
+      "mergeFailed": "Không tạo được file đã gộp.",
+      "cannotSplitTitle": "Không thể tách",
+      "cannotSplitMessage": "Nội dung không có đủ tiêu đề để tách.",
+      "splitCompleteTitle": "Đã tách xong",
+      "splitCreated": {
+        "other": "Đã tạo {count} file."
+      },
+      "ok": "OK",
+      "splitFailed": "Không tạo được các file đã tách.",
+      "merge": "Gộp",
+      "split": "Tách",
+      "mergedNamePlaceholder": "Tên file sau khi gộp...",
+      "addHeadings": "Thêm tiêu đề cho mỗi file",
+      "selectFiles": "Chọn file (đã chọn {count})",
+      "mergeFiles": {
+        "other": "Gộp {count} file"
+      },
+      "currentFile": "File hiện tại",
+      "noFileSelected": "Chưa chọn file",
+      "splitBy": "Tách theo:",
+      "sectionsFound": {
+        "other": "Tìm thấy {count} phần"
+      },
+      "untitledSection": "(Phần chưa đặt tên)",
+      "splitInto": {
+        "other": "Tách thành {count} file"
+      },
+      "pickFile": "Chọn một file để tách"
+    },
+    "markdownEditor": {
+      "placeholder": "Bắt đầu viết..."
+    },
+    "markdownPreview": {
+      "runningQuery": "Đang chạy truy vấn…",
+      "noTasks": "Không có tác vụ nào.",
+      "noResults": "Không có kết quả."
+    },
+    "boardView": {
+      "deleteCardTitle": "Xoá thẻ",
+      "deleteCardMessage": "Xoá thẻ này?",
+      "cancel": "Huỷ",
+      "delete": "Xoá",
+      "moveTo": "Chuyển đến",
+      "deleteColumnTitle": "Xoá cột",
+      "deleteColumnMessage": "Xoá \"{title}\"?",
+      "deleteColumnWithCards": {
+        "other": "Xoá \"{title}\" và {count} thẻ trong cột?"
+      },
+      "cardPlaceholder": "Nội dung thẻ...",
+      "addCard": "Thêm thẻ",
+      "columnPlaceholder": "Tên cột...",
+      "add": "Thêm",
+      "addColumn": "Thêm cột"
+    },
+    "frontmatter": {
+      "emptyTitle": "Chưa có frontmatter",
+      "emptyMessage": "Frontmatter cho phép thêm metadata như tiêu đề, ngày, tag và nhiều thứ khác vào ghi chú.",
+      "addFrontmatter": "Thêm frontmatter",
+      "title": "Frontmatter",
+      "save": "Lưu",
+      "keyPlaceholder": "khoá",
+      "valuePlaceholder": "giá trị",
+      "addProperty": "Thêm thuộc tính",
+      "commonProperties": "Thuộc tính thường dùng",
+      "custom": "Tuỳ chỉnh"
+    },
+    "templates": {
+      "errorTitle": "Lỗi",
+      "createFailed": "Không tạo được file từ template.",
+      "preview": "Xem trước",
+      "use": "Dùng",
+      "searchPlaceholder": "Tìm template...",
+      "emptyTitle": "Chưa có template nào",
+      "emptyMessage": "Tạo một thư mục \"Templates\" trong vault và thêm file .md vào đó để dùng làm template.",
+      "noMatch": "Không có template khớp."
+    },
+    "publish": {
+      "title": "Xuất bản",
+      "share": "Chia sẻ",
+      "shareDialogTitle": "Chia sẻ {name}",
+      "errorTitle": "Lỗi",
+      "shareFailed": "Không chia sẻ được file HTML."
+    },
+    "graph": {
+      "title": "Graph view",
+      "building": "Đang dựng graph...",
+      "oneWay": "một chiều",
+      "reciprocal": "hai chiều"
+    },
+    "backlinks": {
+      "backlinksTo": "Backlinks tới {name}",
+      "scanning": "Đang quét vault...",
+      "emptyTitle": "Không có backlink nào",
+      "emptyMessage": "Không file nào khác link tới ghi chú này bằng [[wiki link]].",
+      "line": "Dòng {line}",
+      "found": {
+        "other": "Tìm thấy {count} backlink"
+      }
+    },
+    "createModal": {
+      "errorTitle": "Lỗi",
+      "enterName": "Hãy nhập tên.",
+      "noSeparators": "Tên không được chứa dấu phân cách đường dẫn.",
+      "fileExists": "Đã có file tên \"{name}\".",
+      "createFileFailed": "Không tạo được file.",
+      "folderExists": "Đã có thư mục tên \"{name}\".",
+      "createFolderFailed": "Không tạo được thư mục.",
+      "unexpected": "Đã xảy ra lỗi không mong muốn.",
+      "titleFile": "Tạo file",
+      "titleFolder": "Tạo thư mục",
+      "file": "File",
+      "folder": "Thư mục",
+      "noteName": "Tên ghi chú",
+      "folderName": "Tên thư mục",
+      "willCreate": "Sẽ tạo: {name}",
+      "cancel": "Huỷ",
+      "creating": "Đang tạo...",
+      "create": "Tạo"
+    },
+    "vaultSwitcher": {
+      "errorTitle": "Lỗi",
+      "enterName": "Hãy nhập tên vault.",
+      "nameExists": "Đã có vault tên này.",
+      "createFailed": "Không tạo được vault.",
+      "deleteTitle": "Xoá vault",
+      "deleteMessage": "Bạn có chắc muốn xoá \"{name}\"? Không thể hoàn tác.",
+      "cancel": "Huỷ",
+      "delete": "Xoá",
+      "title": "Vault",
+      "empty": "Chưa có vault nào",
+      "emptyHint": "Hãy tạo vault đầu tiên ở bên dưới",
+      "namePlaceholder": "Tên vault",
+      "createNew": "Tạo vault mới"
+    },
+    "notesList": {
+      "rename": "Đổi tên",
+      "delete": "Xoá",
+      "cancel": "Huỷ",
+      "trashTitle": "Chuyển vào thùng rác?",
+      "trashMessage": "\"{name}\" sẽ được chuyển vào .trash và có thể khôi phục.",
+      "moveToTrash": "Chuyển vào thùng rác",
+      "errorTitle": "Lỗi",
+      "trashFailed": "Không chuyển được vào thùng rác.",
+      "renameFailed": "Không đổi tên được: \"{name}\" có thể đã tồn tại hoặc không phải tên hợp lệ.",
+      "linksNotUpdated": {
+        "other": "Đã đổi tên, nhưng không cập nhật được liên kết trong {count} ghi chú."
+      },
+      "back": "Quay lại",
+      "items": {
+        "other": "{count} mục"
+      },
+      "sortName": "Tên",
+      "empty": "Chưa có ghi chú nào",
+      "emptyHint": "Chạm + để tạo ghi chú đầu tiên"
+    },
+    "trash": {
+      "restoreFailedTitle": "Không khôi phục được",
+      "restoreFailed": "Không khôi phục được \"{name}\".",
+      "deleteTitle": "Xoá vĩnh viễn?",
+      "deleteMessage": "\"{name}\" sẽ mất vĩnh viễn.",
+      "cancel": "Huỷ",
+      "delete": "Xoá",
+      "emptyTitle": "Dọn sạch thùng rác?",
+      "emptyMessage": "Mọi file trong thùng rác sẽ bị xoá vĩnh viễn.",
+      "emptyConfirm": "Dọn sạch thùng rác",
+      "title": "Thùng rác",
+      "empty": "Dọn sạch",
+      "isEmpty": "Thùng rác trống",
+      "restore": "Khôi phục"
+    },
+    "recovery": {
+      "restoreTitle": "Khôi phục bản lưu",
+      "restoreMessage": "Thao tác này sẽ ghi đè file hiện tại bằng bản lưu này. Tiếp tục?",
+      "cancel": "Huỷ",
+      "restore": "Khôi phục",
+      "errorTitle": "Lỗi",
+      "restoreFailed": "Không khôi phục được bản lưu.",
+      "deleteTitle": "Xoá bản lưu",
+      "deleteMessage": "Xoá vĩnh viễn bản lưu này?",
+      "delete": "Xoá",
+      "justNow": "vừa xong",
+      "minutesAgo": "{count} phút trước",
+      "hoursAgo": "{count} giờ trước",
+      "daysAgo": "{count} ngày trước",
+      "monthsAgo": "{count} tháng trước",
+      "noDifferences": "Không có khác biệt",
+      "snapshotCount": {
+        "other": "{count} bản lưu"
+      },
+      "emptyTitle": "Chưa có bản lưu",
+      "emptyHint": "Bản lưu được tạo tự động mỗi lần bạn lưu."
+    },
+    "attachments": {
+      "filterAll": "Tất cả",
+      "filterImages": "Ảnh",
+      "filterAudio": "Âm thanh",
+      "filterVideo": "Video",
+      "typeImage": "Ảnh",
+      "typeAudio": "Âm thanh",
+      "typeVideo": "Video",
+      "typeOther": "File",
+      "deleteTitle": "Xoá tệp đính kèm",
+      "deleteMessage": "Xoá \"{name}\"?",
+      "cancel": "Huỷ",
+      "delete": "Xoá",
+      "copiedTitle": "Đã chép",
+      "copiedMessage": "Đã chép liên kết Markdown vào clipboard.",
+      "linkTitle": "Liên kết",
+      "errorTitle": "Lỗi",
+      "importFailed": "Không nhập được file.",
+      "emptyTitle": "Chưa có tệp đính kèm",
+      "emptyHint": "Nhập file bằng nút + bên dưới."
+    },
+    "flashcards": {
+      "again": "Lại",
+      "hard": "Khó",
+      "good": "Tốt",
+      "easy": "Dễ",
+      "title": "Flashcards",
+      "scanning": "Đang quét vault…",
+      "dueToday": {
+        "other": "thẻ cần ôn hôm nay"
+      },
+      "totalInVault": "{count} thẻ trong vault",
+      "startReview": "Bắt đầu ôn",
+      "caughtUp": "Đã ôn hết!",
+      "cloze": "Điền vào chỗ trống",
+      "question": "Câu hỏi",
+      "answer": "Đáp án",
+      "showAnswer": "Xem đáp án",
+      "reviewed": {
+        "other": "thẻ đã ôn"
+      },
+      "sessionComplete": "Hoàn thành phiên ôn!",
+      "done": "Xong"
+    },
+    "searchModal": {
+      "title": "Tìm kiếm",
+      "quickOpen": "Mở nhanh",
+      "vaultSearch": "Tìm trong vault",
+      "placeholderFiles": "Tìm theo tên file...",
+      "placeholderContents": "Tìm trong nội dung file...",
+      "noFiles": "Không tìm thấy file nào",
+      "typeToSearchFiles": "Gõ để tìm file",
+      "searching": "Đang tìm...",
+      "noResults": "Không có kết quả",
+      "searchContents": "Tìm trong nội dung file",
+      "resultsFound": {
+        "other": "Tìm thấy {count} kết quả"
+      }
+    },
+    "bookmarksPanel": {
+      "remove": "Bỏ",
+      "title": "Bookmarks",
+      "items": {
+        "other": "{count} mục"
+      },
+      "empty": "Chưa có bookmark nào",
+      "emptyHint": "Nhấn giữ một file để đánh dấu",
+      "swipeHint": "Vuốt sang trái để bỏ"
+    },
+    "tagsPanel": {
+      "title": "Tags",
+      "count": {
+        "other": "{count} tag"
+      },
+      "scanning": "Đang quét file...",
+      "empty": "Không tìm thấy tag nào",
+      "emptyHint": "Dùng cú pháp #tag trong ghi chú"
+    },
+    "outlinePanel": {
+      "title": "Dàn ý",
+      "count": {
+        "other": "{count} heading"
+      },
+      "empty": "Không tìm thấy heading nào",
+      "emptyHint": "Thêm heading bằng cú pháp #"
+    },
+    "home": {
+      "noVault": "Chưa chọn vault",
+      "noVaultHint": "Tạo một vault để bắt đầu ghi chú",
+      "createVault": "Tạo vault"
+    },
+    "calendar": {
+      "monthYear": "{month} năm {year}"
+    },
+    "quick": {
+      "openNote": "Mở note",
+      "invalidFolder": "Tên thư mục không hợp lệ: dùng chữ và \"/\" giữa các thư mục, không dùng \"..\".",
+      "failed": "Chưa lưu được. Chữ vẫn còn trong ô phía trên, hãy thử lại."
+    }
+  }
+}

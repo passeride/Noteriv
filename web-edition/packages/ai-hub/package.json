@@ -1,0 +1,24 @@
+{
+  "name": "@noteriv/ai-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-provider AI hub for Noteriv: subscription harnesses (Claude Code, Codex ChatGPT), direct APIs and quota intelligence.",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5",
+    "vitest": "^5.0.4"
+  },
+  "dependencies": {
+    "@noteriv/core": "*"
+  }
+}

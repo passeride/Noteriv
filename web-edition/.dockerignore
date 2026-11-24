@@ -1,0 +1,12 @@
+# Build context for web/Dockerfile is the web edition root. Keep it small: anything installed or built
+# locally must never be sent to (or copied into) an image.
+**/node_modules
+**/.next
+**/out
+**/dist
+.git
+.omc
+.claude
+**/*.log
+**/.env*
+!**/.env.example

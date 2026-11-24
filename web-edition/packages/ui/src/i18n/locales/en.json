@@ -1,0 +1,2833 @@
+{
+  "editor": {
+    "toolbar": {
+      "label": "Formatting toolbar",
+      "bold": "Bold",
+      "italic": "Italic",
+      "strikethrough": "Strikethrough",
+      "code": "Inline code",
+      "link": "Insert link",
+      "image": "Insert image",
+      "blockquote": "Blockquote",
+      "codeBlock": "Code block",
+      "taskList": "Task list",
+      "table": "Insert table",
+      "rule": "Horizontal rule",
+      "short": {
+        "link": "Link",
+        "image": "Image",
+        "blockquote": "Quote",
+        "codeBlock": "Code",
+        "taskList": "Task",
+        "table": "Table",
+        "rule": "Rule"
+      }
+    },
+    "codeBlock": {
+      "copy": "Copy",
+      "copied": "Copied!"
+    },
+    "toc": {
+      "title": "Table of Contents",
+      "empty": "No headings found"
+    },
+    "embed": {
+      "open": "Open this note",
+      "loading": "Loading…",
+      "notFound": "“{target}” is not in this vault yet",
+      "anchorNotFound": "“{anchor}” is not in this note",
+      "loop": "This note is already shown above (it embeds itself)",
+      "tooDeep": "Embedded too deep to show",
+      "unavailable": "Embedded notes cannot be shown here"
+    },
+    "slash": {
+      "h1": "Heading 1",
+      "h2": "Heading 2",
+      "h3": "Heading 3",
+      "bullet": "Bulleted list",
+      "numbered": "Numbered list",
+      "task": "Task",
+      "quote": "Quote",
+      "callout": "Callout",
+      "code": "Code block",
+      "math": "Math block",
+      "table": "Table",
+      "divider": "Divider",
+      "bold": "Bold",
+      "italic": "Italic",
+      "strike": "Strikethrough",
+      "highlight": "Highlight",
+      "inlineCode": "Inline code",
+      "link": "Link",
+      "wikilink": "Link to note",
+      "embed": "Embed note",
+      "footnote": "Footnote",
+      "date": "Today's date",
+      "time": "Current time"
+    }
+  },
+  "panels": {
+    "quickOpen": {
+      "placeholder": "Type to search notes...",
+      "empty": "No notes found"
+    },
+    "commandPalette": {
+      "placeholder": "Type a command...",
+      "recent": "Recent",
+      "empty": "No commands found"
+    },
+    "vaultSearch": {
+      "placeholder": "Search across all notes…",
+      "noResults": "No results found",
+      "hint": "Type to search. Operators: OR, -word, \"phrase\", /regex/, file:, path:, tag:, line:(…), match-case:, [property:value]",
+      "noResultsHint": "Try fewer or different words, or search for a #tag.",
+      "replace": "Replace",
+      "replaceToggle": "Show or hide replace",
+      "replacePlaceholder": "Replace with…",
+      "replaceAll": "Replace all",
+      "replaceConfirm": {
+        "one": "Click again to replace in {count} note",
+        "other": "Click again to replace in {count} notes"
+      },
+      "replaceFailed": "Could not replace: the search failed",
+      "replaceNoTarget": "Replace needs one word, phrase or /regex/ to change (filters like path: are fine; no OR).",
+      "replaced": {
+        "one": "Replaced in {count} note",
+        "other": "Replaced in {count} notes"
+      },
+      "replacedSome": "Replaced in {count} notes; {failed} could not be changed",
+      "invalid": "Check the search: {what}",
+      "errors": {
+        "quote": "a quote is not closed",
+        "regex": "the /regex/ is not valid",
+        "paren": "a parenthesis is not closed",
+        "bracket": "a [property] is not closed",
+        "operator": "an operator has no value"
+      }
+    },
+    "bookmarks": {
+      "title": "Bookmarks",
+      "empty": "No bookmarks yet.",
+      "hint": "Use the bookmark button to add one.",
+      "close": "Close",
+      "remove": "Remove bookmark"
+    },
+    "conflict": {
+      "banner": "This is a conflict copy of {original}: a second version, kept on {stamp} (UTC) because the note was changed in two places at once.",
+      "compare": "Compare",
+      "hideCompare": "Hide comparison",
+      "keepOriginal": "Keep the original (delete this copy)",
+      "useThisVersion": "Use this version (replace the original)",
+      "keepBoth": "Keep both",
+      "originalMissing": "The original note no longer exists. This copy is now an ordinary note.",
+      "legendOriginal": "only in the original",
+      "legendThis": "only in this copy",
+      "identical": "Both versions are identical.",
+      "working": "Working…"
+    },
+    "tags": {
+      "title": "Tags",
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all",
+      "refresh": "Refresh tags",
+      "filter": "Filter tags...",
+      "clearFilter": "Clear filter",
+      "scanning": "Scanning tags...",
+      "noMatch": "No tags match the filter",
+      "empty": "No tags found in vault",
+      "tagTitle": {
+        "one": "{tag} ({count} note)",
+        "other": "{tag} ({count} notes)"
+      },
+      "groupTitle": "{segment} group ({count} total)"
+    },
+    "backlinks": {
+      "title": "Backlinks",
+      "count": {
+        "one": "{count} link",
+        "other": "{count} links"
+      },
+      "scanning": "Scanning vault...",
+      "empty": "No backlinks found for this note.",
+      "line": "Line {line}",
+      "unlinked": "Unlinked mentions",
+      "unlinkedEmpty": "No other note names this one without a link.",
+      "link": "Link",
+      "linkTitle": "Turn this mention into a link",
+      "unlinkedFailed": "Could not look for unlinked mentions. Try again later."
+    },
+    "outline": {
+      "title": "Outline",
+      "empty": "No headings found"
+    },
+    "outgoing": {
+      "title": "Outgoing links",
+      "empty": "This note has no links.",
+      "unresolved": "“{target}” does not exist yet",
+      "unlinked": "Unlinked mentions",
+      "unlinkedEmpty": "No note names found without a link.",
+      "linkTitle": "Link the first mention of {path}"
+    },
+    "hoverPreview": {
+      "loading": "Loading…",
+      "empty": "This note is empty.",
+      "notFound": "Note not found",
+      "noSection": "This heading or block is not in the note",
+      "readFailed": "Could not load the content"
+    },
+    "appImport": {
+      "title": "Import from another app",
+      "close": "Close",
+      "source": "Import from",
+      "sources": {
+        "notion": {
+          "name": "Notion",
+          "hint": "The .zip from Notion's Export with \"Markdown & CSV\": pages, sub-pages, databases, files."
+        },
+        "evernote": {
+          "name": "Evernote",
+          "hint": "One or more .enex files (export a notebook from Evernote): notes, tags, dates, pictures and files."
+        },
+        "html": {
+          "name": "HTML pages",
+          "hint": "A folder or .zip of HTML pages (Bear, Google Keep from Takeout, saved web pages); Markdown files in it too."
+        }
+      },
+      "pickZip": "Choose file…",
+      "pickEnex": "Choose .enex files…",
+      "pickFolder": "Choose folder…",
+      "reading": "Reading the export…",
+      "found": "Found {notes} notes and {files} attachments.",
+      "skipped": {
+        "one": "{count} file left out",
+        "other": "{count} files left out"
+      },
+      "reasons": {
+        "unsupported": "not a kind of file this import takes",
+        "unreadable": "could not be read",
+        "empty": "empty"
+      },
+      "folder": "Put them in the folder",
+      "folderHint": "A new folder keeps them apart from your notes; nothing already in the vault is overwritten (a note with a taken name gets a number).",
+      "import": "Import",
+      "importing": "Importing… {done}/{total}",
+      "done": {
+        "one": "Imported {count} item.",
+        "other": "Imported {count} items."
+      },
+      "kept": {
+        "one": "{count} item was already at its place in the vault and kept as it was.",
+        "other": "{count} items were already at their place in the vault and kept as they were."
+      },
+      "failed": {
+        "one": "{count} item could not be imported",
+        "other": "{count} items could not be imported"
+      },
+      "open": "Open the first note",
+      "nothing": "No notes in what you picked. Check that it is an export of this kind.",
+      "readFailed": "Could not read what you picked.",
+      "writeFailed": "The import stopped: nothing more could be written. Try again.",
+      "cancel": "Cancel",
+      "stopped": {
+        "one": "Stopped. {count} item was imported before that and stays in the vault.",
+        "other": "Stopped. {count} items were imported before that and stay in the vault."
+      },
+      "tooLarge": "This export is too large to import at once (over {max}). Export it in parts, or a few folders at a time.",
+      "tooManyFiles": "This export has too many files to import at once (over {max}). Export it in parts, or a few folders at a time."
+    }
+  },
+  "settings": {
+    "corePlugins": {
+      "intro": "Built-in plugins that ship with Noteriv, turned on or off for each vault. A disabled plugin's code is not loaded.",
+      "empty": "No core plugins.",
+      "loading": "Loading…",
+      "failed": "Failed to load",
+      "enable": "Enable",
+      "disable": "Disable",
+      "settings": "Options",
+      "hideSettings": "Hide options",
+      "saveFailed": "Could not save this choice: {detail}"
+    },
+    "title": "Settings",
+    "sections": {
+      "general": "General",
+      "appearance": "Appearance",
+      "editor": "Editor",
+      "shortcuts": "Shortcuts",
+      "sync": "Sync",
+      "corePlugins": "Core plugins",
+      "ecosystem": "Ecosystem",
+      "clipper": "Clipper",
+      "plan": "Plan and usage"
+    },
+    "on": "On",
+    "off": "Off",
+    "duration": {
+      "seconds": {
+        "one": "{count} second",
+        "other": "{count} seconds"
+      },
+      "minutes": {
+        "one": "{count} minute",
+        "other": "{count} minutes"
+      }
+    },
+    "pdfColumns": {
+      "one": "{count} column",
+      "other": "{count} columns"
+    },
+    "autoCollapse": {
+      "label": "Responsive sidebar",
+      "desc": "Collapse the file navigator when the window becomes narrow."
+    },
+    "spellCheck": {
+      "label": "Spell check",
+      "desc": "Underline misspelled words in the editor."
+    },
+    "autoSave": {
+      "label": "Auto-save",
+      "descWeb": "How long after you stop typing the note is saved.",
+      "descDesktop": "Automatically save files at a regular interval.",
+      "instant": "500 ms (almost instant)",
+      "default": "800 ms (default)"
+    },
+    "accent": {
+      "label": "Accent color",
+      "descWeb": "Overrides the theme's accent color; pick the first swatch to use the theme's own.",
+      "descDesktop": "Primary color used for highlights, links, and active states.",
+      "themeDefault": "Theme default",
+      "blue": "Blue",
+      "lavender": "Lavender",
+      "mauve": "Mauve",
+      "pink": "Pink",
+      "peach": "Peach",
+      "yellow": "Yellow",
+      "green": "Green",
+      "teal": "Teal"
+    },
+    "fontSize": {
+      "label": "Font size",
+      "desc": "Base font size for the editor (px)."
+    },
+    "lineHeight": {
+      "label": "Line height",
+      "desc": "Vertical spacing between lines."
+    },
+    "editorFont": {
+      "label": "Editor font",
+      "desc": "Monospace font used in the editor."
+    },
+    "tabSize": {
+      "label": "Tab size",
+      "desc": "Number of spaces per tab indentation.",
+      "spaces": {
+        "one": "{count} space",
+        "other": "{count} spaces"
+      }
+    },
+    "vimMode": {
+      "label": "Vim mode",
+      "desc": "Use Vim-style key bindings in the editor (Edit mode)."
+    },
+    "pdfColumnLayout": {
+      "label": "Column layout",
+      "descWeb": "Layout of PDF exports.",
+      "descDesktop": "Number of print columns; content flows from the left column into the right."
+    },
+    "pdfExport": "PDF export",
+    "exportAccountHint": "Exporting your data and deleting your account are on the vault list page (\"Account\" menu).",
+    "pluginTabGone": "This tab is no longer available (was the plugin turned off?).",
+    "thisVault": "this vault",
+    "shortcuts": {
+      "hint": "Click a shortcut to rebind it",
+      "resetAll": "Reset All",
+      "search": "Search commands or keys",
+      "searchLabel": "Search shortcuts",
+      "clear": "Clear",
+      "clearLabel": "Clear shortcut search",
+      "results": {
+        "one": "{count} shortcut",
+        "other": "{count} shortcuts"
+      },
+      "recording": "Press keys...",
+      "reset": "Reset to default",
+      "empty": "No shortcuts match \"{query}\"."
+    },
+    "ecosystem": {
+      "plugins": "Community Plugins",
+      "pluginsDesc": "Extend Noteriv with plugins. Install, enable, and manage third-party plugins.",
+      "snippets": "CSS Snippets",
+      "snippetsDesc": "Customize the appearance with custom CSS snippets that override default styles.",
+      "themes": "Community Themes",
+      "themesDesc": "Browse and install community themes. Available in Appearance > Theme."
+    },
+    "sync": {
+      "direction": {
+        "both": "Two-way (push & pull)",
+        "push": "Push only (local → folder)",
+        "pull": "Pull only (folder → local)"
+      }
+    },
+    "language": {
+      "label": "Language",
+      "desc": "Language of the interface.",
+      "autoWeb": "Follow the browser",
+      "autoDesktop": "Follow the system"
+    },
+    "autoUpdateLinks": {
+      "label": "Update links when renaming",
+      "desc": "Renaming or moving a note rewrites the links that point to it."
+    }
+  },
+  "plugins": {
+    "sandbox": {
+      "renderFailed": "The plugin could not render this block.",
+      "pluginError": "Plugin \"{id}\" failed: {error}"
+    },
+    "wordCount": {
+      "words": {
+        "one": "{count} word",
+        "other": "{count} words"
+      },
+      "title": "{characters} characters · ~{minutes} min read",
+      "command": "Word count: show note statistics",
+      "ribbon": "Word count",
+      "notice": {
+        "one": "{count} word · {characters} characters · ~{minutes} min read",
+        "other": "{count} words · {characters} characters · ~{minutes} min read"
+      },
+      "noNote": "No note is open.",
+      "name": "Word count",
+      "description": "Word count of the open note in the status bar, plus a command and ribbon button with statistics (Ctrl+Alt+W)."
+    },
+    "flashcards": {
+      "name": "Flashcards",
+      "description": "Spaced repetition (SM-2) over Q:/A: pairs and {{cloze}} deletions in your notes; open it from the ribbon or the command palette.",
+      "command": "Flashcards: review",
+      "ribbon": "Flashcards",
+      "title": "Flashcard Review",
+      "cards": {
+        "one": "{count} card",
+        "other": "{count} cards"
+      },
+      "due": "{count} due",
+      "done": "{count} done",
+      "scanning": "Scanning vault for flashcards...",
+      "caughtUp": "All caught up!",
+      "noCards": "No flashcards found. Add Q:/A: pairs or {{cloze}} deletions to your notes.",
+      "comeBack": {
+        "one": "{count} card reviewed. Come back tomorrow for more.",
+        "other": "{count} cards reviewed. Come back tomorrow for more."
+      },
+      "showAnswer": "Show Answer (Space)",
+      "close": "Close",
+      "grade": {
+        "again": "Again",
+        "hard": "Hard",
+        "ok": "OK",
+        "good": "Good",
+        "easy": "Easy"
+      }
+    },
+    "templates": {
+      "name": "Templates",
+      "description": "Insert a template at the cursor or start a new note from one. Templates are the notes in the Templates folder.",
+      "create": "Templates: new note from template",
+      "insert": "Templates: insert template",
+      "search": "Search templates...",
+      "emptyTitle": "No templates found",
+      "emptyFolder": "Create a \"{folder}\" folder in your vault root and add notes to use them as templates.",
+      "emptyVariables": "Use variables like {{date}}, {{title}}, {{time}} for dynamic content.",
+      "noMatch": "No matching templates",
+      "preview": "Preview",
+      "previewEmpty": "Select a template to preview",
+      "enterCreate": "create note",
+      "enterInsert": "insert",
+      "close": "close",
+      "move": "navigate",
+      "count": {
+        "one": "{count} template",
+        "other": "{count} templates"
+      },
+      "noNote": "Open a note before inserting a template."
+    },
+    "noteComposer": {
+      "name": "Note composer",
+      "description": "Merge notes into the open note, or split the open note into several notes by heading.",
+      "command": "Note composer: merge / split notes",
+      "title": "Note Composer",
+      "merge": "Merge",
+      "split": "Split",
+      "noNote": "No file selected",
+      "searchMerge": "Search notes to merge...",
+      "selected": "{count} selected",
+      "noNotes": "No matching notes",
+      "addHeadings": "Add file names as headings (h2) between merged notes",
+      "deleteAfter": {
+        "web": "Move source notes to the trash after merging",
+        "desktop": "Delete source files after merging"
+      },
+      "splitBy": "Split by:",
+      "noHeadings": "No {level} headings found to split on",
+      "exists": "exists, will be skipped",
+      "cancel": "Cancel",
+      "merging": "Merging...",
+      "mergeN": {
+        "one": "Merge {count} note",
+        "other": "Merge {count} notes"
+      },
+      "splitting": "Splitting...",
+      "splitN": {
+        "one": "Split into {count} note",
+        "other": "Split into {count} notes"
+      },
+      "skipped": {
+        "one": "Skipped {count} section: a note with that name already exists.",
+        "other": "Skipped {count} sections: a note with that name already exists."
+      }
+    },
+    "calendar": {
+      "name": "Calendar and daily notes",
+      "description": "Month view of daily notes and due tasks; open today's daily note with Ctrl+D or the ribbon.",
+      "openCalendar": "Calendar: open",
+      "todayNote": "Open today's daily note",
+      "ribbonCalendar": "Calendar view",
+      "ribbonDaily": "Daily note",
+      "months": "January,February,March,April,May,June,July,August,September,October,November,December",
+      "weekdays": "Sun,Mon,Tue,Wed,Thu,Fri,Sat",
+      "today": "Today",
+      "dailyNote": "Daily note",
+      "dueTasks": "Due tasks",
+      "notes": "Notes",
+      "tasksDue": "Tasks Due",
+      "nothing": "No notes or tasks for this day.",
+      "createDaily": "Create daily note",
+      "loading": "Reading vault…",
+      "close": "Close",
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month"
+    },
+    "vaultInsights": {
+      "name": "Vault insights",
+      "description": "Vault statistics: activity heatmap, most connected and orphan notes, top tags, growth and vault health.",
+      "command": "Vault insights: show statistics",
+      "title": "Vault Insights",
+      "close": "Close",
+      "loading": "Analyzing vault...",
+      "activity": "Note Activity",
+      "heatTip": {
+        "one": "{date}: {count} note modified",
+        "other": "{date}: {count} notes modified"
+      },
+      "less": "Less",
+      "more": "More",
+      "overview": "Overview",
+      "notes": "Notes",
+      "words": "Words",
+      "tags": "Tags",
+      "links": "Links",
+      "avgWords": "Avg Words",
+      "streak": "Daily Streak",
+      "current": "Current",
+      "longest": "Longest",
+      "last": "Last: {date}",
+      "hubs": "Most Connected",
+      "noHubs": "No connected notes yet",
+      "inOut": "{incoming} in / {outgoing} out",
+      "orphans": "Orphan Notes",
+      "noOrphans": "No orphan notes",
+      "topTags": "Top Tags",
+      "noTags": "No tags yet",
+      "growth": "Growth Over Time",
+      "noData": "No data yet",
+      "health": "Vault Health",
+      "withBacklinks": "With backlinks",
+      "withTags": "With tags",
+      "withFrontmatter": "With frontmatter",
+      "overall": "Overall health",
+      "undated": {
+        "one": "{count} note without dates is not in the charts.",
+        "other": "{count} notes without dates are not in the charts."
+      },
+      "dayLabels": ",Mon,,Wed,,Fri,",
+      "months": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec"
+    },
+    "markdownLint": {
+      "name": "Markdown lint",
+      "description": "Right-hand panel listing problems in the open note (broken links, headings…); click one to jump to its line. Ctrl+Shift+L.",
+      "title": "Lint",
+      "command": "Lint: toggle panel",
+      "errors": {
+        "one": "{count} error",
+        "other": "{count} errors"
+      },
+      "warnings": {
+        "one": "{count} warning",
+        "other": "{count} warnings"
+      },
+      "infos": "{count} info",
+      "ok": "No issues",
+      "none": "No issues found",
+      "noNote": "No note is open.",
+      "groupErrors": "Errors",
+      "groupWarnings": "Warnings",
+      "groupInfos": "Info",
+      "line": "line {line}"
+    },
+    "audioRecorder": {
+      "name": "Audio recorder",
+      "description": "Record from the microphone, save it as an attachment and insert the link into the open note.",
+      "command": "Audio recorder: record and insert",
+      "title": "Audio Recorder",
+      "close": "Close",
+      "idle": "Ready to record",
+      "requesting": "Requesting microphone access...",
+      "recording": "Recording...",
+      "recorded": "Recording complete",
+      "saving": "Saving...",
+      "start": "Start recording",
+      "stop": "Stop recording",
+      "discard": "Discard",
+      "save": "Save Recording",
+      "denied": "Microphone access was denied. Please allow it and try again.",
+      "noMic": "Could not access microphone: {message}",
+      "saveFailed": {
+        "web": "Failed to save the recording. The vault's storage quota may be used up.",
+        "desktop": "Failed to save the recording."
+      },
+      "savedNoNote": "Recording saved ({time}). Open a note to insert the link."
+    },
+    "graph": {
+      "name": "Graph view",
+      "description": "Every note and the wiki-links between them, or the local graph of the open note to a chosen depth; color by folder; click a note to open it. Ctrl+G or the ribbon button.",
+      "command": "Open graph view",
+      "localCommand": "Open local graph",
+      "title": "Graph View",
+      "filter": "Filter nodes...",
+      "close": "Close",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "building": "Building graph...",
+      "notes": "notes",
+      "connections": "connections",
+      "connectionCount": {
+        "one": "{count} connection",
+        "other": "{count} connections"
+      },
+      "oneWay": "one-way",
+      "reciprocal": "reciprocal",
+      "legend": "Link direction legend",
+      "allNotes": "All notes",
+      "thisNote": "This note",
+      "noNote": "Open a note first",
+      "depth": "Depth",
+      "colorByFolder": "Color by folder",
+      "rootFolder": "(vault root)"
+    },
+    "slides": {
+      "name": "Slides",
+      "description": "Present the open note full screen, one slide per --- section, with speaker notes and an overview.",
+      "command": "Start presentation",
+      "title": "Presentation",
+      "noNote": "Open a note to present it.",
+      "exit": "Exit",
+      "notes": "Notes",
+      "overview": "Overview",
+      "print": "Print",
+      "speakerNotes": "Speaker Notes",
+      "overviewTitle": {
+        "one": "Slide Overview ({count} slide)",
+        "other": "Slide Overview ({count} slides)"
+      },
+      "closeOverview": "Close Overview",
+      "separatorHint": "Use --- on its own line to separate slides"
+    },
+    "noteHistory": {
+      "name": "Note history",
+      "description": "Time scrubber over the note's saved snapshots (Ctrl+Shift+H) and its git history; restore an earlier version.",
+      "gitCommand": "Note history (git)",
+      "scrubberCommand": "Time scrubber",
+      "gitTitle": "Note History",
+      "scrubberTitle": "Time Scrubber",
+      "noNote": "Open a note to see its history.",
+      "close": "Close",
+      "restore": "Restore this version",
+      "restoreHint": "Replace current content with this version",
+      "restored": "Restored an earlier version.",
+      "loadingHistory": "Loading history...",
+      "loadingVersion": "Loading version...",
+      "gitEmpty": "No git history found for this file.",
+      "gitEmptyHint": {
+        "web": "It needs a git sync connection that has run at least once, with this note committed.",
+        "desktop": "Make sure the vault is a git repository with committed changes."
+      },
+      "oldest": "Oldest",
+      "latest": "Latest",
+      "commits": "Commits",
+      "noMessage": "(no message)",
+      "changesFrom": "Changes from {hash} to current",
+      "loadingSnapshots": "Loading snapshots...",
+      "scrubberEmpty": "No history yet for this note",
+      "scrubberEmptyHint": {
+        "web": "Snapshots are taken automatically about every 10 minutes while the note changes. Keep writing and a timeline will build up here.",
+        "desktop": "Snapshots are captured every time you save. Keep editing and a timeline will build up here automatically."
+      },
+      "now": "Now (unsaved)",
+      "isCurrent": "This is the current version",
+      "play": "Play (Space)",
+      "pause": "Pause (Space)",
+      "keysHint": "← → step · Space play/pause · Esc close",
+      "ago": {
+        "justNow": "just now",
+        "seconds": "{count}s ago",
+        "minutes": "{count}m ago",
+        "hours": "{count}h ago",
+        "days": "{count}d ago"
+      }
+    },
+    "pdfViewer": {
+      "name": "PDF viewer",
+      "description": "Read PDFs in a tab and annotate them: highlight, underline, notes; export the annotations to a note.",
+      "loading": "Loading PDF...",
+      "loadFailed": "Could not load the PDF",
+      "openFailed": "Could not open the PDF",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fitWidth": "Fit width",
+      "fitPage": "Fit page",
+      "select": "Select",
+      "highlight": "Highlight",
+      "note": "Note",
+      "underline": "Underline",
+      "toggleSidebar": "Show/hide annotations",
+      "export": "Export annotations to a note",
+      "close": "Close",
+      "notePlaceholder": "Type a note...",
+      "commentPlaceholder": "Add a comment...",
+      "addNote": "Add note",
+      "cancel": "Cancel",
+      "save": "Save",
+      "delete": "Delete",
+      "annotations": "Annotations",
+      "empty": "No annotations yet. Use the highlight, note or underline tool.",
+      "pageShort": "p.",
+      "exportFailed": "Could not export the annotations.",
+      "markdown": {
+        "title": "Annotations: {file}",
+        "highlights": "Highlights",
+        "underlines": "Underlines",
+        "notes": "Notes",
+        "page": "page {page}"
+      }
+    },
+    "board": {
+      "name": "Board (Kanban)",
+      "description": "Show .board.md files and notes with board: true in their frontmatter as a Kanban board (## headings are columns, - [ ] items are cards); New board command.",
+      "create": "New board",
+      "failed": "Could not create a new board.",
+      "addCard": "Add card",
+      "deleteColumn": "Delete column",
+      "confirmDeleteColumn": {
+        "one": "Delete \"{title}\" and its {count} card?",
+        "other": "Delete \"{title}\" and its {count} cards?"
+      },
+      "cardPlaceholder": "Card text...",
+      "addCardButton": "+ Add card",
+      "columnPlaceholder": "Column title...",
+      "add": "Add",
+      "cancel": "Cancel",
+      "addColumn": "+ Add column"
+    },
+    "canvas": {
+      "name": "Canvas",
+      "description": "Free-form boards of text, note, sticky, image and group nodes joined by edges; opens .canvas files. New canvas command.",
+      "create": "New canvas",
+      "failed": "Could not create a new canvas.",
+      "searchNotes": "Search notes...",
+      "noMatchingNotes": "No matching notes",
+      "noteNotFound": "(note not found)",
+      "pickImage": "Pick an image",
+      "upload": "Upload…",
+      "uploading": "Uploading…",
+      "noImages": "No images in the vault yet. Upload one with the button above.",
+      "loading": "Loading…",
+      "group": "Group",
+      "select": "Select (V)",
+      "addText": "Add text node",
+      "addSticky": "Add sticky note",
+      "addImage": "Add image",
+      "addFile": "Add file node",
+      "addGroup": "Add group",
+      "draw": "Draw (D)",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "resetZoom": "Reset zoom",
+      "zoomToFit": "Zoom to fit",
+      "deleteSelected": "Delete selected",
+      "menu": {
+        "duplicate": "Duplicate",
+        "stickyColor": "Sticky Color",
+        "color": "Color",
+        "delete": "Delete",
+        "addText": "Add Text Node",
+        "addSticky": "Add Sticky Note",
+        "addImage": "Add Image"
+      }
+    },
+    "drawing": {
+      "name": "Drawing",
+      "description": "Freehand sketches, shapes, text and eraser; opens .drawing files. New drawing command.",
+      "create": "New drawing",
+      "failed": "Could not create a new drawing.",
+      "tool": {
+        "select": "Select (V)",
+        "pencil": "Pencil (P)",
+        "rectangle": "Rectangle (R)",
+        "ellipse": "Ellipse (O)",
+        "line": "Line (L)",
+        "arrow": "Arrow (A)",
+        "text": "Text (T)",
+        "eraser": "Eraser (E)"
+      },
+      "pickColor": "Pick any color",
+      "fillOn": "Fill On",
+      "fillOff": "Fill Off",
+      "resetView": "Reset View",
+      "clear": "Clear",
+      "confirmClear": "Confirm clear?",
+      "saving": "Saving…"
+    },
+    "dataview": {
+      "name": "Dataview",
+      "description": "Query your notes with ```dataview blocks (TABLE / LIST / TASK, by folder, tag or frontmatter); Insert Dataview query command.",
+      "insert": "Insert Dataview query",
+      "running": "Running query...",
+      "error": "Error: {message}"
+    },
+    "mermaid": {
+      "name": "Mermaid",
+      "description": "Diagrams from ```mermaid code blocks in the editor, reading view and PDF export. The library loads on the first diagram.",
+      "rendering": "Rendering diagram...",
+      "error": "Diagram Error"
+    },
+    "views": {
+      "name": "Views",
+      "description": "Show notes by their properties with ```view blocks or view files: a table, cards, a list or a kanban board; edit values in place; Insert view and New view commands.",
+      "insert": "Insert view",
+      "create": "New view",
+      "failed": "Could not create the view.",
+      "notes": {
+        "one": "{count} note",
+        "other": "{count} notes"
+      },
+      "error": "Check the “{setting}” setting of this view.",
+      "empty": "No notes match this view.",
+      "none": "None",
+      "open": "Open note",
+      "edit": "Click to edit",
+      "layouts": {
+        "table": "Table",
+        "cards": "Cards",
+        "list": "List",
+        "kanban": "Kanban"
+      },
+      "fileHint": "Change what this view shows in source mode."
+    },
+    "footnotes": {
+      "name": "Footnotes",
+      "description": "A side panel listing the open note's footnotes and inline footnotes; click one to go to its definition or a reference, see the ones missing a definition or never referred to.",
+      "title": "Footnotes",
+      "command": "Toggle Footnotes panel",
+      "noNote": "Open a note to see its footnotes.",
+      "none": "This note has no footnotes.",
+      "count": {
+        "one": "{count} footnote",
+        "other": "{count} footnotes"
+      },
+      "inline": "inline",
+      "noDefinition": "No definition",
+      "unused": "Not referred to",
+      "goToRef": "Go to reference {n}"
+    },
+    "uniqueNote": {
+      "name": "Unique note creator",
+      "description": "A command that creates a note named by the current time (like 202610231430), in a folder you choose: handy for Zettelkasten-style notes.",
+      "command": "Create unique note",
+      "failed": "Could not create the note.",
+      "settings": "Unique notes",
+      "folder": "Folder",
+      "folderHint": "Where new notes go; empty for the vault root.",
+      "format": "Name format",
+      "preview": "Next note: {path}",
+      "saveFailed": "Could not save the setting."
+    },
+    "chessboard": {
+      "name": "Chessboard",
+      "description": "Chess diagrams from ```chessboard code blocks: a FEN position with optional highlights and arrows, in a choice of piece sets and board colours.",
+      "settings": "Chessboard",
+      "pieceSet": "Piece set",
+      "boardTheme": "Board theme",
+      "save": "Save as default",
+      "saved": "Chessboard defaults saved.",
+      "saveFailed": "Could not save the chessboard defaults.",
+      "hint": "Boards already open in a note keep their current look until you reopen the note.",
+      "missingFen": "Missing \"fen:\" field",
+      "invalidFen": "Invalid FEN: {error}",
+      "renderError": "Render error: {message}",
+      "diagramLabel": "Chess diagram: {fen}",
+      "syntax": "Options in a ```chessboard block:\nfen: <position>            required\norientation: white | black\nlabels: true               show a-h and 1-8\nsize: 280                  width in px, 100 to 600\nstrict: false              draw even a malformed FEN\npieceset: classic | spatial | minimal\nboardtheme: classic | forest | ocean | midnight\nannotations: He4/g, Ae2-e4\n  H<square>/g|r|b|y  highlight a square\n  A<square>-<square> draw an arrow\nKings are not required."
+    }
+  },
+  "web": {
+    "bookmarks": {
+      "hint": "Click the bookmark icon in the note toolbar to add one."
+    },
+    "ribbon": {
+      "quickOpen": "Quick Open (Ctrl+K)",
+      "commandPalette": "Command palette (Ctrl+Shift+P or F1)",
+      "outline": "Outline",
+      "tags": "Tags",
+      "bookmarks": "Bookmarks",
+      "more": "More tools",
+      "sync": "Git / WebDAV sync",
+      "plugins": "Plugins",
+      "attachments": "Attachments",
+      "themes": "Themes",
+      "snippets": "CSS Snippets",
+      "trash": "Trash"
+    },
+    "menu": {
+      "file": "File",
+      "edit": "Edit",
+      "view": "View",
+      "plugin": "Plugin",
+      "settings": "Settings",
+      "developer": "Developer",
+      "items": {
+        "newNote": "New Note",
+        "save": "Save",
+        "previewPDF": "Preview PDF",
+        "exportPDF": "Download PDF",
+        "printNote": "Print…",
+        "importVault": "Import folder / zip…",
+        "importNewVault": "Import as New Vault…",
+        "newVaultFromGithub": "New Vault from GitHub…",
+        "exportVault": "Export Vault (.zip)",
+        "openTrash": "Trash",
+        "closeTab": "Close Tab",
+        "findInVault": "Find in Vault",
+        "toggleBold": "Bold",
+        "toggleItalic": "Italic",
+        "toggleCode": "Inline Code",
+        "insertLink": "Insert Link",
+        "toggleSidebar": "Toggle Sidebar",
+        "toggleViewMode": "Cycle Edit / View / Source",
+        "splitEditor": "Split Editor",
+        "zenMode": "Zen Mode",
+        "focusMode": "Focus Mode",
+        "toggleOutline": "Outline",
+        "toggleTags": "Tags",
+        "toggleBacklinks": "Backlinks",
+        "randomNote": "Random Note",
+        "commandPalette": "Command Palette",
+        "settings": "Preferences…",
+        "gitSync": "Sync Now",
+        "syncSettings": "Sync Settings (Git / WebDAV)…",
+        "pluginManager": "Plugins…",
+        "themePicker": "Themes…",
+        "cssSnippets": "CSS Snippets…",
+        "devToolsHint": "Toggle Developer Tools (F12)",
+        "reloadApp": "Reload Window",
+        "diagnostics": "Diagnostics…",
+        "toggleOutgoingLinks": "Outgoing links",
+        "toggleProperties": "All properties",
+        "importFromApp": "Import from Notion, Evernote, HTML…"
+      }
+    },
+    "noteToolbar": {
+      "bookmark": "Bookmark this note",
+      "unbookmark": "Remove bookmark",
+      "backlinks": "Backlinks",
+      "collab": "Collaboration",
+      "exportPDF": "Download PDF",
+      "publish": "Publish preview (static HTML)",
+      "fileRecovery": "File Recovery"
+    },
+    "header": {
+      "collapseSidebar": "Collapse sidebar"
+    },
+    "status": {
+      "openSync": "Open Settings > Sync"
+    },
+    "sync": {
+      "notConnected": "Git: not connected",
+      "conflict": "sync: conflict",
+      "error": "sync: error",
+      "at": "sync: {time}",
+      "never": "sync: not run yet",
+      "direction": {
+        "label": "Sync direction",
+        "both": "Two-way",
+        "push": "Push only (web → repo)",
+        "pull": "Pull only (repo → web)"
+      },
+      "status": {
+        "queued": "queued",
+        "running": "running",
+        "success": "success",
+        "error": "error",
+        "conflict": "conflict"
+      },
+      "forbidden": "You don't have permission to do this.",
+      "on": "On",
+      "auto": {
+        "label": "Auto-sync",
+        "desc": "Runs in the background on a schedule, no button needed."
+      },
+      "every": {
+        "one": "every {count} minute",
+        "other": "every {count} minutes"
+      },
+      "onSave": {
+        "label": "Sync on save",
+        "desc": "Pushes about 30 seconds after the first save."
+      },
+      "pullOnOpen": {
+        "label": "Pull when opening the vault",
+        "desc": "Fetches new changes from the repo every time you open the vault."
+      },
+      "commitTemplate": {
+        "label": "Commit message template",
+        "desc": "Use {date} {time} {count}."
+      },
+      "connections": "Sync connections",
+      "loading": "Loading…",
+      "none": "No connections yet. Connect GitHub to back up and sync this vault with a repository.",
+      "lastSynced": "Last: {time}",
+      "neverSynced": "Never synced",
+      "syncing": " · syncing…",
+      "unsynced": {
+        "one": " · {count} note not synced",
+        "other": " · {count} notes not synced"
+      },
+      "remoteChanged": " · remote has new changes",
+      "remoteUnreachable": " · remote unreachable ({error})",
+      "autoEvery": {
+        "one": " · automatic every {count} minute",
+        "other": " · automatic every {count} minutes"
+      },
+      "errorPrefix": "Error: {message}",
+      "conflictTitle": "Conflict: the web and the repo both changed some files",
+      "moreFiles": {
+        "one": "… and {count} more file",
+        "other": "… and {count} more files"
+      },
+      "conflictHint": "Choose the side to keep. The other side stays in the repo's git history.",
+      "keepWeb": "Keep the web version",
+      "keepWebConfirm": "Click again: keep the web version",
+      "keepRepo": "Take the repo version",
+      "keepRepoConfirm": "Click again: take the repo version",
+      "resolveFailed": "Could not resolve the conflict.",
+      "syncNow": "Sync now",
+      "syncingButton": "Syncing…",
+      "startFailed": "Could not start the sync.",
+      "test": "Test connection",
+      "testOk": "The connection works.",
+      "testFailed": "Could not connect.",
+      "testError": "Could not test the connection.",
+      "checkRemote": "Check remote",
+      "edit": "Edit",
+      "closeEdit": "Close editing",
+      "log": "Log",
+      "logEmpty": "No runs yet.",
+      "remove": "Delete",
+      "removeConfirm": "Click again to delete",
+      "removeFailed": "Could not delete the connection.",
+      "addGithub": "+ Connect GitHub",
+      "addGit": "+ Other git (GitLab, Gitea…)",
+      "addWebdav": "+ WebDAV",
+      "branch": "Branch",
+      "newToken": {
+        "label": "Change access token",
+        "desc": "Leave empty to keep the current token.",
+        "placeholder": "new token"
+      },
+      "save": "Save",
+      "saveChanges": "Save changes",
+      "saving": "Saving…",
+      "saveFailed": "Could not save the changes.",
+      "cancel": "Cancel",
+      "github": {
+        "title": "Connect GitHub",
+        "step1": "Step 1 — paste a Personal Access Token (with the repo scope).",
+        "createToken": "Create a token →",
+        "tokenPlaceholder": "ghp_xxxx… or github_pat_xxxx…",
+        "verifying": "Checking…",
+        "verify": "Verify & pick a repo",
+        "verifyFailed": "Could not verify the token.",
+        "signedIn": "Verified:",
+        "step2": "Step 2 — pick an existing repository or create one.",
+        "filter": "Filter repositories…",
+        "noMatch": "No matching repository.",
+        "newRepoPlaceholder": "new repo name, e.g. my-notes",
+        "private": "Private",
+        "createRepo": "Create repo",
+        "createRepoFailed": "Could not create the repository.",
+        "step3": "Step 3 — repo",
+        "changeRepo": "Change repo",
+        "emptyRepo": "Empty repo: this branch is created on the first sync.",
+        "firstSync": "First sync: notes already in the repo are imported into the vault; a note at the same path keeps the web's content.",
+        "connecting": "Connecting…",
+        "connect": "Connect",
+        "connectFailed": "Could not create the connection."
+      },
+      "git": {
+        "remoteDesc": "GitLab, Gitea/Forgejo, Bitbucket… — HTTPS.",
+        "createToken": "Create an access token →",
+        "usernameDesc": "Leave empty if not needed (GitLab). Use your login for Gitea/Forgejo.",
+        "token": "Access token",
+        "required": "A remote URL and an access token are required.",
+        "addFailed": "Could not add the connection — check the remote URL and token."
+      },
+      "webdav": {
+        "serverDesc": "Nextcloud, ownCloud, or any WebDAV server.",
+        "required": "A URL, username and password are required.",
+        "addFailed": "Could not add the WebDAV connection — check the details."
+      },
+      "field": {
+        "remoteUrl": "Remote URL",
+        "username": "Username",
+        "password": "Password",
+        "remotePath": "Remote path",
+        "serverUrl": "Server URL"
+      }
+    },
+    "vaults": {
+      "title": "Vaults",
+      "noVault": "No Vault",
+      "rename": "Rename vault",
+      "delete": "Delete vault",
+      "confirmDelete": "Click again to delete permanently",
+      "newPlaceholder": "New vault name",
+      "renameFailed": "Could not rename the vault.",
+      "deleteFailed": "Could not delete the vault (only its owner can).",
+      "new": "New vault",
+      "newFromGithub": "New vault from GitHub…",
+      "importZip": "Import folder / zip…"
+    },
+    "collab": {
+      "title": "Collaboration",
+      "live": "Syncing live",
+      "connecting": "Connecting…",
+      "alone": "Nobody else has this note open.",
+      "peers": {
+        "one": "{count} other person is viewing",
+        "other": "{count} other people are viewing"
+      }
+    },
+    "files": {
+      "nameTaken": "An item with that name is already in the target folder.",
+      "moveIntoSelf": "A folder cannot be moved into itself.",
+      "moveFailed": "Could not move it.",
+      "renameTaken": "There is already an item named \"{name}\" here.",
+      "renameFailed": "Could not rename it.",
+      "newNoteFailed": "Could not create a new note.",
+      "newFolderFailed": "Could not create a new folder."
+    },
+    "notice": {
+      "noteMissing": "This note no longer exists (it may have been deleted or be in the Trash).",
+      "openFailed": "Could not open the note, please try again.",
+      "tabsNotRestored": "Some tabs could not be restored because of a connection error; reload the page to try again.",
+      "devTools": "Press F12 (or Ctrl+Shift+I) to open the browser's developer tools.",
+      "pdfCreating": "Creating PDF…",
+      "pdfDone": "PDF downloaded.",
+      "pdfFailed": "Could not create the PDF. You can use File → Print… and choose Save as PDF.",
+      "previewCreating": "Creating preview…",
+      "previewFailed": "Could not create the PDF preview.",
+      "newNoteFailed": "Could not create a new note. Check the connection or your write access to the vault and try again."
+    },
+    "empty": {
+      "title": "Pick or create a note to start",
+      "newNote": "Create a new note",
+      "newNoteHint": "Start writing right away",
+      "connect": "Connect GitHub / WebDAV",
+      "connectHint": "Sync the vault with your repository",
+      "import": "Import a folder / zip",
+      "importHint": "Bring an existing vault to the web",
+      "plugins": "Install plugins",
+      "pluginsHint": "Extend it with community plugins",
+      "quickOpen": "Quick open (⌘K)"
+    },
+    "zenExit": "Exit Zen (Esc)",
+    "tabs": {
+      "newTab": "New tab"
+    },
+    "newVaultGithub": {
+      "title": "New vault from a GitHub repo",
+      "createFailed": "Could not create a new vault.",
+      "preparing": "Preparing…"
+    },
+    "clipper": {
+      "saved": "Saved to Noteriv",
+      "errorStatus": "Noteriv: error ",
+      "blocked": "Could not reach Noteriv (this page may block outside connections)",
+      "defaultName": "My browser",
+      "fallbackName": "Browser",
+      "createFailed": "Could not create the token (20 tokens at most, and you need write access to the vault).",
+      "revokeFailed": "Could not revoke the token.",
+      "intro": "Save the page you are viewing to the vault \"{vault}\" (folder Clippings/). Select the part to keep, then click the bookmarklet; with nothing selected it saves the page's main content.",
+      "new": {
+        "label": "New bookmarklet",
+        "desc": "Give each browser or device its own token so it can be revoked."
+      },
+      "creating": "Creating…",
+      "create": "Create",
+      "ready": "“{name}” is ready",
+      "dragHint": "Drag the button below to your browser's bookmarks bar (or right-click → Add to bookmarks). The token is shown only here, once; the bookmarklet contains it, so don't share it.",
+      "cspHint": "Some pages (strict CSP) stop bookmarklets from sending data out; you then see a connection error.",
+      "active": "Active tokens",
+      "loading": "Loading…",
+      "none": "No tokens yet.",
+      "usage": "Vault: {vault} · {used}",
+      "lastUsed": "last used {time}",
+      "unused": "never used",
+      "revoke": "Revoke",
+      "revokeConfirm": "Click again to revoke"
+    },
+    "pluginManager": {
+      "permission": {
+        "vaultRead": "Read notes in the vault",
+        "vaultWrite": "Create, edit and delete notes in the vault",
+        "editorRead": "Read the open note",
+        "editorWrite": "Edit the open note",
+        "uiCommands": "Add commands to the interface",
+        "uiStatusbar": "Show information in the status bar",
+        "uiPanel": "Add side panels and tabs in Settings",
+        "markdownRender": "Show special content in notes (code blocks)"
+      },
+      "communityLoadFailed": "Could not load the community plugin list (the repository may not be ready yet).",
+      "sourceMissing": "Could not load \"{name}\": manifest.json or main.js is missing from the repository.",
+      "installFailed": "Installing \"{name}\" failed.",
+      "manifestInvalid": "manifest.json is not valid (it must be JSON).",
+      "mainJsMissing": "main.js is missing.",
+      "title": "Plugins",
+      "close": "Close",
+      "tabs": {
+        "installed": "Installed",
+        "community": "Community",
+        "manual": "Manual install"
+      },
+      "confirmTitle": "Install \"{name}\"?",
+      "grants": "This plugin will be granted: {permissions}",
+      "noPermissions": "no permissions",
+      "confirm": "Confirm install",
+      "cancel": "Cancel",
+      "noneInstalled": "No plugins installed yet.",
+      "noneGranted": "No permissions granted yet",
+      "disable": "Disable",
+      "enable": "Enable",
+      "uninstall": "Uninstall",
+      "blocked": "The plugin tried to use permissions it does not have and was blocked: {permissions}.",
+      "needsMore": "The plugin's code uses APIs that need more permissions; it may not work fully.",
+      "grantNeeded": "Grant the needed permissions",
+      "unused": "Permissions the plugin's code does not use: {permissions}.",
+      "keepNeeded": "Keep only the needed permissions",
+      "editPermissions": "Edit permissions",
+      "loadingList": "Loading the list…",
+      "installed": "Installed",
+      "installing": "Installing…",
+      "install": "Install",
+      "noneCommunity": "No community plugins yet.",
+      "manualTitle": "Install a new plugin (paste it in)",
+      "manifestPlaceholder": "manifest.json, e.g. {\"id\":\"hello\",\"name\":\"Hello\",\"version\":\"1.0.0\",\"description\":\"\",\"author\":\"\",\"main\":\"main.js\",\"permissions\":[\"ui:commands\"]}",
+      "browseCommunity": "Browse community plugins"
+    },
+    "attachments": {
+      "uploadFailed": "Upload failed — the vault's storage quota may be used up.",
+      "nearlyFull": "Nearly at the storage limit",
+      "maxSize": "Up to 25 MB per file",
+      "deleteConfirm": "Click again to delete",
+      "used": "{used} / {quota} used (whole account)",
+      "clickView": "Click to view: {name}",
+      "footerView": "view",
+      "usedNoLimit": "{used} used (whole account, no limit)"
+    },
+    "fileRecovery": {
+      "scrubTitle": "Switch to Time Scrubber view",
+      "scrub": "Scrub timeline"
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "serverFailed": "Could not get the report from the server (is the API responding?).",
+      "copyFailed": "The browser does not allow copying automatically; select the text and copy it yourself.",
+      "server": "SERVER",
+      "checking": "Checking…",
+      "database": "Database",
+      "redis": "Redis (queue)",
+      "gitMissing": "not installed — sync will fail",
+      "storage": "Attachment storage (S3)",
+      "unreachable": "cannot connect",
+      "worker": "Worker (background sync)",
+      "heartbeat": "heartbeat {seconds}s ago",
+      "noHeartbeat": "no heartbeat — sync and auto-sync will not run",
+      "pdf": "PDF service",
+      "ready": "ready",
+      "notResponding": "not responding",
+      "notConfigured": "not configured (PDF_SERVICE_URL)",
+      "scratch": "Scratch disk for sync",
+      "diskFree": "{free} MB free / {total} MB",
+      "noConnections": "No connections.",
+      "neverRun": "not run yet",
+      "noPlugins": "No plugins installed.",
+      "off": "(off)",
+      "permissions": "permissions: {list}",
+      "none": "none",
+      "blocked": "BLOCKED: {list}",
+      "browser": "BROWSER",
+      "unknown": "unknown",
+      "recheck": "Check again",
+      "copied": "Copied ✓",
+      "copy": "Copy report",
+      "sync": "SYNC",
+      "plugins": "PLUGINS"
+    },
+    "pdfPreview": {
+      "download": "Download PDF",
+      "print": "Print",
+      "hint": "Preview not showing in your browser? Click “Download PDF” to open it in another app.",
+      "title": "Preview · {file}",
+      "frameTitle": "Preview of {file}"
+    },
+    "import": {
+      "nothing": "No .md files or attachments found to import.",
+      "readFailed": "Could not read the selected source (is the zip file valid?).",
+      "interrupted": "The import was interrupted. You can run it again — files already imported are skipped.",
+      "pickFolder": "Choose a folder…",
+      "pickZip": "Choose a .zip file…",
+      "pickFiles": "Choose .md files…",
+      "folder": "Import into folder",
+      "vaultRoot": "(Vault root)",
+      "scanning": "Scanning…",
+      "newName": "New vault name",
+      "conflict": "If a note already exists at the same path",
+      "running": "Importing…",
+      "start": "Start import",
+      "stop": "Stop",
+      "stopped": "Stopped part way",
+      "done": "Import finished",
+      "open": "Open the vault",
+      "reason": {
+        "hidden": "hidden file",
+        "tooBig": "larger than 25 MB",
+        "quota": "out of attachment storage",
+        "unreadable": "could not read the file",
+        "unverified": "email not verified yet"
+      },
+      "phase": {
+        "attachments": "Uploading attachments",
+        "notes": "Importing notes",
+        "finalize": "Updating links",
+        "done": "Done"
+      },
+      "into": "Import into \"{vault}\"",
+      "newVault": "Import as a new vault",
+      "intro": "Choose one or more .md files, a vault folder (it may be one you use with desktop or Obsidian) or a .zip file. .md notes keep their folder structure; images, PDFs, audio… are uploaded as attachments and the links in your notes are updated to match.",
+      "found": "{notes} notes · {attachments} attachments",
+      "skipped": {
+        "one": "Skipped {count} file",
+        "other": "Skipped {count} files"
+      },
+      "keepExisting": "Keep the vault's version (skip)",
+      "overwrite": "Overwrite with the imported one",
+      "reportNotes": "Notes: {created} new, {updated} overwritten, {skipped} skipped",
+      "reportAttachments": "Attachments: {uploaded} uploaded, {reused} reused",
+      "failures": {
+        "one": "{count} item failed",
+        "other": "{count} items failed"
+      },
+      "errorStatus": "error {status}",
+      "uploadFailed": "could not upload",
+      "sendFailed": "could not send"
+    },
+    "auth": {
+      "badLogin": "Wrong email or password.",
+      "error": "Something went wrong.",
+      "loginTitle": "Sign in to Noteriv",
+      "password": "Password",
+      "signingIn": "Signing in…",
+      "signIn": "Sign in",
+      "noAccount": "No account yet?",
+      "signUp": "Sign up",
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "badInvite": "The invite code is wrong, used up, expired or revoked. Check with the person who sent it.",
+      "closed": "New accounts are not open yet.",
+      "emailTaken": "This email is already in use.",
+      "tooMany": "Too many attempts. Please wait a minute and try again.",
+      "registerError": "Something went wrong. Check the email and password (at least 8 characters).",
+      "closedTitle": "Sign-up is not open",
+      "closedDesc": "Noteriv is not taking new accounts yet.",
+      "registerTitle": "Create a Noteriv account",
+      "inviteCode": "Invite code",
+      "displayName": "Display name",
+      "newPassword": "Password (at least 8 characters)",
+      "acceptBefore": "I have read and agree to the",
+      "termsOfUse": "Terms of Use",
+      "and": "and the",
+      "privacyPolicy": "Privacy Policy",
+      "creating": "Creating…",
+      "haveAccount": "Already have an account?",
+      "language": "Language",
+      "forgotLink": "Forgot password?",
+      "forgotTitle": "Reset your password",
+      "forgotDesc": "Enter the email of your account. If an account uses it, we email a link to choose a new password.",
+      "sendLink": "Send link",
+      "sending": "Sending…",
+      "forgotSent": "If an account uses this email, a link is on its way. It works for 1 hour. Check your spam folder too.",
+      "emailOff": "Password reset by email is not available yet. Ask the person who runs this Noteriv to reset it for you.",
+      "backToSignIn": "Back to sign in",
+      "resetTitle": "Choose a new password",
+      "resetSubmit": "Save new password",
+      "saving": "Saving…",
+      "resetDone": "Your password was changed. Sign in with the new password; every other device has been signed out.",
+      "badLink": "This link is invalid, already used or expired. Ask for a new one.",
+      "verifyTitle": "Verify email",
+      "verifying": "Checking the link…",
+      "verifyDone": "Your email is verified. Thank you!",
+      "emailChangedDone": "Your email was changed. Sign in with the new address.",
+      "continue": "Continue",
+      "captchaFailed": "The bot check did not pass. Try again.",
+      "locked": "This account is locked. If you think this is a mistake, write to {email}."
+    },
+    "vaultList": {
+      "title": "Your vaults",
+      "signOut": "Sign out",
+      "loading": "Loading…",
+      "empty": "No vaults yet.",
+      "create": "Create",
+      "account": "Account",
+      "invites": "Manage invite codes (admin)",
+      "export": "Download all my data (JSON)",
+      "deleteConfirm": "Click again to permanently delete the account and all its data",
+      "delete": "Delete account",
+      "emptyHint": "Give your first vault a name below. Inside it you can also import an existing folder of Markdown notes.",
+      "unreachable": "Can't reach the server. Check your connection and try again.",
+      "signedInAs": "Signed in as {email}",
+      "unverified": "Your email is not verified yet. Follow the link in the email we sent you.",
+      "resendVerification": "Send the link again",
+      "verificationSent": "Link sent. Check your inbox.",
+      "changeEmail": "Change email",
+      "newEmail": "New email",
+      "currentPassword": "Current password",
+      "sendConfirmation": "Send confirmation link",
+      "changeEmailSent": "We sent a link to {email}. Your email changes when you follow it.",
+      "wrongPassword": "Wrong password.",
+      "sameEmail": "That is already your email.",
+      "tooSoon": "An email was sent less than a minute ago. Wait a moment and try again.",
+      "emailOff": "Sending email is not available yet.",
+      "emailFailed": "The email could not be sent. Try again later.",
+      "cancel": "Cancel",
+      "admin": "Administration (admin)",
+      "deletePasswordPrompt": "Please enter your password to confirm account deletion:"
+    },
+    "termsGate": {
+      "title": "We updated our Terms and Privacy Policy",
+      "intro": "Please read and accept them to keep using Noteriv. The main changes:",
+      "change1": "Why we process each kind of data, and the legal basis for it.",
+      "change2": "How long we keep each kind of record (the security log is now deleted after 12 months).",
+      "change3": "Which service providers handle data for us, and where (our server is in Singapore).",
+      "change4": "Your rights, including how to object or complain.",
+      "readBefore": "Read the",
+      "accept": "I accept",
+      "accepting": "Saving…",
+      "failed": "Could not save. Check your connection and try again.",
+      "otherwise": "If you do not accept, you can download your data, delete your account or sign out."
+    },
+    "invites": {
+      "createFailed": "Could not create the code. Try again later.",
+      "title": "Invite codes",
+      "back": "← Back to vaults",
+      "noteLabel": "Note (e.g. Saturday class)",
+      "maxUses": "Number of uses",
+      "expiresIn": "Expires after (days)",
+      "create": "Create code",
+      "code": "Code",
+      "note": "Note",
+      "used": "Used",
+      "expires": "Expires",
+      "statusCol": "Status",
+      "empty": "No codes yet.",
+      "copied": "Copied",
+      "copy": "Copy code",
+      "revoke": "Revoke",
+      "status": {
+        "active": "Active",
+        "usedUp": "Used up",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "noExpiryHint": "Set “Expires after” to 0 for a code that never expires."
+    },
+    "quick": {
+      "open": "Quick note",
+      "title": "Quick note",
+      "allVaults": "All vaults",
+      "vault": "Vault",
+      "folder": "Folder",
+      "text": "Note text",
+      "placeholder": "Type a thought, a link, a to-do… The first line becomes the note's name.",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved to {path} at {time}.",
+      "openVault": "Open the vault",
+      "failed": "Couldn't save. Your text is kept on this device — try again.",
+      "offline": "You're offline. Your text is kept on this device — save when you're back online.",
+      "noVault": "Create a vault first, then come back here.",
+      "fallbackName": "Quick note {stamp}"
+    },
+    "install": {
+      "link": "Install on your phone",
+      "title": "Install Noteriv",
+      "intro": "Put Noteriv on your home screen and it opens like an app: full screen, with its own icon, and with Quick note one tap away.",
+      "already": "Noteriv is already installed and running as an app.",
+      "button": "Install the app",
+      "android": {
+        "title": "Android (Chrome)",
+        "step1": "Open this site in Chrome and sign in.",
+        "step2": "Tap the ⋮ menu, then “Install app” (or “Add to Home screen”).",
+        "step3": "Confirm. Noteriv appears on your home screen; press and hold the icon for Quick note."
+      },
+      "ios": {
+        "title": "iPhone and iPad (Safari)",
+        "step1": "Open this site in Safari and sign in.",
+        "step2": "Tap the Share button (the square with an arrow), then “Add to Home Screen”.",
+        "step3": "Tap “Add”. Noteriv opens full screen from its icon."
+      },
+      "quick": "Quick note (/quick) is a light page for capturing a thought in seconds; notes go into the Inbox folder of the vault you pick.",
+      "offlineNote": "Without a connection the app still opens: vaults and notes you opened recently can be read and edited, and your edits are sent when you're back online."
+    },
+    "offline": {
+      "banner": "Offline — showing what this device kept. Edits are sent when you're back online.",
+      "conflict": "This note was changed elsewhere meanwhile. Nothing was overwritten: your version is saved as “{name}”.",
+      "needsNetwork": "This needs a connection. Your notes and edits are kept on this device meanwhile.",
+      "notKept": "This note isn't kept on this device yet; open it once while online to read it offline.",
+      "vaultListKept": "Offline — this is the list kept on this device.",
+      "signOutUnsent": {
+        "one": "{count} edit made offline hasn't reached the server yet; signing out on this device discards it. Click Sign out again to sign out anyway.",
+        "other": "{count} edits made offline haven't reached the server yet; signing out on this device discards them. Click Sign out again to sign out anyway."
+      }
+    },
+    "account": {
+      "verifyFirst": "Verify your email first: open the link we emailed you. Your vaults → Account can send it again."
+    },
+    "usage": {
+      "label": "AI usage this month",
+      "tokens": "Tokens used: {used} / {limit}",
+      "remaining": "{remaining} remaining",
+      "budget": "Budget: {cost} / {budget}",
+      "progress": "{percent}% of the monthly limit used",
+      "model": "Model: {model}",
+      "warning": "{percent}% of this month's AI limit is used.",
+      "critical": "Almost out: {percent}% of this month's AI limit is used.",
+      "exceeded": "Monthly AI limit reached. Model selection is disabled until the limit resets."
+    },
+    "plan": {
+      "current": "Current plan",
+      "hint": "Limits count everything in the vaults you own.",
+      "vaults": "Vaults",
+      "storage": "Attachment storage (whole account)",
+      "sync": "Sync connections",
+      "history": "History versions kept per note",
+      "unlimited": "Unlimited",
+      "of": "{used} / {max}",
+      "needMore": "Need more room? Contact us",
+      "loadFailed": "Could not load your plan. Try again later.",
+      "seePlan": "See Settings → Plan and usage.",
+      "limit": {
+        "vaults": "Your plan allows {max} vaults. Delete one you no longer need, or ask us for more.",
+        "attachmentBytes": "This does not fit: your plan has {max} of attachment storage for the whole account. Delete attachments you no longer need, or ask us for more.",
+        "syncConnections": "Your plan allows {max} sync connections. Remove one, or ask us for more."
+      }
+    },
+    "admin": {
+      "title": "Admin",
+      "tabs": {
+        "users": "Users",
+        "invites": "Invite codes",
+        "audit": "Audit log",
+        "stats": "Stats"
+      },
+      "search": "Search by email or name, then press Enter",
+      "total": {
+        "one": "{count} user",
+        "other": "{count} users"
+      },
+      "none": "Nothing here.",
+      "col": {
+        "user": "User",
+        "plan": "Plan",
+        "usage": "Usage",
+        "actions": "Actions"
+      },
+      "badge": {
+        "admin": "admin",
+        "locked": "locked",
+        "unverified": "unverified"
+      },
+      "usage": "Vaults {vaults} · {storage} · Sync {sync}",
+      "lock": "Lock",
+      "unlock": "Unlock",
+      "makeAdmin": "Make admin",
+      "removeAdmin": "Remove admin",
+      "sendReset": "Send reset link",
+      "resetSent": "Password reset link sent.",
+      "markVerified": "Mark verified",
+      "delete": "Delete",
+      "deleteConfirm": "Click again to delete the account and all its data",
+      "deleted": "Account deleted.",
+      "emailOff": "Email is not turned on on this server.",
+      "notOnYourself": "You cannot do that to your own account.",
+      "envAdminHint": "Admin through the server's ADMIN_EMAILS: change it there.",
+      "removeAdminFirst": "Remove the admin role first.",
+      "prev": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {pages}",
+      "audit": {
+        "action": "Action contains…",
+        "email": "User email contains…",
+        "filter": "Filter",
+        "time": "Time",
+        "actionCol": "Action",
+        "who": "User",
+        "target": "Target",
+        "details": "Details",
+        "more": "Load more"
+      },
+      "stats": {
+        "users": "Accounts",
+        "usersHint": "{verified} verified · {locked} locked",
+        "newUsers": "New in the last 7 days",
+        "newUsersHint": "{count} in the last 30 days",
+        "active": "Active in the last 7 days",
+        "activeHint": "{today} today · {month} in the last 30 days",
+        "content": "Attachments stored",
+        "contentHint": "{vaults} vaults · {notes} notes",
+        "week": "Week of",
+        "signups": "Sign-ups",
+        "activeWeek": "Active",
+        "retention1": "Back in week 2",
+        "retention4": "Back in week 5",
+        "explain": "Counted from this server's own records: an account is active on a day it signs in or keeps a session open. \"Back in week 2\" is the share of that week's sign-ups active 7–13 days after signing up; \"Back in week 5\", 28–34 days after. — means not enough time has passed yet. Weeks start on Monday (UTC)."
+      }
+    },
+    "errorPage": {
+      "title": "Something went wrong",
+      "body": "This page hit an unexpected error. It has been reported if error reporting is on.",
+      "retry": "Try again",
+      "reload": "Reload"
+    },
+    "footer": {
+      "status": "Status"
+    }
+  },
+  "desktop": {
+    "bookmarks": {
+      "hint": "Right-click a file or use Ctrl+B to bookmark."
+    },
+    "quickOpen": {
+      "placeholder": "Type to search files...",
+      "empty": "No files found"
+    },
+    "files": {
+      "mergeNotes": "Merge {count} Notes",
+      "deleteFiles": "Delete {count} Files",
+      "openFolderLocation": "Open Folder Location",
+      "openFileLocation": "Open File Location",
+      "copyFolderPath": "Copy Folder Path",
+      "copyFilePath": "Copy File Path",
+      "closeSidebar": "Close sidebar (Ctrl+B)",
+      "noVault": "No vault selected"
+    },
+    "window": {
+      "close": "Close",
+      "minimize": "Minimize",
+      "maximize": "Maximize"
+    },
+    "editorMenu": {
+      "defaultLive": "Default Mode: Live",
+      "defaultSource": "Default Mode: Source",
+      "defaultView": "Default Mode: View",
+      "clearDefault": "Clear Default Mode",
+      "focusMode": "Focus Mode",
+      "exitFocusMode": "Exit Focus Mode",
+      "zenMode": "Zen Mode",
+      "exitZenMode": "Exit Zen Mode"
+    },
+    "status": {
+      "syncing": "syncing",
+      "syncFailed": "sync failed",
+      "changes": {
+        "one": "{count} change",
+        "other": "{count} changes"
+      },
+      "synced": "synced {time}",
+      "sync": "sync",
+      "lastSynced": "Last synced: {time}",
+      "clickToSync": "Click to sync"
+    },
+    "noFile": "No file open",
+    "createNote": "Create a new note",
+    "pdfPluginOff": "Turn on the PDF viewer core plugin (Settings → Core plugins) to read this file.",
+    "syncConflicts": {
+      "one": "Sync kept both versions of {count} note edited here and on the remote. The remote version is saved next to it as \"(conflict …)\": {files}",
+      "other": "Sync kept both versions of {count} notes edited here and on the remote. The remote version is saved next to it as \"(conflict …)\": {files}"
+    },
+    "settings": {
+      "collapseBelow": {
+        "label": "Collapse below",
+        "desc": "Window width at which the file navigator closes automatically."
+      },
+      "updates": "Updates",
+      "version": {
+        "label": "Version",
+        "desc": "Currently installed version of Noteriv."
+      },
+      "autoUpdate": {
+        "label": "Automatic updates",
+        "desc": "Check for updates on startup and notify when a new version is available.",
+        "managedDesc": "Updates are managed by your package manager (Flatpak/Flathub).",
+        "managed": "Managed externally"
+      },
+      "updater": {
+        "check": "Check for Updates",
+        "checking": "Checking...",
+        "upToDate": "Up to date",
+        "checkAgain": "Check Again",
+        "available": "v{version} available",
+        "download": "Download Update",
+        "ready": "v{version} ready",
+        "install": "Restart & Install",
+        "failed": "Update failed",
+        "downloadFailed": "Download failed",
+        "retry": "Retry"
+      }
+    },
+    "sync": {
+      "gitRepo": "Git Repository",
+      "openVault": "Open a vault to configure Git sync.",
+      "remote": {
+        "label": "Remote URL",
+        "desc": "Git remote for this vault — GitHub, GitLab, Gitea/Forgejo, Bitbucket, or self-hosted. HTTPS or SSH.",
+        "saveFailed": "Failed to save remote"
+      },
+      "save": "Save",
+      "saving": "Saving...",
+      "saved": "Saved",
+      "cancel": "Cancel",
+      "credentials": {
+        "label": "Git credentials",
+        "desc": "Access token for HTTPS sync, stored encrypted locally. Not needed for SSH remotes.",
+        "generate": "Generate token →",
+        "tokenSaved": "Access token saved",
+        "encrypted": "Encrypted on this device",
+        "change": "Change",
+        "disconnect": "Disconnect",
+        "usernamePlaceholder": "Username (optional — blank works for GitLab; use your login for Gitea/Forgejo)",
+        "tokenPlaceholder": "Access token / app password",
+        "hint": "Token is stored encrypted and used as the HTTPS password. For Bitbucket, set username to",
+        "required": "Token is required",
+        "invalid": "Invalid token",
+        "saveFailed": "Failed to save token"
+      },
+      "gitSync": "Git Sync",
+      "interval": {
+        "label": "Auto sync interval",
+        "desc": "Periodically commit and push changes in the background."
+      },
+      "onSave": {
+        "label": "Sync on save",
+        "desc": "Commit and push every time you manually save a file."
+      },
+      "pullOnOpen": {
+        "label": "Pull on open",
+        "desc": "Fetch the latest changes from remote when opening a vault."
+      },
+      "commitMessage": {
+        "label": "Commit message",
+        "desc": "Template for sync commits. Use {date}, {time}, {count}."
+      },
+      "extra": "Additional Sync Provider",
+      "provider": {
+        "label": "Provider",
+        "desc": "Sync your vault to a second destination alongside Git."
+      },
+      "providers": {
+        "none": {
+          "name": "None",
+          "desc": "No additional sync provider"
+        },
+        "folder": {
+          "name": "Cloud Drive (Folder)",
+          "desc": "Google Drive, Dropbox, OneDrive, iCloud — sync to their local folder"
+        },
+        "webdav": {
+          "name": "WebDAV",
+          "desc": "Nextcloud, ownCloud, or any WebDAV server"
+        }
+      },
+      "targetFolder": {
+        "label": "Target folder",
+        "desc": "Path to the cloud drive sync folder on your system."
+      },
+      "direction": {
+        "label": "Direction",
+        "desc": "Which way files should sync."
+      },
+      "serverUrl": {
+        "label": "Server URL",
+        "desc": "WebDAV server address (e.g. https://cloud.example.com/remote.php/dav/files/user)."
+      },
+      "username": {
+        "label": "Username",
+        "desc": "WebDAV account username."
+      },
+      "password": {
+        "label": "Password",
+        "desc": "WebDAV account password or app token."
+      },
+      "remotePath": {
+        "label": "Remote path",
+        "desc": "Folder path on the server to sync to."
+      },
+      "test": "Test Connection",
+      "testing": "Testing...",
+      "connected": "Connected",
+      "failed": "Failed",
+      "unknownError": "Unknown error"
+    },
+    "pluginManager": {
+      "permission": {
+        "vaultRead": "read notes",
+        "vaultWrite": "create, edit and delete notes",
+        "editorRead": "read the open note",
+        "editorWrite": "edit the open note",
+        "uiCommands": "add commands",
+        "uiStatusbar": "add status bar items",
+        "uiPanel": "add panels and settings tabs",
+        "markdownRender": "render code blocks"
+      },
+      "noPermissions": "no special permissions",
+      "loadFailed": "Failed to load community plugins. Check your connection.",
+      "title": "Plugins",
+      "installed": "Installed",
+      "community": "Community",
+      "searchInstalled": "Search installed plugins...",
+      "install": "Install",
+      "noneInstalled": "No plugins installed",
+      "browseBefore": "Browse the",
+      "browseAfter": "tab or click “Install” to add a plugin from a local folder.",
+      "noMatchTitle": "No matching plugins",
+      "noMatch": "No installed plugins match “{query}”.",
+      "sandbox": "Runs in a sandbox. Allowed: {permissions}.",
+      "asks": "This plugin asks to:",
+      "allowEnable": "Allow and enable",
+      "cancel": "Cancel",
+      "blocked": "Blocked: {permissions}.",
+      "allow": "Allow",
+      "settings": "Plugin settings",
+      "disable": "Disable plugin",
+      "enable": "Enable plugin",
+      "confirmUninstall": "Click again to confirm",
+      "uninstall": "Uninstall plugin",
+      "confirm": "Confirm?",
+      "searchCommunity": "Search community plugins...",
+      "loading": "Loading community plugins...",
+      "retry": "Retry",
+      "noneFound": "No plugins found.",
+      "installing": "Installing...",
+      "submit": "Submit your plugin",
+      "noManifest": "No manifest.json found in the selected folder",
+      "invalidManifest": "Invalid manifest: missing required fields (id, name, main)"
+    },
+    "attachments": {
+      "savedTo": "Files are saved to the attachments/ folder",
+      "readFailed": "Failed to read file",
+      "importFailed": "Failed to import attachment: {name}"
+    },
+    "fileRecovery": {
+      "delete": "Delete snapshot"
+    },
+    "setup": {
+      "invalidToken": "Invalid token",
+      "validateFailed": "Failed to validate token",
+      "createFailed": "Failed to create vault",
+      "tagline": "Markdown notes, everywhere",
+      "welcomeTitle": "Create your workspace",
+      "welcomeDesc": "A vault is where your notes live. Pick how you want to start.",
+      "newVault": "New vault",
+      "newVaultDesc": "Start fresh with an empty folder",
+      "openFolder": "Open folder",
+      "openFolderDesc": "Use an existing notes folder",
+      "clone": "Clone from GitHub",
+      "cloneDesc": "Pull notes from a repository",
+      "nameTitle": "Name your vault",
+      "namePlaceholder": "My Notes",
+      "back": "Back",
+      "continue": "Continue",
+      "chooseFolder": "Choose your folder",
+      "whereToStore": "Where to store it?",
+      "selectFolder": "Select the folder with your notes.",
+      "pickParent": "Pick a parent folder, or use the default.",
+      "clickToChoose": "Click to choose folder...",
+      "connectGithub": "Connect GitHub",
+      "signIn": "Sign in to access your repos.",
+      "optional": "Optional. You can also set up Folder or WebDAV sync later in Settings.",
+      "createVault": "Create Vault",
+      "disconnect": "Disconnect",
+      "pat": "Personal Access Token",
+      "connect": "Connect",
+      "autoSync": "Auto-sync on save",
+      "autoSyncDesc": "Push when you save a file",
+      "pickRepoButton": "Pick repo",
+      "skip": "Skip",
+      "pickRepo": "Pick a repo",
+      "chooseRepo": "Choose a repo",
+      "repoDesc": "Select an existing repo or create a new one.",
+      "createRepo": "Create new repo",
+      "privateRepo": "Private repo",
+      "private": "private",
+      "cloneCreate": "Clone & Create",
+      "cloning": "Cloning repository...",
+      "creatingRepo": "Creating repo and vault...",
+      "settingUp": "Setting up your vault...",
+      "defaultPath": "Default: {path}",
+      "scopeBefore": "Select the",
+      "scopeAfter": "scope. Your token is encrypted locally.",
+      "nameHint": "Something like “Personal”, “Work”, or “Research”.",
+      "sampleNotes": "Add getting-started notes",
+      "sampleNotesDesc": "A few short notes that show links, tags and plugins. Delete them whenever you like."
+    },
+    "collab": {
+      "startFailed": "Could not start collaboration. Install yjs and y-webrtc: npm install yjs y-webrtc",
+      "joinFailed": "Could not join session. Install yjs and y-webrtc: npm install yjs y-webrtc",
+      "title": "Live Collaboration",
+      "connected": "Connected",
+      "room": "Room:",
+      "copy": "Copy",
+      "disconnect": "Disconnect",
+      "yourName": "Your name",
+      "newSession": "Start a new session",
+      "joinSession": "Join a session",
+      "roomPlaceholder": "Enter room ID...",
+      "join": "Join",
+      "peers": {
+        "one": "{count} peer",
+        "other": "{count} peers"
+      },
+      "connecting": "Connecting...",
+      "start": "Start Session"
+    },
+    "vaults": {
+      "noVault": "No Vault",
+      "title": "Vaults",
+      "gitSettings": "Git settings",
+      "remove": "Remove vault",
+      "new": "New vault",
+      "confirmRemove": "Delete vault \"{name}\"? This won't delete your files."
+    },
+    "noFileHint": "Pick a note in the sidebar, or start a new one.",
+    "quickOpenNote": "Open a note"
+  },
+  "common": {
+    "close": "Close",
+    "loading": "Loading...",
+    "loadingShort": "Loading…"
+  },
+  "shell": {
+    "ribbon": {
+      "quickOpen": "Quick Open",
+      "newNote": "New note",
+      "commandPalette": "Command palette",
+      "search": "Search in vault",
+      "settings": "Settings"
+    },
+    "tabs": {
+      "pin": "Pin Tab",
+      "unpin": "Unpin Tab",
+      "close": "Close Tab",
+      "closeOthers": "Close Other Tabs",
+      "closeRight": "Close Tabs to the Right",
+      "closeAll": "Close All Tabs",
+      "openInSplit": "Open in Split",
+      "revealInSidebar": "Reveal in Sidebar",
+      "copyFilePath": "Copy File Path",
+      "newFile": "New File"
+    },
+    "files": {
+      "newFile": "New File",
+      "newFolder": "New Folder",
+      "rename": "Rename",
+      "delete": "Delete",
+      "copyPath": "Copy Path",
+      "importHere": "Import .md files here…",
+      "newFileButton": "New file",
+      "empty": "No notes yet",
+      "createNote": "Create a note",
+      "resize": "Resize file navigator",
+      "emptyHint": "Write your first note, then type [[ to link it to another.",
+      "linksUpdated": {
+        "one": "Updated links in {count} note",
+        "other": "Updated links in {count} notes"
+      },
+      "linksNotUpdated": "Some links could not be updated. Check the notes that pointed to the old name."
+    },
+    "status": {
+      "mode": {
+        "live": "Edit",
+        "view": "View",
+        "source": "Source"
+      },
+      "saved": "saved",
+      "unsaved": "unsaved",
+      "lines": {
+        "one": "{count} line",
+        "other": "{count} lines"
+      },
+      "chars": {
+        "one": "{count} char",
+        "other": "{count} chars"
+      },
+      "saveFailed": "Not saved — retrying",
+      "saveFailedHint": "The last save did not reach the server (offline?). Your text is still here and is sent again automatically.",
+      "keptLocally": "Kept on this device",
+      "keptLocallyHint": "No connection: this edit is kept on this device and sent as soon as the server can be reached."
+    },
+    "commands": {
+      "corePlugin": "Core plugin",
+      "plugin": "Plugin · {id}"
+    },
+    "closePanel": "Close panel",
+    "closeSplit": "Close split",
+    "toggleSidebar": "Toggle Sidebar (Ctrl+B)",
+    "settingsHotkey": "Settings (Ctrl+,)"
+  },
+  "hotkeys": {
+    "category": {
+      "file": "File",
+      "navigation": "Navigation",
+      "search": "Search",
+      "view": "View",
+      "edit": "Edit",
+      "formatting": "Formatting",
+      "sync": "Sync",
+      "ecosystem": "Ecosystem",
+      "developer": "Developer"
+    },
+    "save": "Save",
+    "saveAs": "Save As",
+    "newFile": "New File",
+    "newNote": "New Note",
+    "newFolder": "New Folder",
+    "openFile": "Open File",
+    "closeTab": "Close Tab",
+    "closeAllTabs": "Close All Tabs",
+    "closeOtherTabs": "Close Other Tabs",
+    "deleteFile": "Delete File",
+    "nextTab": "Next Tab",
+    "prevTab": "Previous Tab",
+    "togglePinTab": "Pin/Unpin Tab",
+    "quickOpen": "Quick Open",
+    "commandPalette": "Command Palette",
+    "findInFile": "Find in File",
+    "findInVault": "Find in Vault",
+    "toggleSidebar": "Toggle Sidebar",
+    "toggleViewMode": "Toggle View Mode",
+    "toggleFullscreen": "Toggle Fullscreen",
+    "zenMode": "Zen Mode",
+    "focusMode": "Toggle Focus Mode",
+    "settings": "Settings",
+    "undo": "Undo",
+    "redo": "Redo",
+    "toggleBold": "Bold",
+    "toggleItalic": "Italic",
+    "toggleCode": "Inline Code",
+    "toggleStrikethrough": "Strikethrough",
+    "insertLink": "Insert Link",
+    "insertImage": "Insert Image",
+    "insertHorizontalRule": "Horizontal Rule",
+    "insertCodeBlock": "Code Block",
+    "insertBlockquote": "Blockquote",
+    "insertTaskList": "Task List",
+    "insertTable": "Insert Table",
+    "gitSync": "Sync Now",
+    "syncSettings": "Sync Settings (Git / WebDAV)",
+    "toggleOutline": "Toggle Outline",
+    "toggleBacklinks": "Toggle Backlinks",
+    "toggleTags": "Toggle Tag Pane",
+    "toggleCollab": "Toggle Collaboration",
+    "toggleBookmark": "Toggle Bookmark",
+    "randomNote": "Open Random Note",
+    "fileRecovery": "File Recovery",
+    "exportPDF": "Export as PDF",
+    "previewPDF": "Preview PDF",
+    "printNote": "Print… (the browser's print dialog)",
+    "attachments": "Attachment Manager",
+    "pluginManager": "Plugin Manager",
+    "cssSnippets": "CSS Snippets",
+    "themePicker": "Themes",
+    "insertToc": "Insert Table of Contents",
+    "updateToc": "Update Table of Contents",
+    "publishNote": "Publish Note as HTML",
+    "startCollab": "Live Collaboration",
+    "openTrash": "Open Trash",
+    "splitEditor": "Split Editor",
+    "closeSplit": "Close Split",
+    "importVault": "Import folder / zip into this vault…",
+    "importNewVault": "Import folder / zip as a new vault…",
+    "newVaultFromGithub": "New vault from GitHub repo…",
+    "exportVault": "Export vault as zip",
+    "reloadApp": "Reload page (saves first)",
+    "diagnostics": "Diagnostics (server, sync, plugins)…",
+    "devToolsHint": "Open browser developer tools (F12)",
+    "toggleOutgoingLinks": "Toggle Outgoing links",
+    "toggleProperties": "Toggle All properties",
+    "importFromApp": "Import from Notion, Evernote, HTML…"
+  },
+  "snippets": {
+    "loadFailed": "Failed to load community snippets. Check your connection.",
+    "title": "CSS Snippets",
+    "installed": "Installed",
+    "community": "Community",
+    "search": "Search snippets...",
+    "new": "New Snippet",
+    "namePlaceholder": "Snippet name...",
+    "create": "Create",
+    "cancel": "Cancel",
+    "empty": "No CSS snippets yet",
+    "emptyBefore": "Create your own or browse the",
+    "emptyAfter": "tab to install pre-made snippets.",
+    "edit": "Edit snippet",
+    "delete": "Delete",
+    "deleteTitle": "Delete snippet",
+    "save": "Save",
+    "all": "All",
+    "loading": "Loading community snippets...",
+    "retry": "Retry",
+    "noneFound": "No snippets found.",
+    "install": "Install",
+    "submit": "Submit your snippet",
+    "storedBefore": "Snippets are stored in",
+    "storedAfter": "in your vault",
+    "lines": {
+      "one": "{count} line",
+      "other": "{count} lines"
+    }
+  },
+  "themes": {
+    "loadFailed": "Failed to load community themes. Check your connection.",
+    "invalid": "Invalid theme JSON. Must have id, name, and colors.",
+    "copyJson": "Copy JSON",
+    "delete": "Delete",
+    "installed": "Installed",
+    "install": "Install",
+    "community": "Community",
+    "builtIn": "Built-in",
+    "cancel": "Cancel",
+    "import": "Import",
+    "pastePlaceholder": "Paste theme JSON here...",
+    "importTheme": "Import Theme",
+    "custom": "Custom",
+    "loading": "Loading community themes...",
+    "retry": "Retry",
+    "submit": "Submit your theme",
+    "noneFound": "No themes found.",
+    "noneOfType": "No {type} themes found."
+  },
+  "publish": {
+    "addNotes": "Add Notes",
+    "search": "Search notes...",
+    "clear": "Clear",
+    "addMore": "Add more notes",
+    "plusNotes": "+ Notes",
+    "preview": "Preview",
+    "copied": "Copied!",
+    "copyHtml": "Copy HTML",
+    "saveHtml": "Save as HTML",
+    "added": {
+      "one": "{count} note added",
+      "other": "{count} notes added"
+    },
+    "downloaded": "Downloaded {file}",
+    "savedTo": "Saved to {path}",
+    "saving": "Saving..."
+  },
+  "frontmatter": {
+    "add": "Add properties",
+    "title": "Properties",
+    "none": "No properties defined",
+    "clickToEdit": "Click to edit",
+    "empty": "empty",
+    "remove": "Remove property",
+    "namePlaceholder": "Property name...",
+    "addOne": "Add property"
+  },
+  "trash": {
+    "title": "Trash",
+    "empty": "Empty Trash",
+    "filter": "Filter trash...",
+    "loading": "Loading...",
+    "noMatches": "No matches",
+    "isEmpty": "Trash is empty",
+    "restore": "Restore file",
+    "deleteForever": "Delete permanently",
+    "count": {
+      "one": "{count} item",
+      "other": "{count} items"
+    },
+    "remaining": "{count}d remaining",
+    "footer": "Files are automatically removed after {days} days"
+  },
+  "attachments": {
+    "title": "Attachments",
+    "sortName": "Name",
+    "sortDate": "Date",
+    "loading": "Loading attachments...",
+    "importing": "Importing files...",
+    "dropHere": "Drop files here to add",
+    "empty": "No attachments yet",
+    "tryFilter": "Try changing the filter to see other attachment types.",
+    "delete": "Delete attachment",
+    "dragHint": {
+      "web": "Drag & drop or click to choose files",
+      "desktop": "Drag & drop files to add attachments"
+    },
+    "emptyHint": {
+      "web": "Drag & drop files above, or click the drop zone to choose them.",
+      "desktop": "Drag & drop files above, or use the audio recorder to create recordings."
+    },
+    "filter": {
+      "all": "All ({count})",
+      "image": "Images ({count})",
+      "audio": "Audio ({count})",
+      "video": "Video ({count})",
+      "pdf": "PDF ({count})",
+      "other": "Other ({count})"
+    },
+    "noneOfType": "No {type} files found",
+    "clickInsert": "Click to insert: {name}",
+    "count": {
+      "one": "{count} file",
+      "other": "{count} files"
+    },
+    "footerInsert": "insert",
+    "footerClose": "close",
+    "confirmDelete": "Delete \"{name}\"? This cannot be undone."
+  },
+  "fileRecovery": {
+    "ago": {
+      "justNow": "just now",
+      "minutes": "{count}m ago",
+      "hours": "{count}h ago",
+      "days": "{count}d ago",
+      "months": "{count}mo ago"
+    },
+    "title": "File Recovery",
+    "snapshots": "Snapshots",
+    "loading": "Loading snapshots...",
+    "none": "No snapshots found",
+    "hint": {
+      "web": "Snapshots are captured automatically every ~10 minutes while this note changes",
+      "desktop": "Snapshots are created automatically before saves"
+    },
+    "preview": "Preview",
+    "restore": "Restore",
+    "loadingPreview": "Loading preview...",
+    "select": "Select a snapshot to preview"
+  },
+  "files": {
+    "untitled": "Untitled",
+    "newFolder": "New Folder"
+  },
+  "properties": {
+    "types": {
+      "text": "Text",
+      "list": "List",
+      "number": "Number",
+      "checkbox": "Checkbox",
+      "date": "Date",
+      "datetime": "Date & time",
+      "tags": "Tags"
+    },
+    "typeTitle": "Property type (applies to every note in the vault)",
+    "complex": "Edit in Source mode",
+    "addValue": "Add…",
+    "removeItem": "Remove",
+    "view": {
+      "title": "All properties",
+      "empty": "No note has properties yet.",
+      "failed": "Could not read the notes' properties. Try again later.",
+      "rename": "Rename",
+      "renameHint": "Click to list the notes, double-click to rename",
+      "renamed": {
+        "one": "Renamed in {count} note",
+        "other": "Renamed in {count} notes"
+      },
+      "renamedSome": "Renamed in {count} notes; {skipped} could not be changed",
+      "invalidName": "That name cannot be used for a property: no : # [ ] { } , and no leading - ? ! & * | > quote % @ or backtick."
+    }
+  },
+  "phone": {
+    "corePlugins": {
+      "title": "Core plugins",
+      "intro": "Plugins that ship with Noteriv, turned on or off for this vault (as on web and desktop).",
+      "notOnPhone": "Not on the phone yet. The choice is still saved.",
+      "saveFailed": "Could not save the choice: {error}",
+      "summary": "{on} of {total} on"
+    },
+    "settings": {
+      "autoSaveOff": "Off",
+      "syncCounts": "Pulled: {pulled}, Pushed: {pushed}",
+      "syncCountsErrors": "{counts}, Errors: {errors}\n{first}",
+      "invalidTokenTitle": "Invalid Token",
+      "invalidTokenMessage": "Could not authenticate. Check your token has the \"repo\" scope.",
+      "error": "Error",
+      "networkError": "Network error. Check your connection.",
+      "syncing": "Syncing...",
+      "syncFailed": "Sync failed: {error}",
+      "disconnectGitHubTitle": "Disconnect GitHub",
+      "disconnectGitHubMessage": "Remove the stored token for this vault?",
+      "cancel": "Cancel",
+      "disconnect": "Disconnect",
+      "freshCloneTitle": "Fresh Clone",
+      "freshCloneMessage": "This will DELETE all local notes and re-download everything from GitHub. Are you sure?",
+      "deleteAndClone": "Delete & Clone",
+      "deletingAndCloning": "Deleting local files & cloning...",
+      "clonedWithErrors": "Cloned: {pulled} files, Errors: {errors}\n{first}",
+      "freshCloneDone": "Fresh clone: {pulled} files downloaded",
+      "cloneFailed": "Clone failed: {error}",
+      "installed": "Installed",
+      "install": "Install",
+      "themeInstalled": "\"{name}\" theme has been installed.",
+      "themeInstallFailed": "Failed to install theme.",
+      "resetApp": "Reset App",
+      "resetAppMessage": "This will delete all vaults, settings, and data. You will go through setup again. This cannot be undone.",
+      "resetEverything": "Reset Everything",
+      "general": "General",
+      "language": "Language",
+      "languageAuto": "Phone language",
+      "languageEn": "English",
+      "languageVi": "Tiếng Việt",
+      "autoSave": "Auto-save",
+      "spellCheck": "Spell check",
+      "appearance": "Appearance",
+      "theme": "Theme",
+      "communityThemes": "Community Themes",
+      "loadingCommunityThemes": "Loading community themes...",
+      "noCommunityThemes": "No community themes available",
+      "themeBy": "by {author} · {type}",
+      "accentColor": "Accent Color",
+      "fontSize": "Font size",
+      "editor": "Editor",
+      "lineHeight": "Line height",
+      "tabSize": "Tab size",
+      "ecosystem": "Ecosystem",
+      "cssSnippets": "CSS Snippets",
+      "snippetsInstalled": {
+        "one": "{count} snippet installed",
+        "other": "{count} snippets installed"
+      },
+      "plugins": "Plugins",
+      "pluginsSummary": "{installed} installed · {enabled} enabled",
+      "gitSync": "Git Sync",
+      "status": "Status",
+      "connected": "Connected",
+      "lastSync": "Last sync",
+      "syncNow": "Sync Now",
+      "autoSync": "Auto-sync",
+      "autoSyncEvery": "Every minute",
+      "disconnectRemote": "Disconnect Remote",
+      "gitHint": "Connect GitHub, GitLab, Gitea, or Forgejo to sync notes across devices.",
+      "connectGitHub": "Connect GitHub",
+      "customRemoteHint": "For GitLab or Gitea/Forgejo, enter the clone URL and a token with repository read/write access.",
+      "tokenPlaceholder": "Personal access token",
+      "saving": "Saving...",
+      "saveAndSyncRemote": "Save & Sync Remote",
+      "about": "About",
+      "version": "Version",
+      "sourceCode": "Source Code",
+      "reportIssue": "Report an Issue",
+      "dangerZone": "Danger Zone",
+      "resetAppHint": "Delete all vaults, settings, and start over",
+      "tagline": "A markdown notes app built with care.",
+      "tokenHint": "Enter a Personal Access Token with the repo scope.",
+      "connect": "Connect",
+      "pickRepo": "Pick a Repository",
+      "authenticatedAs": "Authenticated as @{user}",
+      "private": "private",
+      "noRepos": "No repositories found",
+      "back": "Back",
+      "connectAndSync": "Connect & Sync"
+    },
+    "layout": {
+      "settings": "Settings",
+      "snippets": "CSS Snippets",
+      "plugins": "Plugins",
+      "templates": "Templates",
+      "recovery": "File Recovery",
+      "composer": "Note composer",
+      "attachments": "Attachments",
+      "backlinks": "Backlinks",
+      "frontmatter": "Frontmatter",
+      "calendar": "Calendar",
+      "flashcards": "Flashcards",
+      "graph": "Graph view",
+      "publish": "Publish",
+      "trash": "Trash"
+    },
+    "setup": {
+      "invalidToken": "Invalid token. Make sure it has the \"repo\" scope.",
+      "networkError": "Network error. Check your connection.",
+      "createRepoFailed": "Failed to create repo",
+      "nameRequiredTitle": "Name Required",
+      "nameRequiredMessage": "Please enter a name for your vault.",
+      "error": "Error",
+      "createVaultFailed": "Could not create vault. Please try again.",
+      "welcomeTitle": "Welcome to Noteriv",
+      "welcomeSubtitle": "A beautiful markdown editor for your notes, ideas, and everything in between.",
+      "featureWrite": "Write in Markdown with live preview",
+      "featureOrganize": "Organize notes in vaults and folders",
+      "featureSync": "Sync with GitHub for backup & versioning",
+      "getStarted": "Get Started",
+      "vaultTitle": "Create Your Vault",
+      "vaultSubtitle": "A vault is a folder where your notes live. Give it a name to get started.",
+      "vaultPlaceholder": "My Notes",
+      "continue": "Continue",
+      "connectTitle": "Connect GitHub",
+      "connectSubtitle": "Back up and sync your notes to a GitHub repo. You can skip this and set it up later.",
+      "generateToken": "Generate a token on GitHub →",
+      "tokenHint": "Select the \"repo\" scope. Your token stays on this device.",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "createNewRepo": "Create new repo",
+      "privateRepo": "Private repo",
+      "pickExisting": "Or pick an existing repo:",
+      "private": "private",
+      "autoSync": "Auto-sync",
+      "autoSyncHint": "Automatically push changes",
+      "back": "Back",
+      "createVault": "Create Vault",
+      "skipAndCreate": "Skip & Create",
+      "doneTitle": "You're All Set!",
+      "vaultReady": "Your vault \"{name}\" is ready.",
+      "githubConfigured": "GitHub sync is configured.",
+      "connectLater": "You can connect GitHub later in Settings.",
+      "startWriting": "Start Writing",
+      "sampleNotes": "Add the getting started notes",
+      "sampleNotesHint": "A few short notes on links, tags and plugins. Delete them any time. Not added when you connect a repository that already has notes."
+    },
+    "plugins": {
+      "uninstallTitle": "Uninstall Plugin",
+      "uninstallMessage": "Uninstall \"{name}\"? This will remove all plugin files.",
+      "cancel": "Cancel",
+      "uninstall": "Uninstall",
+      "installed": "Installed",
+      "installedMessage": "\"{name}\" has been installed.",
+      "error": "Error",
+      "installFailed": "Failed to install plugin.",
+      "install": "Install",
+      "tabInstalled": "Installed",
+      "tabCommunity": "Community",
+      "empty": "No plugins installed",
+      "emptyHint": "Browse the community tab to find plugins",
+      "by": "by {author}",
+      "longPressHint": "Long press a plugin to uninstall",
+      "fetching": "Fetching community plugins...",
+      "communityEmpty": "No community plugins available",
+      "communityEmptyHint": "Check your internet connection or try again later"
+    },
+    "snippets": {
+      "deleteTitle": "Delete Snippet",
+      "deleteMessage": "Delete \"{name}\"? This cannot be undone.",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "installed": "Installed",
+      "installedMessage": "\"{name}\" has been installed.",
+      "error": "Error",
+      "installFailed": "Failed to install snippet.",
+      "install": "Install",
+      "tabInstalled": "Installed",
+      "tabCommunity": "Community",
+      "newSnippet": "New Snippet",
+      "empty": "No CSS snippets yet",
+      "emptyHint": "Create one or browse community snippets",
+      "fetching": "Fetching community snippets...",
+      "communityEmpty": "No community snippets available",
+      "communityEmptyHint": "Check your internet connection or try again later",
+      "all": "All",
+      "save": "Save",
+      "cssPlaceholder": "/* Write your CSS here */",
+      "newTitle": "New CSS Snippet",
+      "namePlaceholder": "Snippet name",
+      "create": "Create"
+    },
+    "editor": {
+      "errorTitle": "Error",
+      "saveFailed": "Failed to save file.",
+      "deleteTitle": "Delete File",
+      "deleteConfirm": "Are you sure you want to delete this file?",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "rename": "Rename",
+      "renameFile": "Rename File",
+      "renameNoSlash": "A note name cannot contain \"/\".",
+      "renameSaveFailed": "Could not save the note before renaming it.",
+      "renameFailed": "Could not rename: a note named \"{name}\" may already exist.",
+      "renameLinksFailed": {
+        "one": "Renamed, but links in {count} note could not be updated.",
+        "other": "Renamed, but links in {count} notes could not be updated."
+      },
+      "untitled": "Untitled",
+      "save": "Save",
+      "bookmark": "Bookmark",
+      "removeBookmark": "Remove Bookmark",
+      "templates": "Templates",
+      "noteComposer": "Note composer",
+      "backlinks": "Backlinks",
+      "fileRecovery": "File Recovery",
+      "frontmatter": "Frontmatter",
+      "publishAsHtml": "Publish as HTML",
+      "presentAsSlides": "Present as Slides",
+      "attachments": "Attachments",
+      "lint": "Lint",
+      "lintNoIssues": "No issues found",
+      "lintMeta": "Line {line} · {rule}",
+      "words": {
+        "one": "{count} word",
+        "other": "{count} words"
+      },
+      "chars": {
+        "one": "{count} char",
+        "other": "{count} chars"
+      },
+      "lines": {
+        "one": "{count} line",
+        "other": "{count} lines"
+      },
+      "swipeHint": "{current}/{total} ← swipe →"
+    },
+    "composer": {
+      "selectFilesTitle": "Select Files",
+      "selectFilesMessage": "Select at least 2 files to merge.",
+      "nameRequiredTitle": "Name Required",
+      "nameRequiredMessage": "Enter a name for the merged file.",
+      "errorTitle": "Error",
+      "mergeFailed": "Failed to create merged file.",
+      "cannotSplitTitle": "Cannot Split",
+      "cannotSplitMessage": "Content does not have enough headings to split.",
+      "splitCompleteTitle": "Split Complete",
+      "splitCreated": {
+        "one": "Created {count} file.",
+        "other": "Created {count} files."
+      },
+      "ok": "OK",
+      "splitFailed": "Failed to create split files.",
+      "merge": "Merge",
+      "split": "Split",
+      "mergedNamePlaceholder": "Merged file name...",
+      "addHeadings": "Add heading for each file",
+      "selectFiles": "Select files ({count} selected)",
+      "mergeFiles": {
+        "one": "Merge {count} File",
+        "other": "Merge {count} Files"
+      },
+      "currentFile": "Current file",
+      "noFileSelected": "No file selected",
+      "splitBy": "Split by:",
+      "sectionsFound": {
+        "one": "{count} section found",
+        "other": "{count} sections found"
+      },
+      "untitledSection": "(Untitled section)",
+      "splitInto": {
+        "one": "Split into {count} File",
+        "other": "Split into {count} Files"
+      },
+      "pickFile": "Pick a file to split"
+    },
+    "markdownEditor": {
+      "placeholder": "Start writing..."
+    },
+    "markdownPreview": {
+      "runningQuery": "Running query…",
+      "noTasks": "No tasks found.",
+      "noResults": "No results."
+    },
+    "boardView": {
+      "deleteCardTitle": "Delete Card",
+      "deleteCardMessage": "Remove this card?",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "moveTo": "Move to",
+      "deleteColumnTitle": "Delete Column",
+      "deleteColumnMessage": "Delete \"{title}\"?",
+      "deleteColumnWithCards": {
+        "one": "Delete \"{title}\" and its {count} card?",
+        "other": "Delete \"{title}\" and its {count} cards?"
+      },
+      "cardPlaceholder": "Card text...",
+      "addCard": "Add card",
+      "columnPlaceholder": "Column title...",
+      "add": "Add",
+      "addColumn": "Add column"
+    },
+    "frontmatter": {
+      "emptyTitle": "No Frontmatter",
+      "emptyMessage": "Frontmatter lets you add metadata like title, date, tags, and more to your notes.",
+      "addFrontmatter": "Add Frontmatter",
+      "title": "Frontmatter",
+      "save": "Save",
+      "keyPlaceholder": "key",
+      "valuePlaceholder": "value",
+      "addProperty": "Add Property",
+      "commonProperties": "Common properties",
+      "custom": "Custom"
+    },
+    "templates": {
+      "errorTitle": "Error",
+      "createFailed": "Failed to create file from template.",
+      "preview": "Preview",
+      "use": "Use",
+      "searchPlaceholder": "Search templates...",
+      "emptyTitle": "No Templates",
+      "emptyMessage": "Create a \"Templates\" folder in your vault and add .md files to use as templates.",
+      "noMatch": "No templates match your search."
+    },
+    "publish": {
+      "title": "Publish",
+      "share": "Share",
+      "shareDialogTitle": "Share {name}",
+      "errorTitle": "Error",
+      "shareFailed": "Failed to share HTML file."
+    },
+    "graph": {
+      "title": "Graph view",
+      "building": "Building graph...",
+      "oneWay": "one-way",
+      "reciprocal": "reciprocal"
+    },
+    "backlinks": {
+      "backlinksTo": "Backlinks to {name}",
+      "scanning": "Scanning vault...",
+      "emptyTitle": "No Backlinks Found",
+      "emptyMessage": "No other files link to this note using [[wiki links]].",
+      "line": "Line {line}",
+      "found": {
+        "one": "{count} backlink found",
+        "other": "{count} backlinks found"
+      }
+    },
+    "createModal": {
+      "errorTitle": "Error",
+      "enterName": "Please enter a name.",
+      "noSeparators": "Name cannot contain path separators.",
+      "fileExists": "A file named \"{name}\" already exists.",
+      "createFileFailed": "Failed to create file.",
+      "folderExists": "A folder named \"{name}\" already exists.",
+      "createFolderFailed": "Failed to create folder.",
+      "unexpected": "An unexpected error occurred.",
+      "titleFile": "Create file",
+      "titleFolder": "Create folder",
+      "file": "File",
+      "folder": "Folder",
+      "noteName": "Note name",
+      "folderName": "Folder name",
+      "willCreate": "Will create: {name}",
+      "cancel": "Cancel",
+      "creating": "Creating...",
+      "create": "Create"
+    },
+    "vaultSwitcher": {
+      "errorTitle": "Error",
+      "enterName": "Please enter a vault name.",
+      "nameExists": "A vault with this name already exists.",
+      "createFailed": "Failed to create vault.",
+      "deleteTitle": "Delete vault",
+      "deleteMessage": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "title": "Vaults",
+      "empty": "No vaults yet",
+      "emptyHint": "Create your first vault below",
+      "namePlaceholder": "Vault name",
+      "createNew": "Create new vault"
+    },
+    "notesList": {
+      "rename": "Rename",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "trashTitle": "Move to trash?",
+      "trashMessage": "\"{name}\" will be moved to .trash and can be restored.",
+      "moveToTrash": "Move to trash",
+      "errorTitle": "Error",
+      "trashFailed": "Could not move it to the trash.",
+      "renameFailed": "Could not rename: \"{name}\" may already exist or is not a valid name.",
+      "linksNotUpdated": {
+        "one": "Renamed, but links in {count} note could not be updated.",
+        "other": "Renamed, but links in {count} notes could not be updated."
+      },
+      "back": "Back",
+      "items": {
+        "one": "{count} item",
+        "other": "{count} items"
+      },
+      "sortName": "Name",
+      "empty": "No notes yet",
+      "emptyHint": "Tap + to create your first note"
+    },
+    "trash": {
+      "restoreFailedTitle": "Restore failed",
+      "restoreFailed": "Could not restore \"{name}\".",
+      "deleteTitle": "Delete permanently?",
+      "deleteMessage": "\"{name}\" will be gone forever.",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "emptyTitle": "Empty trash?",
+      "emptyMessage": "All trashed files will be permanently deleted.",
+      "emptyConfirm": "Empty trash",
+      "title": "Trash",
+      "empty": "Empty",
+      "isEmpty": "Trash is empty",
+      "restore": "Restore"
+    },
+    "recovery": {
+      "restoreTitle": "Restore snapshot",
+      "restoreMessage": "This will overwrite the current file with this snapshot. Continue?",
+      "cancel": "Cancel",
+      "restore": "Restore",
+      "errorTitle": "Error",
+      "restoreFailed": "Failed to restore snapshot.",
+      "deleteTitle": "Delete snapshot",
+      "deleteMessage": "Remove this snapshot permanently?",
+      "delete": "Delete",
+      "justNow": "just now",
+      "minutesAgo": "{count}m ago",
+      "hoursAgo": "{count}h ago",
+      "daysAgo": "{count}d ago",
+      "monthsAgo": "{count}mo ago",
+      "noDifferences": "No differences",
+      "snapshotCount": {
+        "one": "{count} snapshot",
+        "other": "{count} snapshots"
+      },
+      "emptyTitle": "No snapshots",
+      "emptyHint": "Snapshots are created automatically each time you save."
+    },
+    "attachments": {
+      "filterAll": "All",
+      "filterImages": "Images",
+      "filterAudio": "Audio",
+      "filterVideo": "Video",
+      "typeImage": "Image",
+      "typeAudio": "Audio",
+      "typeVideo": "Video",
+      "typeOther": "File",
+      "deleteTitle": "Delete attachment",
+      "deleteMessage": "Delete \"{name}\"?",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "copiedTitle": "Copied",
+      "copiedMessage": "Markdown link copied to clipboard.",
+      "linkTitle": "Link",
+      "errorTitle": "Error",
+      "importFailed": "Failed to import file.",
+      "emptyTitle": "No attachments",
+      "emptyHint": "Import files using the + button below."
+    },
+    "flashcards": {
+      "again": "Again",
+      "hard": "Hard",
+      "good": "Good",
+      "easy": "Easy",
+      "title": "Flashcards",
+      "scanning": "Scanning vault…",
+      "dueToday": {
+        "one": "card due today",
+        "other": "cards due today"
+      },
+      "totalInVault": "{count} total in vault",
+      "startReview": "Start review",
+      "caughtUp": "All caught up!",
+      "cloze": "Complete the sentence",
+      "question": "Question",
+      "answer": "Answer",
+      "showAnswer": "Show answer",
+      "reviewed": {
+        "one": "card reviewed",
+        "other": "cards reviewed"
+      },
+      "sessionComplete": "Session complete!",
+      "done": "Done"
+    },
+    "searchModal": {
+      "title": "Search",
+      "quickOpen": "Quick open",
+      "vaultSearch": "Vault search",
+      "placeholderFiles": "Search file name...",
+      "placeholderContents": "Search in file contents...",
+      "noFiles": "No files found",
+      "typeToSearchFiles": "Type to search files",
+      "searching": "Searching...",
+      "noResults": "No results found",
+      "searchContents": "Search file contents",
+      "resultsFound": {
+        "one": "{count} result found",
+        "other": "{count} results found"
+      }
+    },
+    "bookmarksPanel": {
+      "remove": "Remove",
+      "title": "Bookmarks",
+      "items": {
+        "one": "{count} item",
+        "other": "{count} items"
+      },
+      "empty": "No bookmarks yet",
+      "emptyHint": "Long press a file to bookmark it",
+      "swipeHint": "Swipe left to remove"
+    },
+    "tagsPanel": {
+      "title": "Tags",
+      "count": {
+        "one": "{count} tag",
+        "other": "{count} tags"
+      },
+      "scanning": "Scanning files...",
+      "empty": "No tags found",
+      "emptyHint": "Use #tag syntax in your notes"
+    },
+    "outlinePanel": {
+      "title": "Outline",
+      "count": {
+        "one": "{count} heading",
+        "other": "{count} headings"
+      },
+      "empty": "No headings found",
+      "emptyHint": "Add headings using # syntax"
+    },
+    "home": {
+      "noVault": "No vault selected",
+      "noVaultHint": "Create a vault to start taking notes",
+      "createVault": "Create a vault"
+    },
+    "calendar": {
+      "monthYear": "{month} {year}"
+    },
+    "quick": {
+      "openNote": "Open the note",
+      "invalidFolder": "Not a folder name: use letters and \"/\" between folders, without \"..\".",
+      "failed": "Couldn't save. The text is still in the box above; try again."
+    }
+  }
+}

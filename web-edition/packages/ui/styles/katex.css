@@ -1,0 +1,3 @@
+/* KaTeX stylesheet at the same version as the KaTeX JS the renderers use (this package's own dependency).
+   Importing it from here, not from an app, keeps the CSS and the JS in step. */
+@import "katex/dist/katex.min.css";

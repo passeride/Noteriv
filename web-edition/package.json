@@ -1,0 +1,19 @@
+{
+  "name": "noteriv-workspace",
+  "private": true,
+  "description": "Web edition of Noteriv",
+  "workspaces": [
+    "packages/*",
+    "web"
+  ],
+  "scripts": {
+    "test": "npm test -w @noteriv/core -w @noteriv/ui -w @noteriv/plugins",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:web": "npm run dev -w noteriv-web",
+    "build:web": "npm run build -w noteriv-web",
+    "e2e": "playwright test -c e2e/playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}

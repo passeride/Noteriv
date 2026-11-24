@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Linking,
   BackHandler,
   ActivityIndicator,
   Keyboard,
@@ -30,6 +31,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import MarkdownEditor from '@/components/MarkdownEditor';
+import LiveMarkdownEditor from '@/components/LiveMarkdownEditor';
+import { getLineInfo, replaceLineRange, toggleTaskMarker } from '@/lib/markdown';
+import { markdownLinkTarget } from '@/lib/markdown-links';
 import { Directory, File } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Git from '@/lib/provider-sync';
@@ -105,7 +109,9 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const [pinchFontSize, setPinchFontSize] = useState<number>();
   const pinchZoom = useRef<{ startSize: number; size: number } | null>(null);
   const fontSize = pinchFontSize ?? settings.fontSize;
-  const isEditing = workspace.viewMode === 'edit' && !anchor;
+  const isEditing = workspace.viewMode !== 'preview' && !anchor;
+  const usesLiveEditor = isEditing && workspace.viewMode === 'live';
+  const preferredEditMode = useRef<'edit' | 'live'>(workspace.viewMode === 'live' ? 'live' : 'edit');
   const inlineLauncher = (overlay === 'commands' || overlay === 'search') && Platform.OS === 'android';
   const [startCreating, setStartCreating] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
@@ -215,16 +221,20 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     }
   }, [saveFile]);
 
+  const selectEditMode = useCallback((mode: 'edit' | 'live') => {
+    setAnchor(null);
+    preferredEditMode.current = mode;
+    updateWorkspace({ viewMode: mode });
+  }, [updateWorkspace]);
+
   const toggleViewMode = useCallback(() => {
-    if (anchor) {
-      setAnchor(null);
-      updateWorkspace({ viewMode: 'edit' });
-      return;
+    if (isEditing) {
+      preferredEditMode.current = workspace.viewMode === 'live' ? 'live' : 'edit';
+      updateWorkspace({ viewMode: 'preview' });
+    } else {
+      selectEditMode(preferredEditMode.current);
     }
-    updateWorkspace({
-      viewMode: workspace.viewMode === 'edit' ? 'preview' : 'edit',
-    });
-  }, [anchor, workspace.viewMode, updateWorkspace]);
+  }, [isEditing, workspace.viewMode, selectEditMode, updateWorkspace]);
 
   const handleBookmark = useCallback(() => {
     if (!currentFile) return;
@@ -297,6 +307,19 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const handleMarkdownLink = useCallback((url: string) => {
     void openNoteLink(url, true);
   }, [openNoteLink]);
+
+  const handleLiveLink = useCallback((url: string) => {
+    const target = markdownLinkTarget(url);
+    if (target?.kind === 'note') handleMarkdownLink(target.url);
+    if (target?.kind === 'external') {
+      void Linking.openURL(target.url).catch(() => Alert.alert('Could not open link'));
+    }
+  }, [handleMarkdownLink]);
+
+  const handleLiveTask = useCallback((line: number) => {
+    const info = getLineInfo(content, line);
+    setContent(replaceLineRange(content, line, line, toggleTaskMarker(info.text)));
+  }, [content, setContent]);
 
   const handleLint = useCallback(async () => {
     setMenuVisible(false);
@@ -526,8 +549,10 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     ...(hasMarkdownNote ? [
       { label: 'Increase note font size', run: () => setNoteFontSize(settings.fontSize + 1) },
       { label: 'Decrease note font size', run: () => setNoteFontSize(settings.fontSize - 1) },
+      ...(usesLiveEditor ? [] : [{ label: 'Edit with live preview (experimental)', run: () => selectEditMode('live') }]),
+      ...(workspace.viewMode === 'edit' && isEditing ? [] : [{ label: 'Edit Markdown source', run: () => selectEditMode('edit') }]),
     ] : []),
-    ...(hasMarkdownNote && isEditing ? [
+    ...(hasMarkdownNote && isEditing && !usesLiveEditor ? [
       { label: settings.wordWrap ? 'Turn off editor word wrap' : 'Turn on editor word wrap',
         run: () => updateSettings({ wordWrap: !settings.wordWrap }) },
     ] : []),
@@ -542,7 +567,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     { label: 'New note or folder', run: newEntry },
     ...(displayedPath && currentFile === displayedPath ? [{ label: 'Note details', run: openDetails }] : []),
     { label: 'Save note', run: handleSave },
-    { label: (workspace.viewMode === 'edit' && !anchor) ? 'Switch to reading mode' : 'Switch to editing mode', run: toggleViewMode },
+    { label: isEditing ? 'Switch to reading mode' : 'Switch to editing mode', run: toggleViewMode },
     { label: focusMode ? 'Exit focus mode' : 'Enter focus mode', run: () => setFocusMode(value => !value) },
     { label: isBookmarked ? 'Remove bookmark' : 'Bookmark note', run: handleBookmark },
     { label: 'Open graph', run: () => { if (flushFile()) router.push({ pathname: '/graph', params: { note: currentFile ?? undefined } }); } },
@@ -606,11 +631,11 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
           {displayedPath && !isBoard && <TouchableOpacity
             style={[styles.modeButton, { borderRadius: metrics.controlRadius, backgroundColor: colors.accent + '18' }]}
             accessibilityRole="button"
-            accessibilityLabel={workspace.viewMode === 'edit' && !anchor ? 'Read note' : 'Write note'}
+            accessibilityLabel={isEditing ? 'Read note' : 'Write note'}
             onPress={toggleViewMode}
           >
             <Text style={{ color: colors.accent, fontWeight: '700' }}>
-              {workspace.viewMode === 'edit' && !anchor ? 'Read' : 'Write'}
+              {isEditing ? 'Read' : 'Write'}
             </Text>
           </TouchableOpacity>}
         </View>
@@ -783,6 +808,18 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               <Text style={{ color: colors.textSecondary, padding: 20 }}>Open a note from the file panel.</Text>
             ) : isBoard ? (
               <BoardView content={content} onChange={setContent} />
+            ) : usesLiveEditor ? (
+              <LiveMarkdownEditor
+                key={displayedPath}
+                content={content}
+                onChange={setContent}
+                fontSize={fontSize}
+                focusMode={focusMode}
+                onToggleFocusMode={() => setFocusMode((f) => !f)}
+                onLinkPress={handleLiveLink}
+                onWikiLinkPress={openNoteLink}
+                onToggleTask={handleLiveTask}
+              />
             ) : isEditing ? (
               <MarkdownEditor
                 notePath={displayedPath}

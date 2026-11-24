@@ -1,0 +1,567 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceRole {
+  owner
+  editor
+  viewer
+}
+
+enum LinkType {
+  wikilink
+  embed
+}
+
+enum SyncProviderType {
+  github
+  gitlab
+  gitea
+  forgejo
+  webdav
+}
+
+enum SyncDirection {
+  push
+  pull
+  both
+}
+
+enum SyncJobStatus {
+  queued
+  running
+  success
+  conflict
+  error
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String?  @map("password_hash")
+  displayName  String   @map("display_name")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  /// Which invite code this account registered with (null: registered before invites existed, or open mode).
+  inviteCodeId     String?   @map("invite_code_id")
+  /// When and which version of the Terms/Privacy the user agreed to at registration (null for older accounts).
+  termsAcceptedAt  DateTime? @map("terms_accepted_at")
+  termsVersion     String?   @map("terms_version")
+  /// When the user proved they own `email` (verification link, reset link or a confirmed email change). Accounts
+  /// created before email existed were marked verified by the migration that added this column.
+  emailVerifiedAt  DateTime? @map("email_verified_at")
+  /// The plan whose limits apply to what this user owns (lib/plans.ts). Changed with the CLI (cli/plan.ts).
+  planId           String    @default("free") @map("plan_id")
+  /// Admin is this role OR an email in ADMIN_EMAILS (lib/registration.ts isAdmin); the env list bootstraps the first one.
+  role             UserRole  @default(user)
+  /// Set by an admin: every request of a locked account is refused (plugins/auth.ts) and it cannot sign in.
+  lockedAt         DateTime? @map("locked_at")
+
+  invitedWith    InviteCode?        @relation("InviteUsedBy", fields: [inviteCodeId], references: [id], onDelete: SetNull)
+  plan            Plan               @relation(fields: [planId], references: [id])
+  createdInvites   InviteCode[]       @relation("InviteCreatedBy")
+  ownedWorkspaces  Workspace[]        @relation("WorkspaceOwner")
+  memberships      WorkspaceMember[]
+  refreshTokens    RefreshToken[]
+  createdNotes     Note[]             @relation("NoteCreatedBy")
+  updatedNotes     Note[]             @relation("NoteUpdatedBy")
+  auditLogs        AuditLog[]
+  vaultStates      UserVaultState[]
+  clipTokens       ClipToken[]
+  preference       UserPreference?
+  emailTokens      EmailToken[]
+  activityDays     UserActivityDay[]
+  llmApiKeys       LlmApiKey[]
+  usageEvents      UsageEvent[]
+  subscription     UserSubscription?
+
+  @@map("users")
+}
+
+/// A user's API key for an LLM provider (claude, openai, ...). keyEncrypted is "enc:<fernet token>" written by
+/// lib/credentials-vault.ts; the plaintext key is never stored or returned by the API.
+model LlmApiKey {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  provider     String
+  keyEncrypted String   @map("key_encrypted")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("llm_api_keys")
+}
+
+/// A plan and its limits (session 5.3). Null means no limit. Limits apply to what the user owns: the vaults in their
+/// workspaces, the attachments and sync connections of those vaults. Payment is not part of this yet.
+model Plan {
+  id                       String   @id
+  name                     String
+  maxVaults                Int?     @map("max_vaults")
+  maxAttachmentBytes       BigInt?  @map("max_attachment_bytes")
+  maxSyncConnections       Int?     @map("max_sync_connections")
+  maxSnapshotsPerNote      Int?     @map("max_snapshots_per_note")
+  /// Reserved: not enforced until sharing vaults with other accounts exists.
+  maxCollaboratorsPerVault Int?     @map("max_collaborators_per_vault")
+  /// Reserved: not enforced until AI features exist.
+  aiRequestsPerMonth       Int?     @map("ai_requests_per_month")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("plans")
+}
+
+enum UserRole {
+  user
+  admin
+}
+
+enum EmailTokenPurpose {
+  verify_email
+  reset_password
+  change_email
+}
+
+/// One-time links sent by email (lib/emailTokens.ts). Only a hash of the token is stored; `newEmail` is the address
+/// being confirmed by a change_email token.
+model EmailToken {
+  id        String            @id @default(uuid())
+  userId    String            @map("user_id")
+  purpose   EmailTokenPurpose
+  tokenHash String            @unique @map("token_hash")
+  newEmail  String?           @map("new_email")
+  expiresAt DateTime          @map("expires_at")
+  usedAt    DateTime?         @map("used_at")
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("email_tokens")
+}
+
+/// Registration is invite-only by default (REGISTRATION_MODE, see routes/auth.ts). A code is revoked,
+/// never deleted, so accounts that used it keep their trail.
+model InviteCode {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  note        String    @default("")
+  maxUses     Int       @default(1) @map("max_uses")
+  usedCount   Int       @default(0) @map("used_count")
+  expiresAt   DateTime? @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdById String?   @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  createdBy User?  @relation("InviteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  users     User[] @relation("InviteUsedBy")
+
+  @@map("invite_codes")
+}
+
+model UserPreference {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  /// Partial override map, Record<HotkeyAction, keyString> — only entries
+  /// that differ from web/src/lib/hotkeys.ts's DEFAULT_HOTKEYS are stored.
+  hotkeys   Json     @default("{}")
+  /// { editorFont?, fontSize?, lineHeight?, tabSize?, autoSaveInterval? } —
+  /// see web/src/lib/settings.ts's AppSettings subset actually wired for web.
+  editorSettings Json @default("{}") @map("editor_settings")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+/// One row per user per UTC day they signed in or refreshed a session (routes/auth.ts). Feeds the admin
+/// usage stats (active users, retention); rows older than ~13 months are removed by the daily cleanup job.
+model UserActivityDay {
+  userId String   @map("user_id")
+  day    DateTime @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, day])
+  @@index([day])
+  @@map("user_activity_days")
+}
+
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String   @map("owner_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  owner   User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members WorkspaceMember[]
+  vaults  Vault[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  workspaceId String        @map("workspace_id")
+  userId      String        @map("user_id")
+  role        WorkspaceRole @default(owner)
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+model Vault {
+  id          String   @id @default(uuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  folders   Folder[]
+  notes     Note[]
+  backlinks Backlink[]
+  plugins   Plugin[]
+  syncConnections SyncConnection[]
+  userStates UserVaultState[]
+  attachments Attachment[]
+  clipTokens  ClipToken[]
+
+  @@map("vaults")
+}
+
+/// Per-user, per-vault UI workspace state — which tabs are open, which is
+/// active, which are pinned, and which view mode (live/source/view) each note
+/// is in. This is NOT vault configuration (that's Vault.settings, shared by
+/// every member) — it's private to one user's browser session, analogous to
+/// desktop's workspace_save/workspace_load (Tauri-local) but server-backed so
+/// it survives across devices/reloads for that user.
+model UserVaultState {
+  id            String   @id @default(uuid())
+  vaultId       String   @map("vault_id")
+  userId        String   @map("user_id")
+  /// Array of { noteId, path, name } for open tabs, in display order.
+  openTabs      Json     @default("[]") @map("open_tabs")
+  activeTabId   String?  @map("active_tab_id")
+  /// Array of noteId strings.
+  pinnedTabIds  Json     @default("[]") @map("pinned_tab_ids")
+  /// Record<noteId, "live"|"source"|"view">.
+  fileViewModes Json     @default("{}") @map("file_view_modes")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vaultId, userId])
+  @@map("user_vault_states")
+}
+
+model SyncConnection {
+  id           String           @id @default(uuid())
+  vaultId      String           @map("vault_id")
+  providerType SyncProviderType @map("provider_type")
+
+  // Git providers (github/gitlab/gitea/forgejo)
+  remoteUrl    String?          @map("remote_url")
+  branch       String           @default("main")
+  authUsername String?          @map("auth_username")
+
+  // WebDAV
+  webdavUrl    String?          @map("webdav_url")
+  webdavPath   String?          @map("webdav_path")
+
+  /// AES-256-GCM encrypted JSON blob — {token} for git, {username,password} for WebDAV.
+  /// Never returned to the client. See src/lib/crypto.ts.
+  credentialsEncrypted Bytes    @map("credentials_encrypted")
+
+  direction      SyncDirection @default(both)
+  autoSync       Boolean       @default(false) @map("auto_sync")
+  /// Minutes between background syncs when autoSync is on (parity plan v2, Pha 2).
+  syncIntervalMinutes Int      @default(10) @map("sync_interval_minutes")
+  /// Commit message template with {date} {time} {count} placeholders.
+  commitTemplate String        @default("Sync notes {date}") @map("commit_template")
+  syncOnSave     Boolean       @default(false) @map("sync_on_save")
+  pullOnOpen     Boolean       @default(false) @map("pull_on_open")
+  /// Git host account shown in the UI (GitHub login/avatar), never a secret.
+  accountLogin     String?     @map("account_login")
+  accountAvatarUrl String?     @map("account_avatar_url")
+  lastSyncedAt   DateTime?     @map("last_synced_at")
+  lastSyncStatus Json?         @map("last_sync_status")
+  /// Set while a sync of this connection runs (see runSyncJob): two syncs of one connection
+  /// would share a scratch directory and race each other's imports.
+  syncLockedAt   DateTime?     @map("sync_locked_at")
+  /// WebDAV only: per-file content hash + remote mtime after the last sync, so the next
+  /// sync knows which side changed (see webdavSyncCore). Lost or empty = treated as a first sync.
+  syncState      Json?         @map("sync_state")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  vault Vault     @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  jobs  SyncJob[]
+
+  @@map("sync_connections")
+}
+
+model SyncJob {
+  id               String        @id @default(uuid())
+  syncConnectionId String        @map("sync_connection_id")
+  status           SyncJobStatus @default(queued)
+  pushedCount      Int           @default(0) @map("pushed_count")
+  pulledCount      Int           @default(0) @map("pulled_count")
+  errorMessage     String?       @map("error_message")
+  /// Paths with unresolved conflicts when status = conflict.
+  conflictFiles    Json?         @map("conflict_files")
+  startedAt        DateTime?     @map("started_at")
+  finishedAt       DateTime?     @map("finished_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  syncConnection SyncConnection @relation(fields: [syncConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([syncConnectionId])
+  @@map("sync_jobs")
+}
+
+model Plugin {
+  id          String   @id @default(uuid())
+  vaultId     String   @map("vault_id")
+  pluginId    String   @map("plugin_id")
+  manifest    Json
+  /// Plugin source, stored as text for now (plugins are small JS files). A
+  /// future phase can move this to object storage alongside attachments.
+  mainJs      String   @map("main_js")
+  enabled     Boolean  @default(true)
+  settings    Json     @default("{}")
+  installedAt DateTime @default(now()) @map("installed_at")
+
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@unique([vaultId, pluginId])
+  @@map("plugins")
+}
+
+/// Attachment binary stored in S3-compatible object storage (Garage, see
+/// web/server/src/lib/attachments.ts) — only metadata lives in Postgres.
+/// `storageKey` is the object key inside the bucket, not a local path.
+model Attachment {
+  id         String   @id @default(uuid())
+  vaultId    String   @map("vault_id")
+  filename   String
+  mimeType   String   @map("mime_type")
+  size       Int
+  storageKey String   @map("storage_key")
+  createdAt  DateTime @default(now()) @map("created_at")
+  /// PDF annotation array (Phase D4) — only populated for mimeType
+  /// "application/pdf". Kept inline on Attachment rather than a separate
+  /// table since it's always loaded/saved as one unit alongside the file
+  /// (same JSON-on-the-parent-row pattern Vault.settings already uses for
+  /// themes/plugins/bookmarks). Shape: PDFAnnotation[] from
+  /// web/src/lib/pdf-annotation.ts.
+  metadata   Json?
+  /// Repo-relative path this file has in a git-synced vault (e.g. "attachments/a.png"
+  /// or "assets/img/b.png"); null until a sync first places or finds it.
+  syncPath   String?  @map("sync_path")
+
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@index([vaultId])
+  @@map("attachments")
+}
+
+model Folder {
+  id        String    @id @default(uuid())
+  vaultId   String    @map("vault_id")
+  parentId  String?   @map("parent_id")
+  name      String
+  path      String
+  position  Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at")
+  /// Soft-delete marker (Phase C1 Trash) — set instead of a real row delete so
+  /// the folder (and whatever was trashed alongside it in the same batch, see
+  /// lib/trash.ts) can be restored. A permanent delete still goes through
+  /// Prisma's real `.delete()`, via the dedicated trash routes only.
+  deletedAt DateTime? @map("deleted_at")
+
+  vault    Vault    @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  parent   Folder?  @relation("FolderParent", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderParent")
+  notes    Note[]
+
+  @@unique([vaultId, path])
+  @@index([vaultId, deletedAt])
+  @@map("folders")
+}
+
+model Note {
+  id          String   @id @default(uuid())
+  vaultId     String   @map("vault_id")
+  folderId    String?  @map("folder_id")
+  name        String
+  path        String
+  content     String   @default("")
+  frontmatter Json     @default("{}")
+  sizeBytes   Int      @default(0) @map("size_bytes")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by")
+  updatedById String?  @map("updated_by")
+  /// Soft-delete marker (Phase C1 Trash) — see Folder.deletedAt's doc comment,
+  /// same semantics here.
+  deletedAt   DateTime? @map("deleted_at")
+  // Note: the `content_tsv` generated tsvector column (added in migration
+  // 20261012071108_add_backlinks_and_search) is deliberately NOT declared here.
+  // Prisma's migration-diff engine doesn't understand `GENERATED ALWAYS AS`
+  // columns and proposes dropping its index/default on every subsequent
+  // migration if declared as Unsupported("tsvector"). The column still exists
+  // in the DB and is queried via $queryRaw in routes/vaults.ts — just never
+  // through Prisma Client, so it doesn't need a schema field at all.
+
+  vault             Vault      @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  folder            Folder?    @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  createdBy         User?      @relation("NoteCreatedBy", fields: [createdById], references: [id])
+  updatedBy         User?      @relation("NoteUpdatedBy", fields: [updatedById], references: [id])
+  backlinksAsSource Backlink[] @relation("BacklinkSource")
+  backlinksAsTarget Backlink[] @relation("BacklinkTarget")
+  snapshots         NoteSnapshot[]
+
+  @@unique([vaultId, path])
+  @@index([vaultId, deletedAt])
+  @@map("notes")
+}
+
+/// Periodic content snapshot (Phase D5 File Recovery / Time Scrubber) — ported
+/// from desktop's local `.noteriv/snapshots/*.md` files, but server-backed so
+/// it's available from any device. Written by a recurring job (see
+/// web/server/src/sync-worker/index.ts) only when the note's content actually
+/// changed since the last snapshot — not on every save, to avoid one row per
+/// keystroke-debounce cycle. Capped at MAX_SNAPSHOTS_PER_NOTE per note (see
+/// web/server/src/lib/noteSnapshots.ts), oldest pruned first.
+model NoteSnapshot {
+  id        String   @id @default(uuid())
+  noteId    String   @map("note_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId, createdAt])
+  @@map("note_snapshots")
+}
+
+model Backlink {
+  id           String   @id @default(uuid())
+  vaultId      String   @map("vault_id")
+  sourceNoteId String   @map("source_note_id")
+  targetNoteId String   @map("target_note_id")
+  linkType     LinkType @default(wikilink) @map("link_type")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  vault      Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  sourceNote Note  @relation("BacklinkSource", fields: [sourceNoteId], references: [id], onDelete: Cascade)
+  targetNote Note  @relation("BacklinkTarget", fields: [targetNoteId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceNoteId, targetNoteId, linkType])
+  @@index([targetNoteId])
+  @@map("backlinks")
+}
+
+/// Security/account-event audit trail (auth, vault/account deletion, sync
+/// credential changes, plugin installs). Not a full activity feed over every
+/// note edit — those already have their own history via `updatedAt`/`updatedBy`.
+/// Personal token used by the browser clipper bookmarklet (parity plan v2, Pha 6).
+/// Only the SHA-256 of the token is stored; the token itself is shown once at creation.
+/// It can do exactly one thing: create notes in `vaultId` (see routes/clipper.ts).
+model ClipToken {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  vaultId     String    @map("vault_id")
+  name        String
+  tokenHash   String    @unique @map("token_hash")
+  /// Last 4 characters, only so the UI can tell tokens apart.
+  tokenHint   String    @map("token_hint")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("clip_tokens")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  resourceType String? @map("resource_type")
+  resourceId String?  @map("resource_id")
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+/// One AI chat request's token usage and estimated cost (lib/usageTracker.ts). Rows are only ever appended; the
+/// monthly counter sums them from the first of the month (UTC).
+model UsageEvent {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  provider  String
+  model     String
+  tokensIn  Int      @default(0) @map("tokens_in")
+  tokensOut Int      @default(0) @map("tokens_out")
+  /// Estimated from lib/pricing.ts at the time of the request; later price changes do not rewrite history.
+  costUsd   Decimal  @default(0) @map("cost_usd") @db.Decimal(12, 6)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("usage_events")
+}
+
+/// A user's AI tier and optional overrides. No row means the "free" tier. A null limit means "the tier's default"
+/// (lib/pricing.ts TIER_DEFAULTS); the "max" tier's default is unlimited.
+model UserSubscription {
+  userId             String   @id @map("user_id")
+  tier               String   @default("free")
+  monthlyBudgetUsd   Decimal? @map("monthly_budget_usd") @db.Decimal(10, 2)
+  monthlyLimitTokens Int?     @map("monthly_limit_tokens")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_subscriptions")
+}

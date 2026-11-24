@@ -1,5 +1,7 @@
 <div align="center">
 
+
+
 <a href="https://www.noteriv.com">
   <img src="assets/readme/hero.svg" alt="Noteriv: fast markdown notes, everywhere" width="100%" />
 </a>
@@ -35,6 +37,16 @@
 <sub>📱 The <a href="#-mobile">mobile app</a> is a work in progress. Every feature ships to desktop first.</sub>
 
 </div>
+
+## Web and mobile live-edit experiment
+
+This experiment branch includes the [web edition](web-edition/README.md)
+and a preview of live editing on Android and iOS. Open a Markdown note and
+choose **Edit with live preview (experimental)** in the command palette.
+Tap a block to edit it, or choose **Edit Markdown source** to return to the
+standard editor. The live editor renders the surrounding text and keeps code
+fences, tables and other complex blocks as Markdown while you edit them.
+
 
 <img src="assets/readme/divider.svg" alt="" width="100%" />
 

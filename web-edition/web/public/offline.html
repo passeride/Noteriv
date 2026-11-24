@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e1e2e">
+<title>Noteriv — offline</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1e1e2e; color: #cdd6f4; font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 24px; box-sizing: border-box; text-align: center; }
+  img { width: 72px; height: 72px; }
+  h1 { font-size: 20px; margin: 0; }
+  p { margin: 4px 0 0; color: #a6adc8; max-width: 26rem; }
+  button { padding: 10px 22px; border: 0; border-radius: 10px; background: #89b4fa; color: #1e1e2e; font: inherit; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/icons/icon-192.png" alt="">
+  <div>
+    <h1 lang="en">You are offline</h1>
+    <p lang="en">Noteriv needs a connection to open this page. Your notes are safe on the server.</p>
+  </div>
+  <div>
+    <h1 lang="vi">Bạn đang offline</h1>
+    <p lang="vi">Noteriv cần kết nối mạng để mở trang này. Note của bạn vẫn an toàn trên máy chủ.</p>
+  </div>
+  <button type="button" onclick="location.reload()">Try again · Thử lại</button>
+</main>
+</body>
+</html>

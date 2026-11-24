@@ -2,7 +2,7 @@
   "expo": {
     "name": "noteriv",
     "slug": "noteriv",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "noteriv",
@@ -42,6 +42,7 @@
       "./plugins/withAndroidImeInsets.js",
       "./plugins/withMobilePluginShortcuts.js",
       "./plugins/withAndroidUserCertificates.js",
+      "./plugins/withOptionalPortrait.js",
       "expo-secure-store"
     ],
     "experiments": {

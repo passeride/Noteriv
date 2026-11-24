@@ -9,7 +9,7 @@ export interface SecretStore {
   set: (key: string, value: string) => Promise<void>;
   remove: (key: string) => Promise<void>;
 }
-const secretKey = (key: string) => /^noteriv:(ghToken|gitToken|gitCredentials):/.test(key);
+const secretKey = (key: string) => /^noteriv:(ghToken|gitToken|gitCredentials|webdavPassword):/.test(key);
 // Collision-free conversion to the alphabet accepted by Android SecureStore.
 const encoded = (key: string) => key.split('').map(c => c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
 export function createStorage(plain: PlainStore, secure: SecretStore) {

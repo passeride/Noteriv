@@ -70,6 +70,8 @@ export async function deleteVault(id: string): Promise<void> {
   const vaults = await getVaults();
   const filtered = vaults.filter((v) => v.id !== id);
   await setItem(KEYS.VAULTS, filtered);
+  // The server password of a vault that is gone has no business staying on the phone.
+  await removeItem(KEYS.WEBDAV_PASSWORD(id));
 }
 
 export async function isSetupComplete(): Promise<boolean> {

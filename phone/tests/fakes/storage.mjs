@@ -10,6 +10,7 @@ export const KEYS = {
   GITHUB_TOKEN: (vaultId) => `noteriv:ghToken:${vaultId}`,
   GIT_TOKEN: (vaultId) => `noteriv:gitToken:${vaultId}`,
   GIT_CREDENTIALS: (vaultId) => `noteriv:gitCredentials:${vaultId}`,
+  WEBDAV_PASSWORD: (vaultId) => `noteriv:webdavPassword:${vaultId}`,
 };
 
 export async function getItem(key) {

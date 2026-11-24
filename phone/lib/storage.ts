@@ -11,6 +11,7 @@ const KEYS = {
   GITHUB_TOKEN: (vaultId: string) => `noteriv:ghToken:${vaultId}`,
   GIT_TOKEN: (vaultId: string) => `noteriv:gitToken:${vaultId}`,
   GIT_CREDENTIALS: (vaultId: string) => `noteriv:gitCredentials:${vaultId}`,
+  WEBDAV_PASSWORD: (vaultId: string) => `noteriv:webdavPassword:${vaultId}`,
 };
 
 // Follows covuaduongsinh's secure migration approach, without plaintext fallback.

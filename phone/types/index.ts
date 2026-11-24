@@ -10,6 +10,16 @@ export interface Vault {
   homeFile?: string;
   autoSync: boolean;
   lastOpened: number;
+  /** The WebDAV folder this vault syncs with, if any. Its password is kept apart, in the app's storage. */
+  webdav?: VaultWebDav | null;
+}
+
+export interface VaultWebDav {
+  /** The server's WebDAV address. */
+  url: string;
+  username: string;
+  /** The folder on the server, for example `/Noteriv`. */
+  remotePath: string;
 }
 
 export type GitProvider = 'github' | 'gitlab' | 'gitea';

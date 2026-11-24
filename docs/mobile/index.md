@@ -38,6 +38,7 @@ The mobile app includes the following features, each adapted for touch interacti
 | Feature | Description |
 |---|---|
 | Markdown editor | Full-text editing with a formatting toolbar for bold, italic, headings, links, lists, code, highlights, and more |
+| Live editing | Edit one block while the rest of the note stays formatted |
 | Markdown preview | Rendered HTML preview with syntax highlighting, KaTeX math, Mermaid diagrams, callouts, embeds, table of contents, and interactive checkboxes |
 | Wiki-link navigation | Tap `[[wiki-links]]` in preview to jump to linked notes, with automatic note creation for links that do not exist yet |
 | Swipe navigation | Swipe left and right to move between notes in the same folder |
@@ -66,6 +67,13 @@ The mobile app includes the following features, each adapted for touch interacti
 | CSS snippets | Toggle custom CSS snippets on and off to fine-tune the interface |
 | Plugins | Enable and manage community plugins per vault |
 | Attachments | Browse and manage images, PDFs, and other files in your vault |
+
+## Live Editing
+
+Open a Markdown note and choose **Edit with live preview** in the command
+palette. Tap a block to edit it in place. Complex blocks such as tables and
+code fences are edited as Markdown. Choose **Edit Markdown source** to edit
+the full note as text, or tap **Read** to open the reading view.
 
 ## Desktop-Only Features
 

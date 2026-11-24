@@ -95,8 +95,14 @@ jobs:
           unzip -t "$apk" 'assets/index.android.bundle' 'lib/arm64-v8a/libreactnative.so' 'lib/arm64-v8a/libnoteriv_git.so'
           mkdir -p ../bundles
           cp "$apk" ../bundles/Noteriv-android-arm64.apk
-      - uses: actions/upload-artifact@v7
+      - name: Upload installable APK
+        id: apk
+        uses: actions/upload-artifact@v7
         with:
-          name: noteriv-android-arm64
           path: bundles/Noteriv-android-arm64.apk
+          archive: false
           if-no-files-found: error
+      - name: Link to the APK
+        env:
+          APK_URL: ${{ steps.apk.outputs.artifact-url }}
+        run: printf '[Download Noteriv for Android (ARM64)](%s)\n' "$APK_URL" >> "$GITHUB_STEP_SUMMARY"

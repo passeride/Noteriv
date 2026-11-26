@@ -8,7 +8,7 @@ import { removeItem, KEYS } from '@/lib/storage';
 import { oauthIO } from '@/lib/github-login';
 import { login } from '../../packages/git-client/oauth';
 export default function NativeGitSettings({ onChooseRepository }: { onChooseRepository?: () => void } = {}) {
-  const { vault, refreshVaults, refreshFiles, settings, updateSettings } = useApp();
+  const { vault, refreshVaults, refreshFiles, syncCurrentVault, settings, updateSettings } = useApp();
   const { colors } = useTheme();
   const [status, setStatus] = useState<Git.NativeStatus | null>(null), [busy, setBusy] = useState(''), [error, setError] = useState('');
   const [remote, setRemote] = useState(vault?.gitRemote ?? ''), [branch, setBranch] = useState(vault?.gitBranch || 'main');
@@ -33,9 +33,11 @@ export default function NativeGitSettings({ onChooseRepository }: { onChooseRepo
     finally { setBusy(''); }
   }
   const input = (label: string, value: string, set: (v: string) => void, secret = false, multiline = false) => <TextInput accessibilityLabel={label} placeholder={label} placeholderTextColor={colors.textMuted} value={value} onChangeText={set} secureTextEntry={secret} multiline={multiline} autoCapitalize="none" autoCorrect={false} style={{ color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, padding: 10, borderRadius: 6 }} />;
-  const run = (action: string) => task(action, async () => {
-    const result = action === 'pull' ? await Git.pull(vault.path, '', vault.gitRemote!, vault.gitBranch) : await Git.sync(vault.path, '', vault.gitRemote!, vault.gitBranch);
-    if (result.errors.length) throw new Error(result.errors.join('\n'));
+  const run = (action: 'pull' | 'sync') => task(action, async () => {
+    const result = await syncCurrentVault(action);
+    if (result?.provider === 'git' && result.outcome.errors.length) {
+      throw new Error(result.outcome.errors.join('\n'));
+    }
   });
   const resolve = (path: string, side: string) => Alert.alert('Resolve conflict', `Keep the ${side === 'ours' ? 'local' : 'remote'} version of ${path}? Original versions remain in Git history.`, [{ text: 'Cancel' }, { text: 'Keep version', onPress: () => task('Resolving conflict', () => Git.withEditor(() => Git.native({ action: 'resolve', dir, path, side }))) }]);
   const tabs = <T extends string,>(id: string, label: string, selected: T, change: (value: T) => void, items: { value: T; label: string }[]) => <View accessibilityLabel={label} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>

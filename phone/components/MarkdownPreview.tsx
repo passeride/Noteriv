@@ -12,13 +12,10 @@ import {
   LayoutChangeEvent,
   type ScrollViewInstance,
 } from 'react-native';
-import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useComposedEventHandler, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedScrollHandler, useComposedEventHandler, useSharedValue } from 'react-native-reanimated';
 import {
-  GestureDetector, GestureStateManager, useExclusiveGestures, useNativeGesture, usePanGesture, type PinchGesture,
+  GestureDetector, useExclusiveGestures, useNativeGesture, type PinchGesture,
 } from 'react-native-gesture-handler';
-import { scheduleOnRN } from 'react-native-worklets';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { WebView } from 'react-native-webview';
 import { frontmatterLineCount, readProperties } from '@/lib/properties';
 import { readDecorations } from '@/lib/file-decoration';
@@ -30,6 +27,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { parseQuery, executeQuery, parseNoteData, QueryResult } from '@/lib/dataview';
 import { fileExists, listAllMarkdownFiles, readFile } from '@/lib/file-system';
 import { MobilePluginBlock, usePluginRenderers } from '@/components/MobilePluginHost';
+import { CommandPullIndicator, useCommandPull } from '@/components/CommandPull';
 
 interface MarkdownPreviewProps {
   content: string;
@@ -45,17 +43,6 @@ interface MarkdownPreviewProps {
   hideReadingMetadata?: boolean;
   onLinkPress?: (url: string) => void;
   onWikiLinkPress?: (name: string) => void;
-}
-
-const COMMAND_PULL_THRESHOLD = 52;
-
-function signalCommandThreshold() {
-  if (Platform.OS !== 'web') void Haptics.selectionAsync().catch(() => undefined);
-}
-
-function commandPullDistance(x: number, y: number) {
-  'worklet';
-  return y > Math.abs(x) * 1.5 ? y : 0;
 }
 
 // ---- Inline parser ----
@@ -789,48 +776,11 @@ export default function MarkdownPreview({
   const lineHeight = fontSize * 1.65;
   const scrollRef = useRef<ScrollViewInstance>(null);
   const scrollY = useSharedValue(0);
-  const pullDistance = useSharedValue(0);
-  const pullSignaled = useSharedValue(false);
   const trackScroll = useAnimatedScrollHandler(event => { scrollY.value = event.contentOffset.y; });
   const handleScroll = useComposedEventHandler([onScroll ?? null, onPullDown ? trackScroll : null]);
-  const pull = usePanGesture({
-    enabled: !!onPullDown,
-    maxPointers: 1,
-    activeOffsetY: 12,
-    failOffsetY: -8,
-    failOffsetX: [-20, 20],
-    simultaneousWith: pinchGesture,
-    onTouchesDown: event => {
-      'worklet';
-      // A drag already scrolling the note back up should finish as a scroll.
-      if (scrollY.value > 2) GestureStateManager.fail(event.handlerTag);
-    },
-    onUpdate: event => {
-      'worklet';
-      pullDistance.value = commandPullDistance(event.translationX, event.translationY);
-      if (pullDistance.value >= COMMAND_PULL_THRESHOLD && !pullSignaled.value) {
-        pullSignaled.value = true;
-        scheduleOnRN(signalCommandThreshold);
-      }
-    },
-    onDeactivate: event => {
-      'worklet';
-      if (onPullDown && !event.canceled && commandPullDistance(event.translationX, event.translationY) >= COMMAND_PULL_THRESHOLD) {
-        scheduleOnRN(onPullDown);
-      }
-    },
-    onFinalize: () => {
-      'worklet';
-      pullSignaled.value = false;
-      pullDistance.value = withTiming(0, { duration: 120 });
-    },
-  });
+  const { gesture, pullDistance } = useCommandPull(onPullDown, scrollY, pinchGesture);
   const nativeScroll = useNativeGesture({ simultaneousWith: pinchGesture });
-  const pullGesture = useExclusiveGestures(pull, nativeScroll);
-  const pullIndicatorStyle = useAnimatedStyle(() => {
-    const progress = Math.min(1, pullDistance.value / COMMAND_PULL_THRESHOLD);
-    return { opacity: progress, transform: [{ translateY: 16 * progress - 10 }, { scale: 0.85 + 0.15 * progress }] };
-  });
+  const pullGesture = useExclusiveGestures(gesture, nativeScroll);
   const headingYMap = useRef<Map<number, number>>(new Map());
   const anchorLine = useMemo(() => {
     if (!anchor) return undefined;
@@ -1270,10 +1220,7 @@ export default function MarkdownPreview({
   return (
     <View style={styles.container}>
       <GestureDetector gesture={pullGesture}>{scrollView}</GestureDetector>
-      <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-        style={[styles.pullIndicator, { top: headerInset + 8, backgroundColor: colors.bgSecondary, borderColor: colors.accent }, pullIndicatorStyle]}>
-        <Ionicons name="terminal-outline" size={20} color={colors.accent} />
-      </Animated.View>
+      <CommandPullIndicator pullDistance={pullDistance} top={headerInset + 8} />
     </View>
   );
 }
@@ -1281,16 +1228,6 @@ export default function MarkdownPreview({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  pullIndicator: {
-    position: 'absolute',
-    alignSelf: 'center',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   contentContainer: {
     paddingHorizontal: 20,

@@ -8,6 +8,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   accentColor: '#89b4fa',
   fontSize: 16,
   wordWrap: true,
+  livePreviewReplacement: 'off',
+  fileDrawerBreadcrumbs: false,
   lineHeight: 1.6,
   editorFont: 'monospace',
   tabSize: 4,

@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo, useEffect } from 'react';
+import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -59,6 +59,7 @@ interface NotesListProps {
   onNavigateUp: () => void;
   onGoHome?: () => void;
   onRefresh: () => void;
+  onPullToRefresh: () => Promise<void>;
   isAtRoot: boolean;
 }
 
@@ -75,6 +76,7 @@ export default function NotesList({
   onNavigateUp,
   onGoHome,
   onRefresh,
+  onPullToRefresh,
   isAtRoot,
 }: NotesListProps) {
   const { colors, metrics } = useTheme();
@@ -107,6 +109,13 @@ export default function NotesList({
   const [renameTarget, setRenameTarget] = useState<FileEntry | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const refreshInFlight = useRef(false);
+  const listRef = useRef<FlatList<FileEntry>>(null);
+  const listedFolder = indentation ? vaultPath : currentDir;
+
+  useEffect(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [listedFolder]);
   const [sortMode, setSortMode] = useState<'name' | 'name-desc'>('name');
 
   const sortedFiles = useMemo(() => {
@@ -128,10 +137,16 @@ export default function NotesList({
   }, [currentDir, isAtRoot]);
 
   const handleRefresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
     setRefreshing(true);
-    onRefresh();
-    setTimeout(() => setRefreshing(false), 300);
-  }, [onRefresh]);
+    try {
+      await onPullToRefresh();
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  }, [onPullToRefresh]);
 
   useEffect(() => {
     if (!editIconPath) return;
@@ -244,6 +259,7 @@ export default function NotesList({
   return (
     <View style={styles.container}>
       <FlatList
+        ref={listRef}
         data={sortedFiles}
         keyExtractor={(item) => item.path}
         renderItem={renderItem}

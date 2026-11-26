@@ -110,3 +110,23 @@ test('leaving and reopening a note restores its content after a pending read', a
   assert.equal(app.currentFile, NOTE);
   assert.equal(app.content, 'first version');
 });
+
+test('manual vault sync uses the configured Git remote and saves the open note first', async () => {
+  await type(' edited before refreshing');
+  let result;
+  await act(async () => { result = await app.syncCurrentVault(); });
+  assert.equal(result.provider, 'git');
+  assert.deepEqual(result.outcome.errors, []);
+  assert.equal(getRemoteNote(), 'first version edited before refreshing');
+  assert.equal(app.isDirty, false);
+});
+
+test('pull-only uses the configured Git remote and refreshes the open note', async () => {
+  desktopWrites('pulled by hand');
+  let result;
+  await act(async () => { result = await app.syncCurrentVault('pull'); });
+  assert.equal(result.provider, 'git');
+  assert.equal(result.outcome.pulled, 1);
+  assert.equal(result.outcome.pushed, 0);
+  assert.equal(app.content, 'pulled by hand');
+});

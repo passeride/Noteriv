@@ -38,6 +38,7 @@ import {
 } from '@/lib/community';
 import Constants from 'expo-constants';
 import { usePluginEntries } from '@/components/MobilePluginHost';
+import type { LivePreviewReplacement } from '@/types';
 
 const AUTO_SAVE_OPTIONS = [
   { label: 'Off', value: 0 },
@@ -45,6 +46,12 @@ const AUTO_SAVE_OPTIONS = [
   { label: '30s', value: 30 },
   { label: '1m', value: 60 },
   { label: '5m', value: 300 },
+];
+
+const LIVE_PREVIEW_OPTIONS: { label: string; value: LivePreviewReplacement }[] = [
+  { label: 'Off', value: 'off' },
+  { label: 'Read', value: 'read' },
+  { label: 'Read and Write', value: 'both' },
 ];
 
 const TAB_SIZE_OPTIONS = [2, 4, 8];
@@ -377,6 +384,8 @@ export default function SettingsScreen() {
           {options.map((opt) => (
             <TouchableOpacity
               key={String(opt.value)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: currentValue === opt.value }}
               style={[
                 s.pickerOption,
                 { backgroundColor: colors.border },
@@ -538,6 +547,12 @@ export default function SettingsScreen() {
           AUTO_SAVE_OPTIONS,
           settings.autoSaveInterval,
           (val) => updateSettings({ autoSaveInterval: val as number })
+        )}
+        {renderPicker(
+          'Replace with Live Preview',
+          LIVE_PREVIEW_OPTIONS,
+          settings.livePreviewReplacement,
+          value => updateSettings({ livePreviewReplacement: value as LivePreviewReplacement })
         )}
         {renderToggle('Hide metadata in reading view', !!settings.hideReadingMetadata, (val) =>
           updateSettings({ hideReadingMetadata: val })
@@ -786,6 +801,13 @@ export default function SettingsScreen() {
       </>}
 
       {category === 'Vault' && <>
+      {renderSectionHeader('File panel', 'folder-outline')}
+      <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
+        {renderToggle('Folder navigation with breadcrumbs', settings.fileDrawerBreadcrumbs, fileDrawerBreadcrumbs =>
+          updateSettings({ fileDrawerBreadcrumbs })
+        )}
+      </View>
+
       {renderSectionHeader('Git Sync', 'git-branch-outline')}
       <View style={[s.section, { backgroundColor: colors.bgSecondary, borderRadius: metrics.panelRadius }]}>
         {vault?.webdav?.url && !vault.gitRemote

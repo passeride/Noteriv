@@ -212,3 +212,20 @@ test('a sync asked for from the settings screen takes its turn and reports what 
   assert.equal(server.text('Notes/New.md'), 'made on the phone');
   await assert.rejects(app.syncWebDav(vault, { url: server.url, username: server.user, password: 'wrong', remotePath: '/Notes' }), /username or password/);
 });
+
+test('manual vault sync uses the saved WebDAV connection immediately', async () => {
+  await open();
+  await act(async () => { await app.setCurrentFile(NOTE); });
+  desktopWrites('downloaded by refreshing');
+  let result;
+  await act(async () => { result = await app.syncCurrentVault(); });
+  assert.equal(result.provider, 'webdav');
+  assert.equal(result.outcome.pulled, 1);
+  assert.equal(app.content, 'downloaded by refreshing');
+});
+
+test('refreshing a local vault does not contact a remote', async () => {
+  await open({ webdav: null });
+  assert.equal(await app.syncCurrentVault(), null);
+  assert.equal(server.log.length, 0);
+});

@@ -16,6 +16,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { GestureDetector, useExclusiveGestures, useNativeGesture, type PinchGesture } from 'react-native-gesture-handler';
+import { useSharedValue } from 'react-native-reanimated';
+import { CommandPullIndicator, useCommandPull } from '@/components/CommandPull';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import InlineMarkdown from '@/components/InlineMarkdown';
@@ -35,8 +38,11 @@ import {
 
 interface LiveMarkdownEditorProps {
   content: string;
+  anchor?: { heading?: string; line?: number };
   onChange: (text: string) => void;
   fontSize: number;
+  pinchGesture?: PinchGesture;
+  onPullDown?: () => void;
   focusMode?: boolean;
   onToggleFocusMode?: () => void;
   onLinkPress?: (url: string) => void;
@@ -329,8 +335,11 @@ function buildBackspaceBehavior(
 
 export default function LiveMarkdownEditor({
   content,
+  anchor,
   onChange,
   fontSize,
+  pinchGesture,
+  onPullDown,
   focusMode,
   onToggleFocusMode,
   onLinkPress,
@@ -340,6 +349,13 @@ export default function LiveMarkdownEditor({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardInset();
+  const scrollY = useSharedValue(0);
+  const { gesture, pullDistance } = useCommandPull(onPullDown, scrollY, pinchGesture);
+  const nativeScroll = useNativeGesture({ simultaneousWith: pinchGesture });
+  const listGesture = useExclusiveGestures(gesture, nativeScroll);
+  const inputPull = useCommandPull(onPullDown, scrollY, pinchGesture);
+  const nativeInput = useNativeGesture({ simultaneousWith: pinchGesture });
+  const inputGesture = useExclusiveGestures(inputPull.gesture, nativeInput);
   const segments = useMemo(() => segmentLiveMarkdown(content), [content]);
   const [activeSelection, setActiveSelection] = useState<AbsoluteSelection | null>(
     null
@@ -360,6 +376,46 @@ export default function LiveMarkdownEditor({
   const containerRef = useRef<React.ComponentRef<typeof View>>(null);
   const inputRef = useRef<TextInputInstance>(null);
   const listRef = useRef<FlatList<LiveMarkdownSegment>>(null);
+  const anchorRetry = useRef<{
+    anchor: NonNullable<typeof anchor>;
+    attempts: number;
+    timer?: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const anchorIndex = useMemo(() => {
+    if (anchor?.line !== undefined) {
+      const line = Math.min(anchor.line - 1, segments.at(-1)?.endLine ?? 0);
+      return segments.findIndex(segment => segment.startLine <= line && line <= segment.endLine);
+    }
+    if (!anchor?.heading) return -1;
+    const normalize = (text: string) => text.trim().normalize('NFC').toLowerCase();
+    const heading = normalize(anchor.heading);
+    return segments.findIndex(segment =>
+      segment.simpleKind === 'heading' && normalize(headingInfo(segment.rawText).text) === heading
+    );
+  }, [anchor, segments]);
+
+  useEffect(() => () => {
+    clearTimeout(anchorRetry.current?.timer);
+    anchorRetry.current = null;
+  }, [anchor]);
+
+  useEffect(() => {
+    if (!anchor || anchorIndex < 0 || anchorRetry.current?.anchor === anchor) return;
+    anchorRetry.current = {
+      anchor,
+      attempts: 0,
+      timer: setTimeout(() => listRef.current?.scrollToIndex({ index: anchorIndex, animated: false }), 0),
+    };
+  }, [anchor, anchorIndex]);
+
+  const handleAnchorScrollFailure = ({ index, averageItemLength }: { index: number; averageItemLength: number }) => {
+    const retry = anchorRetry.current;
+    if (!retry || retry.attempts >= 4) return;
+    retry.attempts++;
+    listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });
+    retry.timer = setTimeout(() => listRef.current?.scrollToIndex({ index, animated: false }), 100);
+  };
+
   const pendingSelectionRef = useRef<AbsoluteSelection | null>(null);
   const pendingContentRef = useRef<string | null>(null);
   const pendingStructuralEditRef = useRef<{
@@ -811,6 +867,7 @@ export default function LiveMarkdownEditor({
   const handleListScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const nextOffset = event.nativeEvent.contentOffset.y;
     scrollOffsetRef.current = nextOffset;
+    scrollY.set(nextOffset);
     setScrollOffset((current) => (Math.abs(current - nextOffset) < 0.5 ? current : nextOffset));
     if (activeSegmentRef.current) {
       measureSegmentLayout(activeSegmentRef.current.id, 'scroll');
@@ -823,7 +880,7 @@ export default function LiveMarkdownEditor({
         contentHeight: event.nativeEvent.contentSize.height,
       });
     }
-  }, [measureSegmentLayout]);
+  }, [measureSegmentLayout, scrollY]);
 
   const activateSegment = useCallback(
     (segment: LiveMarkdownSegment) => {
@@ -1380,6 +1437,9 @@ export default function LiveMarkdownEditor({
             <View style={styles.listItem}>
               <TouchableOpacity
                 onPress={() => onToggleTask?.(segment.startLine)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: info.checked }}
+                accessibilityLabel={info.text}
                 style={styles.checkboxTap}
               >
                 <Text
@@ -1503,20 +1563,23 @@ export default function LiveMarkdownEditor({
       style={[styles.container, { backgroundColor: colors.bgPrimary }]}
       onLayout={handleContainerLayout}
     >
-      <FlatList
-        ref={listRef}
-        data={segments}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingBottom: listBottomPadding },
-        ]}
-        keyboardShouldPersistTaps="always"
-        showsVerticalScrollIndicator
-        onScroll={handleListScroll}
-        scrollEventThrottle={16}
-      />
+      <GestureDetector gesture={listGesture}>
+        <FlatList
+          ref={listRef}
+          data={segments}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: listBottomPadding },
+          ]}
+          keyboardShouldPersistTaps="always"
+          showsVerticalScrollIndicator
+          onScroll={handleListScroll}
+          onScrollToIndexFailed={handleAnchorScrollFailure}
+          scrollEventThrottle={16}
+        />
+      </GestureDetector>
 
       {activeSegment && activeOverlayFrame ? (
         <View
@@ -1530,52 +1593,59 @@ export default function LiveMarkdownEditor({
             },
           ]}
         >
-          <TextInput
-            ref={inputRef}
-            style={[
-              styles.textInput,
-              styles.overlayInput,
-              {
-                minHeight: activeEditorHeight,
-                fontSize,
-                lineHeight: fontSize * 1.6,
-                color: colors.textPrimary,
-                backgroundColor:
-                  activeSegment.kind === 'raw_block'
-                    ? colors.bgSecondary
-                    : colors.bgPrimary,
-                borderColor: colors.border,
-              },
-              activeSegment.kind === 'raw_block'
-                ? styles.rawBlockInput
-                : styles.simpleLineInput,
-            ]}
-            value={editingText}
-            onChangeText={handleTextChange}
-            onSelectionChange={(event) =>
-              handleSelectionChange(event.nativeEvent.selection)
-            }
-            onContentSizeChange={handleContentSizeChange}
-            onKeyPress={handleKeyPress}
-            multiline
-            textAlignVertical="top"
-            submitBehavior="newline"
-            blurOnSubmit={false}
-            showSoftInputOnFocus
-            disableFullscreenUI
-            autoComplete="off"
-            autoCapitalize="none"
-            autoCorrect={false}
-            spellCheck={false}
-            scrollEnabled={false}
-            selectionColor={colors.accent + '80'}
-            placeholderTextColor={colors.textMuted}
-            placeholder={
-              activeSegment.simpleKind === 'blank' ? ' ' : undefined
-            }
-          />
+          <GestureDetector gesture={inputGesture}>
+            <TextInput
+              ref={inputRef}
+              style={[
+                styles.textInput,
+                styles.overlayInput,
+                {
+                  minHeight: activeEditorHeight,
+                  fontSize,
+                  lineHeight: fontSize * 1.6,
+                  color: colors.textPrimary,
+                  backgroundColor:
+                    activeSegment.kind === 'raw_block'
+                      ? colors.bgSecondary
+                      : colors.bgPrimary,
+                  borderColor: colors.border,
+                },
+                activeSegment.kind === 'raw_block'
+                  ? styles.rawBlockInput
+                  : styles.simpleLineInput,
+              ]}
+              value={editingText}
+              onChangeText={handleTextChange}
+              onSelectionChange={(event) =>
+                handleSelectionChange(event.nativeEvent.selection)
+              }
+              onContentSizeChange={handleContentSizeChange}
+              onKeyPress={handleKeyPress}
+              multiline
+              textAlignVertical="top"
+              submitBehavior="newline"
+              blurOnSubmit={false}
+              showSoftInputOnFocus
+              disableFullscreenUI
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              scrollEnabled={false}
+              selectionColor={colors.accent + '80'}
+              placeholderTextColor={colors.textMuted}
+              placeholder={
+                activeSegment.simpleKind === 'blank' ? ' ' : undefined
+              }
+            />
+          </GestureDetector>
         </View>
       ) : null}
+
+      {onPullDown && <>
+        <CommandPullIndicator pullDistance={pullDistance} />
+        <CommandPullIndicator pullDistance={inputPull.pullDistance} />
+      </>}
 
       {!focusMode && (
         <View

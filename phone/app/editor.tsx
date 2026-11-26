@@ -37,6 +37,7 @@ import { markdownLinkTarget } from '@/lib/markdown-links';
 import { Directory, File } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Git from '@/lib/provider-sync';
+import { describeOutcome } from '@/lib/webdav-sync';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 import { hasInvalidProperties, setProperty } from '@/lib/properties';
 import { getOrCreateDailyNote } from '@/lib/daily-note';
@@ -44,6 +45,7 @@ import { getRandomNote } from '@/lib/random-note';
 import QuickLauncher, { type EditorCommand } from '@/components/QuickLauncher';
 import NoteDetails from '@/components/NoteDetails';
 import SyncStatusSheet from '@/components/SyncStatusSheet';
+import SyncToast from '@/components/SyncToast';
 import MarkdownPreview from '@/components/MarkdownPreview';
 import BoardView from '@/components/BoardView';
 import FileDrawer from '@/components/FileDrawer';
@@ -102,6 +104,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     vault,
     files,
     refreshFiles,
+    syncCurrentVault,
   } = useApp();
 
   const [overlay, setOverlay] = useState<'files' | 'commands' | 'search' | null>(root && !homePath ? 'files' : null);
@@ -109,8 +112,12 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const [pinchFontSize, setPinchFontSize] = useState<number>();
   const pinchZoom = useRef<{ startSize: number; size: number } | null>(null);
   const fontSize = pinchFontSize ?? settings.fontSize;
+  const liveReplacement = settings.livePreviewReplacement;
   const isEditing = workspace.viewMode !== 'preview' && !anchor;
-  const usesLiveEditor = isEditing && workspace.viewMode === 'live';
+  const usesLiveEditor = isEditing
+    ? workspace.viewMode === 'live' || (workspace.viewMode === 'edit' && liveReplacement === 'both')
+    : liveReplacement !== 'off';
+  const canToggleViewMode = !(usesLiveEditor && liveReplacement === 'both');
   const preferredEditMode = useRef<'edit' | 'live'>(workspace.viewMode === 'live' ? 'live' : 'edit');
   const inlineLauncher = (overlay === 'commands' || overlay === 'search') && Platform.OS === 'android';
   const [startCreating, setStartCreating] = useState(false);
@@ -148,7 +155,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     else router.replace(target);
   }, [flushFile, root, router]);
 
-  const allowNoteSwipe = !isEditing || settings.wordWrap;
+  const allowNoteSwipe = !isEditing || usesLiveEditor || settings.wordWrap;
   const swipeBetweenNotes = useMemo(() => Gesture.Pan()
     .enabled(allowNoteSwipe)
     .maxPointers(1)
@@ -221,9 +228,9 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     }
   }, [saveFile]);
 
-  const selectEditMode = useCallback((mode: 'edit' | 'live') => {
+  const selectEditMode = useCallback((mode: 'edit' | 'live' | 'source') => {
     setAnchor(null);
-    preferredEditMode.current = mode;
+    preferredEditMode.current = mode === 'live' ? 'live' : 'edit';
     updateWorkspace({ viewMode: mode });
   }, [updateWorkspace]);
 
@@ -232,9 +239,9 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       preferredEditMode.current = workspace.viewMode === 'live' ? 'live' : 'edit';
       updateWorkspace({ viewMode: 'preview' });
     } else {
-      selectEditMode(preferredEditMode.current);
+      selectEditMode(liveReplacement === 'off' ? preferredEditMode.current : 'edit');
     }
-  }, [isEditing, workspace.viewMode, selectEditMode, updateWorkspace]);
+  }, [isEditing, workspace.viewMode, selectEditMode, updateWorkspace, liveReplacement]);
 
   const handleBookmark = useCallback(() => {
     if (!currentFile) return;
@@ -357,7 +364,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     return () => clearTimeout(timer);
   }, [loadingNote]);
 
-  const collapsibleHeader = !!displayedPath && !loadingNote && !focusMode && !isBoard &&
+  const collapsibleHeader = !!displayedPath && !loadingNote && !focusMode && !isBoard && !usesLiveEditor &&
     (workspace.viewMode === 'preview' || !!anchor);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [headerHidden, setHeaderHidden] = useState(false);
@@ -414,6 +421,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     setOverlay(mode);
   }, []);
   const openCommands = useCallback(() => openOverlay('commands'), [openOverlay]);
+  const pullDownCommands = vault && !overlay && !menuVisible && Platform.OS !== 'web' ? openCommands : undefined;
   const openFiles = useCallback(() => openOverlay('files'), [openOverlay]);
   const openSearch = useCallback(() => openOverlay('search'), [openOverlay]);
   const openDetails = useCallback(() => { setMenuVisible(false); Keyboard.dismiss(); setDetailsVisible(true); }, []);
@@ -475,23 +483,49 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     const notePath = await (kind === 'daily' ? getOrCreateDailyNote(vault.path) : getRandomNote(vault.path));
     if (notePath) openNote(notePath);
   };
-  const [gitBusy, setGitBusy] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const syncInFlight = useRef<Promise<void> | null>(null);
+  const [syncNotice, setSyncNotice] = useState<{ vaultId: string; message: string }>();
+  const syncMessage = syncNotice?.vaultId === vault?.id ? syncNotice?.message : undefined;
+  const syncProvider = vault?.gitRemote ? 'Git' : vault?.webdav?.url ? 'WebDAV' : undefined;
   const [history, setHistory] = useState<{ hash: string; date: string; author: string; message: string }[]>();
-  const syncVault = async (showResult = true) => {
-    if (!vault?.gitRemote || gitBusy || !flushFile()) return;
-    setGitBusy(true);
+
+  useEffect(() => {
+    if (!syncNotice) return;
+    const timeout = setTimeout(() => setSyncNotice(undefined), 4500);
+    return () => clearTimeout(timeout);
+  }, [syncNotice]);
+
+  const syncVault = useCallback(async () => {
+    if (!vault || !syncProvider) return;
+    if (syncInFlight.current) return syncInFlight.current;
+    setSyncBusy(true);
+    setSyncNotice(undefined);
+    const operation = (async () => {
+      try {
+        const result = await syncCurrentVault();
+        if (!result) return;
+        const { outcome } = result;
+        const message = result.provider === 'webdav'
+          ? describeOutcome(result.outcome)
+          : outcome.errors[0] || (outcome.pulled || outcome.pushed
+            ? `Pulled ${outcome.pulled}, pushed ${outcome.pushed}.`
+            : 'Up to date.');
+        setSyncNotice({ vaultId: vault.id, message });
+      } catch (error) {
+        setSyncNotice({ vaultId: vault.id, message: error instanceof Error ? error.message : String(error) });
+      } finally {
+        setSyncBusy(false);
+      }
+    })();
+    syncInFlight.current = operation;
     try {
-      const token = await Git.getVaultToken(vault.id);
-      const result = await Git.sync(vault.path, token ?? '', vault.gitRemote, vault.gitBranch || undefined, vault.gitProvider);
-      if (showResult) Alert.alert('Git sync', result.errors.join('\n') || (result.conflicts?.length
-        ? 'Conflicts need attention in Git settings.'
-        : `Pulled ${result.pulled}, pushed ${result.pushed}.`));
-    } catch (error) {
-      Alert.alert('Git sync', String(error));
+      await operation;
     } finally {
-      setGitBusy(false);
+      syncInFlight.current = null;
     }
-  };
+  }, [syncCurrentVault, syncProvider, vault]);
+
   const showFileHistory = async () => {
     if (!vault || !currentFile) return;
     try {
@@ -527,7 +561,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   };
   const libraryCommands: EditorCommand[] = [
     ...(vault?.gitRemote ? [{ label: 'Git: Sync status', run: openSyncStatus }] : []),
-    ...(vault?.gitRemote && !gitBusy ? [{ label: 'Git: Sync now', run: () => void syncVault() }] : []),
+    ...(syncProvider && !syncBusy ? [{ label: `${syncProvider}: Sync now`, run: () => void syncVault() }] : []),
     { label: 'Daily note', run: () => void openLibraryNote('daily') },
     { label: 'Calendar', run: () => { if (flushFile()) router.push('/calendar'); } },
     { label: 'Flashcards', run: () => { if (flushFile()) router.push('/flashcards'); } },
@@ -549,8 +583,10 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     ...(hasMarkdownNote ? [
       { label: 'Increase note font size', run: () => setNoteFontSize(settings.fontSize + 1) },
       { label: 'Decrease note font size', run: () => setNoteFontSize(settings.fontSize - 1) },
-      ...(usesLiveEditor ? [] : [{ label: 'Edit with live preview', run: () => selectEditMode('live') }]),
-      ...(workspace.viewMode === 'edit' && isEditing ? [] : [{ label: 'Edit Markdown source', run: () => selectEditMode('edit') }]),
+      ...(usesLiveEditor || liveReplacement === 'both' ? [] : [{ label: 'Edit with live preview', run: () => selectEditMode('live') }]),
+      ...(!isEditing || usesLiveEditor ? [{
+        label: 'Edit Markdown source', run: () => selectEditMode(liveReplacement === 'both' ? 'source' : 'edit'),
+      }] : []),
     ] : []),
     ...(hasMarkdownNote && isEditing && !usesLiveEditor ? [
       { label: settings.wordWrap ? 'Turn off editor word wrap' : 'Turn on editor word wrap',
@@ -564,10 +600,17 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       { label: 'Git: File history and changelog', run: () => void showFileHistory() },
     ] : []),
     { label: 'Browse files', run: openFiles },
+    ...(vault ? [{
+      label: settings.fileDrawerBreadcrumbs ? 'Use folder tree in file panel' : 'Use breadcrumbs in file panel',
+      run: () => updateSettings({ fileDrawerBreadcrumbs: !settings.fileDrawerBreadcrumbs }),
+    }] : []),
     { label: 'New note or folder', run: newEntry },
     ...(displayedPath && currentFile === displayedPath ? [{ label: 'Note details', run: openDetails }] : []),
     { label: 'Save note', run: handleSave },
-    { label: isEditing ? 'Switch to reading mode' : 'Switch to editing mode', run: toggleViewMode },
+    ...(hasMarkdownNote && canToggleViewMode ? [{
+      label: liveReplacement === 'both' ? 'Switch to Live Preview' : isEditing ? 'Switch to reading mode' : 'Switch to editing mode',
+      run: toggleViewMode,
+    }] : []),
     { label: focusMode ? 'Exit focus mode' : 'Enter focus mode', run: () => setFocusMode(value => !value) },
     { label: isBookmarked ? 'Remove bookmark' : 'Bookmark note', run: handleBookmark },
     { label: 'Open graph', run: () => { if (flushFile()) router.push({ pathname: '/graph', params: { note: currentFile ?? undefined } }); } },
@@ -628,14 +671,14 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
             onPress={openSearch} onLongPress={openCommands} accessibilityHint="Hold for commands" style={styles.headerButton}>
             <Ionicons name="search" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
-          {displayedPath && !isBoard && <TouchableOpacity
+          {displayedPath && !isBoard && canToggleViewMode && <TouchableOpacity
             style={[styles.modeButton, { borderRadius: metrics.controlRadius, backgroundColor: colors.accent + '18' }]}
             accessibilityRole="button"
-            accessibilityLabel={isEditing ? 'Read note' : 'Write note'}
+            accessibilityLabel={liveReplacement === 'both' ? 'Switch to Live Preview' : isEditing ? 'Read note' : 'Write note'}
             onPress={toggleViewMode}
           >
             <Text style={{ color: colors.accent, fontWeight: '700' }}>
-              {isEditing ? 'Read' : 'Write'}
+              {liveReplacement === 'both' ? 'Live' : isEditing ? 'Read' : 'Write'}
             </Text>
           </TouchableOpacity>}
         </View>
@@ -812,8 +855,11 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               <LiveMarkdownEditor
                 key={displayedPath}
                 content={content}
+                anchor={anchor ?? undefined}
                 onChange={setContent}
                 fontSize={fontSize}
+                pinchGesture={pinch}
+                onPullDown={pullDownCommands}
                 focusMode={focusMode}
                 onToggleFocusMode={() => setFocusMode((f) => !f)}
                 onLinkPress={handleLiveLink}
@@ -828,6 +874,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
                 fontSize={fontSize}
                 wordWrap={settings.wordWrap}
                 pinchGesture={pinch}
+                onPullDown={pullDownCommands}
                 lineSpacing={settings.lineHeight}
                 spellCheck={settings.spellCheck}
                 focusMode={focusMode}
@@ -843,7 +890,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
                 showLocation
                 headerInset={collapsibleHeader ? headerHeight : undefined}
                 onScroll={collapsibleHeader ? readingScroll : undefined}
-                onPullDown={vault && Platform.OS !== 'web' ? openCommands : undefined}
+                onPullDown={pullDownCommands}
                 hideReadingMetadata={settings.hideReadingMetadata}
                 anchor={anchor ?? undefined}
                 onWikiLinkPress={openNoteLink}
@@ -943,6 +990,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         <FileDrawer key={vault.id} vaultPath={vault.path} notePath={displayedPath || vault.path}
           editIconPath={editIconPath} vaultName={vault.name} fileCommands={libraryCommands} startCreating={startCreating}
           onVaultChange={() => { if (!root) router.dismissTo('/'); }} onRefresh={refreshFiles}
+          onPullToRefresh={syncVault} navigateIntoFolders={settings.fileDrawerBreadcrumbs} syncMessage={syncMessage}
           onClose={closeOverlay} onOpenNote={openNote} />
       )}
       {vault && (overlay === 'commands' || overlay === 'search') && (
@@ -951,8 +999,9 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
           commands={commands} vaultPath={vault.path} onClose={closeOverlay} onFileSelect={openNote}
           draft={isDirty && currentFile ? { path: currentFile, text: content } : undefined} />
       )}
+      {overlay !== 'files' && !syncStatusVisible && <SyncToast message={syncMessage} />}
       {vault?.gitRemote && syncStatusVisible && (
-        <SyncStatusSheet vaultPath={vault.path} busy={gitBusy} onSync={() => void syncVault(false)}
+        <SyncStatusSheet vaultPath={vault.path} busy={syncBusy} syncMessage={syncMessage} onSync={() => void syncVault()}
           onClose={() => setSyncStatusVisible(false)} onSettings={() => router.push({ pathname: '/settings', params: { section: 'vault' } })} />
       )}
       {vault && currentFile && detailsVisible && (

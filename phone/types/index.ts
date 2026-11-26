@@ -24,6 +24,8 @@ export interface VaultWebDav {
 
 export type GitProvider = 'github' | 'gitlab' | 'gitea';
 
+export type LivePreviewReplacement = 'off' | 'read' | 'both';
+
 export interface AppSettings {
   autoSaveInterval: number;
   spellCheck: boolean;
@@ -31,6 +33,8 @@ export interface AppSettings {
   accentColor: string;
   fontSize: number;
   wordWrap: boolean;
+  livePreviewReplacement: LivePreviewReplacement;
+  fileDrawerBreadcrumbs: boolean;
   lineHeight: number;
   editorFont: string;
   tabSize: number;
@@ -46,7 +50,7 @@ export interface WorkspaceState {
   openTabs: string[];
   activeTab: string | null;
   expandedFolders: string[];
-  viewMode: 'edit' | 'live' | 'preview';
+  viewMode: 'edit' | 'live' | 'preview' | 'source';
   fileOrder?: Record<string, string[]>;
   bookmarks?: string[];
   fileIcons?: Record<string, { symbol: string; color: string }>;

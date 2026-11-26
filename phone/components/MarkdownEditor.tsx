@@ -13,8 +13,10 @@ import {
   type TextInputInstance,
   type ScrollViewInstance,
 } from 'react-native';
-import { GestureDetector, useNativeGesture, type PinchGesture } from 'react-native-gesture-handler';
+import { GestureDetector, useExclusiveGestures, useNativeGesture, type PinchGesture } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
+import { useSharedValue } from 'react-native-reanimated';
+import { CommandPullIndicator, useCommandPull } from '@/components/CommandPull';
 import { pluginEvents, setPluginSelection } from '@/lib/plugin-events';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -25,6 +27,7 @@ interface MarkdownEditorProps {
   fontSize: number;
   wordWrap: boolean;
   pinchGesture: PinchGesture;
+  onPullDown?: () => void;
   lineSpacing?: number;
   spellCheck?: boolean;
   focusMode?: boolean;
@@ -152,7 +155,7 @@ function lineColumns(line: string): number {
   return line.length + tabs * 7 + wide;
 }
 
-export default function MarkdownEditor({ notePath, content, onChange, fontSize, wordWrap, pinchGesture, lineSpacing = 1.6, spellCheck = true, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
+export default function MarkdownEditor({ notePath, content, onChange, fontSize, wordWrap, pinchGesture, onPullDown, lineSpacing = 1.6, spellCheck = true, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
   const { colors, metrics } = useTheme();
   const { width: windowWidth, fontScale } = useWindowDimensions();
   const inputRef = useRef<TextInputInstance>(null);
@@ -167,7 +170,15 @@ export default function MarkdownEditor({ notePath, content, onChange, fontSize, 
   const viewportWidth = editorSize?.width ?? windowWidth;
   const inputWidth = Math.max(viewportWidth, Math.ceil(fontSize * fontScale * 0.67 * longestLine
     + 2 * metrics.contentPadding + 16));
-  const scrollGesture = useNativeGesture({ simultaneousWith: pinchGesture });
+  const scrollY = useSharedValue(0);
+  const { gesture, pullDistance } = useCommandPull(onPullDown, scrollY, pinchGesture);
+  const nativeScroll = useNativeGesture({ simultaneousWith: pinchGesture });
+  const nativeInput = useNativeGesture({ simultaneousWith: [pinchGesture, nativeScroll] });
+  const inputGesture = useExclusiveGestures(gesture, nativeInput);
+
+  useEffect(() => {
+    scrollY.set(0);
+  }, [notePath, scrollY]);
 
   useEffect(() => {
     horizontalOffset.current = 0;
@@ -223,7 +234,7 @@ export default function MarkdownEditor({ notePath, content, onChange, fontSize, 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <GestureDetector gesture={scrollGesture}>
+      <GestureDetector gesture={nativeScroll}>
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -240,34 +251,38 @@ export default function MarkdownEditor({ notePath, content, onChange, fontSize, 
           nestedScrollEnabled
           keyboardShouldPersistTaps="always"
         >
-          <TextInput
-            ref={inputRef}
-            style={[
-              styles.textInput,
-              { width: inputWidth, height: editorSize?.height },
-              {
-                fontSize,
-                lineHeight: fontSize * lineSpacing,
-                paddingHorizontal: metrics.contentPadding,
-                color: colors.textPrimary,
-                backgroundColor: colors.bgPrimary,
-              },
-            ]}
-            value={content}
-            onChangeText={onChange}
-            onSelectionChange={handleSelectionChange}
-            multiline
-            textAlignVertical="top"
-            autoCapitalize="sentences"
-            autoCorrect={spellCheck}
-            spellCheck={spellCheck}
-            scrollEnabled
-            selectionColor={colors.accent + '80'}
-            placeholderTextColor={colors.textMuted}
-            placeholder="Start writing..."
-          />
+          <GestureDetector gesture={inputGesture}>
+            <TextInput
+              ref={inputRef}
+              style={[
+                styles.textInput,
+                { width: inputWidth, height: editorSize?.height },
+                {
+                  fontSize,
+                  lineHeight: fontSize * lineSpacing,
+                  paddingHorizontal: metrics.contentPadding,
+                  color: colors.textPrimary,
+                  backgroundColor: colors.bgPrimary,
+                },
+              ]}
+              value={content}
+              onChangeText={onChange}
+              onSelectionChange={handleSelectionChange}
+              onScroll={onPullDown ? event => { scrollY.set(event.nativeEvent.contentOffset.y); } : undefined}
+              multiline
+              textAlignVertical="top"
+              autoCapitalize="sentences"
+              autoCorrect={spellCheck}
+              spellCheck={spellCheck}
+              scrollEnabled
+              selectionColor={colors.accent + '80'}
+              placeholderTextColor={colors.textMuted}
+              placeholder="Start writing..."
+            />
+          </GestureDetector>
         </ScrollView>
       </GestureDetector>
+      {onPullDown && <CommandPullIndicator pullDistance={pullDistance} />}
 
       {!focusMode && (
         <View style={[styles.toolbar, { backgroundColor: colors.bgSecondary, borderTopColor: colors.border }]}>

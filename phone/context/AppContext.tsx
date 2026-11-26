@@ -22,6 +22,11 @@ function initialFolder(vault: Vault): string {
   return FS.directoryExists(folder) ? folder : vault.path;
 }
 
+type GitAction = 'pull' | 'sync';
+type VaultSyncResult =
+  | { provider: 'git'; outcome: GitSync.SyncResult }
+  | { provider: 'webdav'; outcome: WebDav.Outcome };
+
 interface AppContextType {
   // Vault
   vault: Vault | null;
@@ -53,6 +58,8 @@ interface AppContextType {
   currentDir: string;
   setCurrentDir: (dir: string) => void;
   refreshFiles: () => void;
+
+  syncCurrentVault: (action?: GitAction) => Promise<VaultSyncResult | null>;
 
   // WebDAV sync
   /** Sync a vault with a WebDAV folder now, after any sync that is already running. Throws when the server cannot be used. */
@@ -90,7 +97,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isDirty, setIsDirty] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoSyncTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasPulledOnOpen = useRef(false);
   // A sync downloads every note and can outlast the 5s tick; never run two at once.
   const syncInFlight = useRef(false);
@@ -127,7 +133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    */
   const takeOpenNoteFromDisk = useCallback(async (vaultPath: string) => {
     const file = note.file;
-    if (!file) return;
+    if (!file?.startsWith(vaultPath.endsWith('/') ? vaultPath : vaultPath + '/')) return;
     const onDisk = await FS.readFile(file);
     if (note.file !== file) return; // another note was opened meanwhile
     const change = note.reconcile(onDisk);
@@ -221,72 +227,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [workspace, vault]);
 
-  // Auto-pull from the configured forge when vault opens.
+  const runGitSync = useCallback(async (target: Vault, action: GitAction, wait: boolean) => {
+    const remote = target.gitRemote;
+    if (!remote) return null;
+    while (syncInFlight.current) {
+      if (!wait) return null;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    if (vaultIdRef.current !== target.id) return null;
+    syncInFlight.current = true;
+    try {
+      const token = await GitSync.getVaultToken(target.id);
+      const sync = action === 'pull' ? GitSync.pull : GitSync.sync;
+      return await sync(target.path, token ?? '', remote, target.gitBranch || undefined, target.gitProvider);
+    } finally {
+      syncInFlight.current = false;
+    }
+  }, []);
+
+  // Auto-pull from the configured forge when the vault opens.
   useEffect(() => {
     if (!settings.pullOnOpen || !vault?.gitRemote || hasPulledOnOpen.current) return;
     hasPulledOnOpen.current = true;
-
-    (async () => {
-      if (syncInFlight.current) return;
-      syncInFlight.current = true;
-      try {
-        const token = await GitSync.getVaultToken(vault.id);
-
-        console.log('[Noteriv] Auto-pulling from remote...');
-        const result = await GitSync.pull(vault.path, token ?? '', vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
-        console.log(`[Noteriv] Pull complete: ${result.pulled} files, ${result.errors.length} errors`);
-        if (result.pulled > 0) {
-          await takeOpenNoteFromDisk(vault.path);
-          if (currentDirRef.current) setFiles(FS.readDir(currentDirRef.current));
-        }
-      } catch (err) {
-        console.warn('[Noteriv] Auto-pull failed:', err);
-      } finally {
-        syncInFlight.current = false;
-      }
-    })();
-  }, [vault?.id, vault?.gitRemote, vault?.autoSync, settings.gitSyncInterval, settings.pullOnOpen]);
+    void runGitSync(vault, 'pull', false).then(result => {
+      if (result) console.log(`[Noteriv] Pull complete: ${result.pulled} files, ${result.errors.length} errors`);
+    }).catch(error => console.warn('[Noteriv] Auto-pull failed:', error));
+  }, [vault, settings.pullOnOpen, runGitSync]);
 
   // Only sync at the configured interval; timers read live editor state through hooks.
   useEffect(() => {
-    if (autoSyncTimer.current) {
-      clearInterval(autoSyncTimer.current);
-      autoSyncTimer.current = null;
-    }
-
     if (!vault?.gitRemote || !vault.autoSync || settings.gitSyncInterval <= 0) return;
-
-    autoSyncTimer.current = setInterval(async () => {
-      if (syncInFlight.current) return;
-      syncInFlight.current = true;
-      try {
-        const token = await GitSync.getVaultToken(vault.id);
-
-        const result = await GitSync.sync(vault.path, token ?? '', vault.gitRemote!, vault.gitBranch || undefined, vault.gitProvider);
-        if (result.errors.length > 0) {
-          console.warn('[Noteriv] Sync errors:', result.errors);
-        }
-        // Pulled changes include notes deleted on the remote; refresh so the
-        // list doesn't keep offering a note that no longer exists. A newer
-        // version of the open note has to reach the editor too, or the next
-        // edit would write the old text back over it.
-        if (result.pulled > 0) {
-          await takeOpenNoteFromDisk(vault.path);
-          if (currentDirRef.current) setFiles(FS.readDir(currentDirRef.current));
-        }
-      } catch {
-      } finally {
-        syncInFlight.current = false;
-      }
+    const timer = setInterval(() => {
+      void runGitSync(vault, 'sync', false).then(result => {
+        if (result?.errors.length) console.warn('[Noteriv] Sync errors:', result.errors);
+      }).catch(error => console.warn('[Noteriv] Sync failed:', error));
     }, Math.max(60_000, settings.gitSyncInterval * 1000));
-
-    return () => {
-      if (autoSyncTimer.current) {
-        clearInterval(autoSyncTimer.current);
-        autoSyncTimer.current = null;
-      }
-    };
-  }, [vault?.id, vault?.gitRemote, vault?.autoSync, settings.gitSyncInterval, settings.pullOnOpen]);
+    return () => clearInterval(timer);
+  }, [vault, settings.gitSyncInterval, runGitSync]);
 
   /**
    * One WebDAV sync of a vault. Only one sync of any kind runs at a time:
@@ -372,6 +349,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const syncWebDav = useCallback(async (target: WebDav.SyncedVault, cfg: WebDav.WebDavConfig): Promise<WebDav.Outcome> => {
     return (await runWebDav(target, cfg, true)) as WebDav.Outcome;
   }, [runWebDav]);
+
+  const syncCurrentVault = useCallback(async (action: GitAction = 'sync'): Promise<VaultSyncResult | null> => {
+    if (!vault) return null;
+    if (vault.gitRemote) {
+      const outcome = await runGitSync(vault, action, true);
+      return outcome && { provider: 'git', outcome };
+    }
+    if (action === 'pull' || !vault.webdav?.url) return null;
+    const cfg = await WebDav.vaultConfig(vault);
+    if (!cfg) throw new Error('WebDAV password is missing. Reconnect the server in Settings.');
+    const outcome = await syncWebDav(vault, cfg);
+    return { provider: 'webdav', outcome };
+  }, [vault, runGitSync, syncWebDav]);
 
   const requestWebDavSync = useCallback(() => {
     wakeWebDav.current?.();
@@ -543,6 +533,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentDir,
         setCurrentDir,
         refreshFiles,
+        syncCurrentVault,
         syncWebDav,
         requestWebDavSync,
         setupComplete,

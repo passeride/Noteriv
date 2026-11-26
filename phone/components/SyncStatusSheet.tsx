@@ -3,17 +3,19 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
+import SyncToast from '@/components/SyncToast';
 import { native, nativeDir, type NativeStatus } from '@/lib/provider-sync';
 
 interface Props {
   vaultPath: string;
   busy: boolean;
+  syncMessage?: string;
   onSync: () => void;
   onClose: () => void;
   onSettings: () => void;
 }
 
-export default function SyncStatusSheet({ vaultPath, busy, onSync, onClose, onSettings }: Props) {
+export default function SyncStatusSheet({ vaultPath, busy, syncMessage, onSync, onClose, onSettings }: Props) {
   const { colors, metrics } = useTheme();
   const [status, setStatus] = useState<NativeStatus>();
   const [error, setError] = useState('');
@@ -66,6 +68,7 @@ export default function SyncStatusSheet({ vaultPath, busy, onSync, onClose, onSe
             </Pressable>
           </View>
         </View>
+        <SyncToast message={syncMessage} />
       </SafeAreaView>
     </Modal>
   );

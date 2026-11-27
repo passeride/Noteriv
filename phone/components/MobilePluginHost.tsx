@@ -282,7 +282,7 @@ function Runtime({ script, vaultPath, update, stopped, block }: {
         break;
       case 'vault': {
         if (typeof message.request !== 'number' || typeof message.path !== 'string' ||
-          !['read', 'write', 'list', 'exists', 'delete', 'readAsset'].includes(message.operation)) break;
+          !['read', 'readBinary', 'write', 'list', 'exists', 'delete', 'readAsset'].includes(message.operation)) break;
         const { operation, path, request } = message;
         if (operation === 'readAsset') {
           try {

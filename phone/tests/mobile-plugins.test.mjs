@@ -24,7 +24,7 @@ function open(code, block) {
   const html = mobilePluginDocument(code, block);
   assert.equal(html.split('</script>').length, 2);
   const js = html.match(/<script>([\s\S]*)<\/script>/)[1];
-  runInNewContext(js, { window, document, ResizeObserver: class { observe() {} } });
+  runInNewContext(js, { window, document, atob, ResizeObserver: class { observe() {} } });
   return { messages, main, send: window.noteriv };
 }
 
@@ -99,4 +99,23 @@ test('requests bundled text assets through the mobile bridge', async () => {
   await send({ type: 'response', request: request.request, value: 'engine text' });
   await loading;
   assert.ok(messages.some(item => item.type === 'notice' && item.value === 'engine text'));
+});
+
+test('reads binary model bytes through the mobile plugin bridge', async () => {
+  const { messages, send, main } = open(`
+    module.exports.onLoad = api => {
+      api.markdown.registerCodeBlockProcessor('cad', async (path, target) => {
+        const bytes = await api.vault.readBinary(path);
+        target.textContent = bytes.join(',');
+      });
+    };
+  `, { code: 'Vedlegg/model.stl', language: 'cad', sourcePath: null, color: '#222' });
+  const loading = send({ type: 'start', snapshot });
+  await Promise.resolve();
+  const request = messages.find(item => item.type === 'vault');
+  assert.equal(request.operation, 'readBinary');
+  assert.equal(request.path, 'Vedlegg/model.stl');
+  await send({ type: 'response', request: request.request, value: 'AID/' });
+  await loading;
+  assert.equal(main.textContent, '0,128,255');
 });

@@ -1,4 +1,5 @@
 use super::{fail, Path, PathBuf};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 use serde_json::{json, Value};
 use std::{
@@ -60,9 +61,9 @@ pub fn read_asset(root: &Path, plugin_id: &str, name: &str) -> Result<Value> {
     )
 }
 
-fn read_text(path: PathBuf, max_size: u64) -> Result<Value> {
+fn read_bytes(path: PathBuf, max_size: u64) -> Result<Option<Vec<u8>>> {
     if !path.is_file() {
-        return Ok(Value::Null);
+        return Ok(None);
     }
     // Bound the actual read as well as checking its length, in case the file
     // changes while a plugin is loading it.
@@ -73,7 +74,14 @@ fn read_text(path: PathBuf, max_size: u64) -> Result<Value> {
     if bytes.len() as u64 > max_size {
         return Err(fail("Plugin file exceeds the size limit").into());
     }
-    Ok(json!(String::from_utf8(bytes)?))
+    Ok(Some(bytes))
+}
+
+fn read_text(path: PathBuf, max_size: u64) -> Result<Value> {
+    match read_bytes(path, max_size)? {
+        Some(bytes) => Ok(json!(String::from_utf8(bytes)?)),
+        None => Ok(Value::Null),
+    }
 }
 
 pub fn operation(root: &Path, action: &str, relative: &str, content: &str) -> Result<Value> {
@@ -83,6 +91,9 @@ pub fn operation(root: &Path, action: &str, relative: &str, content: &str) -> Re
     let path = resolve(root, relative.trim_end_matches('/'))?;
     match action {
         "read" => read_text(path, 2_000_000),
+        "readBinary" => Ok(json!(
+            read_bytes(path, 20 * 1024 * 1024)?.map(|bytes| STANDARD.encode(bytes))
+        )),
         "exists" => Ok(json!(path.exists())),
         "write" => {
             if content.len() > 2_000_000 {
@@ -138,6 +149,27 @@ pub fn operation(root: &Path, action: &str, relative: &str, content: &str) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn binary_reads_preserve_bytes_and_respect_vault_and_size_limits() {
+        let vault = tempfile::tempdir().unwrap();
+        let root = vault.path();
+        fs::write(root.join("model.stl"), [0, 128, 255]).unwrap();
+        assert_eq!(
+            operation(root, "readBinary", "model.stl", "").unwrap(),
+            json!("AID/")
+        );
+        assert_eq!(
+            operation(root, "readBinary", "missing.stl", "").unwrap(),
+            Value::Null
+        );
+        assert!(operation(root, "readBinary", "../outside.stl", "").is_err());
+        fs::File::create(root.join("large.step"))
+            .unwrap()
+            .set_len(20 * 1024 * 1024 + 1)
+            .unwrap();
+        assert!(operation(root, "readBinary", "large.step", "").is_err());
+    }
 
     #[test]
     fn text_operations_stay_inside_the_vault() {

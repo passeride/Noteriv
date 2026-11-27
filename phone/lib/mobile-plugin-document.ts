@@ -83,6 +83,10 @@ export function mobilePluginDocument(code: string, block?: PluginBlock): string 
         },
         vault: {
           read: path => request('read', path), write: (path, text) => request('write', path, text),
+          async readBinary(path) {
+            const value = await request('readBinary', path);
+            return value == null ? null : Uint8Array.from(atob(value), char => char.charCodeAt(0));
+          },
           list: path => request('list', path), exists: path => request('exists', path),
           delete: path => request('delete', path),
         },

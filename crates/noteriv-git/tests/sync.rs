@@ -1,6 +1,35 @@
 use git2::Repository;
 use noteriv_git::{self as engine, Credentials};
 use std::{fs, path::Path};
+
+#[test]
+fn activity_includes_descendants_and_deletions_but_not_sibling_folders() {
+    let vault = vault();
+    let root = vault.path();
+    fs::create_dir_all(root.join("Project/nested")).unwrap();
+    fs::create_dir_all(root.join("Projects")).unwrap();
+    fs::write(root.join("Project/nested/a.md"), "a").unwrap();
+    fs::write(root.join("Project/b.md"), "b").unwrap();
+    fs::write(root.join("Projects/unrelated.md"), "unrelated").unwrap();
+    engine::run(root, "commit", &Credentials::default(), "add files").unwrap();
+    fs::remove_file(root.join("Project/nested/a.md")).unwrap();
+    fs::write(root.join("Project/b.md"), "changed").unwrap();
+    engine::run(root, "commit", &Credentials::default(), "change files").unwrap();
+    fs::write(root.join("Project/local.md"), "untracked").unwrap();
+
+    let activity = serde_json::to_value(engine::path_activity(root, "Project").unwrap()).unwrap();
+    let entries = activity.as_array().unwrap();
+    assert_eq!(entries.len(), 2);
+    let changed = entries.iter().find(|entry| entry["message"] == "change files").unwrap();
+    assert_eq!(changed["paths"], serde_json::json!(["Project/b.md", "Project/nested/a.md"]));
+    let dates = engine::last_changes(root, &[
+        "Project".into(), "Project/b.md".into(), "Project/local.md".into(), "../outside".into(),
+    ]).unwrap();
+    assert_eq!(dates.len(), 2);
+    assert_eq!(dates["Project"], dates["Project/b.md"]);
+    assert!(engine::path_activity(root, "../outside").is_err());
+}
+
 fn vault() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     engine::init(dir.path()).unwrap();

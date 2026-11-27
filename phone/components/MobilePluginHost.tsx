@@ -12,6 +12,7 @@ import { getPluginSelection, pluginEvents, registerPluginUnloader, setPluginSele
 import { mobilePluginDocument, type PluginBlock } from '@/lib/mobile-plugin-document';
 import { pluginShortcut } from '@/lib/plugin-shortcuts';
 import { native, nativeDir, withEditor } from '@/lib/provider-sync';
+import { getPathActivity } from '@/lib/git-history';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 
 type Kind = 'command' | 'panel' | 'settings' | 'status';
@@ -283,7 +284,7 @@ function Runtime({ script, vaultPath, update, stopped, block }: {
         break;
       case 'vault': {
         if (typeof message.request !== 'number' || typeof message.path !== 'string' ||
-          !['read', 'readBinary', 'write', 'list', 'exists', 'delete', 'readAsset'].includes(message.operation)) break;
+          !['read', 'readBinary', 'write', 'list', 'exists', 'delete', 'readAsset', 'gitHistory'].includes(message.operation)) break;
         const { operation, path, request } = message;
         if (operation === 'readAsset') {
           try {
@@ -299,6 +300,16 @@ function Runtime({ script, vaultPath, update, stopped, block }: {
         const cleanPath = path.replace(/\/$/, '');
         const state = latest.current;
         const active = state.currentFile && vaultRelativePath(vaultPath, state.currentFile) === cleanPath;
+        if (operation === 'gitHistory') {
+          if (!canAccessVault()) break;
+          try {
+            const value = await getPathActivity(vaultPath, path);
+            if (canAccessVault()) send({ type: 'response', request, value });
+          } catch (error) {
+            if (canAccessVault()) send({ type: 'response', request, error: String(error) });
+          }
+          break;
+        }
         const run = async () => {
           if (active && operation === 'read') return state.content;
 

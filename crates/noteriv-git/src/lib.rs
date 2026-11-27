@@ -818,6 +818,97 @@ pub fn file_history(path: &Path, rel: &str, count: usize) -> Result<Vec<LogEntry
     Ok(out)
 }
 
+#[derive(Serialize)]
+pub struct PathActivity {
+    #[serde(flatten)]
+    commit: LogEntry,
+    paths: Vec<String>,
+}
+
+// Diff each commit once, regardless of how many files the caller is interested in.
+fn visit_changes(
+    repo: &Repository,
+    mut visit: impl FnMut(&git2::Commit<'_>, &git2::Diff<'_>) -> bool,
+) -> Result<()> {
+    if repo.head().is_err() {
+        return Ok(());
+    }
+    let mut walk = repo.revwalk()?;
+    walk.push_head()?;
+    walk.set_sorting(git2::Sort::TIME)?;
+    for id in walk {
+        let commit = repo.find_commit(id?)?;
+        let tree = commit.tree()?;
+        let parent = (commit.parent_count() > 0).then(|| commit.parent(0)?.tree()).transpose()?;
+        let diff = repo.diff_tree_to_tree(parent.as_ref(), Some(&tree), None)?;
+        if !visit(&commit, &diff) {
+            break;
+        }
+    }
+    Ok(())
+}
+
+/// Activity in a vault-relative folder, including descendants and deleted files.
+pub fn path_activity(path: &Path, folder: &str) -> Result<Vec<PathActivity>> {
+    let repo = Repository::open(path)?;
+    if !folder.is_empty() {
+        safe_path(&repo, folder)?;
+    }
+    let scope = Path::new(folder);
+    let mut out = Vec::new();
+    visit_changes(&repo, |commit, diff| {
+        let paths: std::collections::BTreeSet<_> = diff.deltas()
+            .flat_map(|delta| [delta.old_file().path(), delta.new_file().path()])
+            .flatten()
+            .filter(|path| path.starts_with(scope))
+            .filter_map(Path::to_str)
+            .map(str::to_owned)
+            .collect();
+        if !paths.is_empty() {
+            out.push(PathActivity {
+                commit: LogEntry {
+                    hash: commit.id().to_string(),
+                    author: commit.author().name().unwrap_or("").to_owned(),
+                    date: commit.time().seconds().to_string(),
+                    message: commit.summary().unwrap_or("").into(),
+                },
+                paths: paths.into_iter().collect(),
+            });
+        }
+        true
+    })?;
+    Ok(out)
+}
+
+/// Latest commit timestamp (milliseconds) for each requested file or folder.
+pub fn last_changes(path: &Path, paths: &[String]) -> Result<std::collections::BTreeMap<String, i64>> {
+    let repo = Repository::open(path)?;
+    let tip = match repo.head() {
+        Ok(head) => head.peel_to_tree()?,
+        Err(_) => return Ok(Default::default()),
+    };
+    let mut remaining: std::collections::HashSet<_> = paths.iter()
+        .filter(|rel| !rel.is_empty() && safe_path(&repo, rel).is_ok())
+        .map(|rel| Path::new(rel))
+        .filter(|path| tip.get_path(path).is_ok())
+        .collect();
+    let mut out = std::collections::BTreeMap::new();
+    if remaining.is_empty() {
+        return Ok(out);
+    }
+    visit_changes(&repo, |commit, diff| {
+        for path in diff.deltas().flat_map(|delta| [delta.old_file().path(), delta.new_file().path()]).flatten() {
+            for ancestor in path.ancestors() {
+                if let Some(rel) = remaining.take(ancestor) {
+                    out.insert(rel.to_string_lossy().into_owned(), commit.time().seconds() * 1000);
+                }
+            }
+        }
+        !remaining.is_empty()
+    })?;
+    Ok(out)
+}
+
 pub fn show(path: &Path, revision: &str, rel: &str) -> Result<String> {
     let repo = Repository::open(path)?;
     safe_path(&repo, rel)?;

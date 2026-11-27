@@ -19,6 +19,8 @@ import { useFileSwipes } from '@/components/useFileSwipes';
 import { AudioPreview, VideoPreview } from '@/components/MediaPreview';
 import { MobilePluginBlock, usePluginRenderers } from '@/components/MobilePluginHost';
 import PdfPreview from '@/components/PdfPreview';
+import GitFileHistory from '@/components/GitFileHistory';
+import { hasGitHistory } from '@/lib/git-history';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { FilePreviewKind } from '@/lib/file-preview';
@@ -34,6 +36,7 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
   const { colors } = useTheme();
   const renderer = usePluginRenderers().cad;
   const [failed, setFailed] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [overlay, setOverlay] = useState<'drawer' | LauncherMode | null>(null);
   const openDrawer = () => setOverlay('drawer');
   const openCommands = () => setOverlay('commands');
@@ -59,6 +62,7 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
   const inVault = !!parts && parts.every(part => part && part !== '.' && part !== '..' && !/[\\\x00-\x1f\x7f]/.test(part));
   const uri = inVault && vaultPath && relativePath ? vaultFileUri(vaultPath, relativePath) : null;
   const name = parts?.at(-1) || 'Attachment';
+  const canShowHistory = !!uri && !!vaultPath && hasGitHistory(vaultPath);
 
   const next = () => {
     const siblings = readDir(path.slice(0, path.lastIndexOf('/') + 1)).filter(entry => !entry.isDirectory);
@@ -131,6 +135,8 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgPrimary }]}>
+      {vaultPath && showHistory && <GitFileHistory vaultPath={vaultPath} filePath={path}
+        onClose={() => setShowHistory(false)} />}
       <GestureDetector gesture={headerGestures}>
         <View style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.border }]}>
           <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.iconButton}
@@ -162,6 +168,7 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
           commands={[
             { label: 'Browse files', run: openDrawer },
             ...(uri ? [{ label: 'Open with', run: () => void openExternally() }] : []),
+            ...(canShowHistory ? [{ label: 'Git: File history', run: () => setShowHistory(true) }] : []),
             ...fileCommands,
           ]} />}
       {overlay !== 'drawer' && !syncStatusVisible && <SyncToast message={syncMessage} />}

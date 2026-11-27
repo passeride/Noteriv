@@ -5,21 +5,36 @@ order: 10
 
 # Note History
 
-Note history provides Git-based version tracking for individual files. If your vault is a Git repository and you use Noteriv's sync feature, you can view the commit timeline for any note, read the content as it existed at any past commit, and diff between versions.
+Use **Git: File history** in the command palette to see commits for the current file. On mobile, the same command is available when viewing attachments. On desktop, note history also lets you inspect and compare past text versions.
 
 ## Prerequisites
 
 Note history requires:
 
 1. **A Git repository.** Your vault must be initialized as a Git repo (`git init` in the vault root, or let Noteriv's setup wizard handle it).
-2. **Git sync enabled.** Noteriv's built-in sync (`Ctrl+Shift+G`) commits and pushes changes. Each sync creates a commit, which becomes an entry in the file's history.
-3. **Git installed on the system.** Noteriv calls `git log` and `git show` through the Tauri backend. Git must be available in the system PATH.
+2. **Commits in the local repository.** Noteriv can read commits made through sync or through another Git client. The native Git module reads the local repository on desktop and mobile.
 
 If any of these are missing, the note history panel will show an empty state.
 
 ## Opening Note History
 
-Open note history from the command palette (`Ctrl+Shift+P`, search for "Note History"). The history panel opens for the currently active file.
+Open the command palette and search for **Git: File history**. On mobile, you can also open it from Note details.
+
+## Folder activity in a note
+
+Use a `githistory` block in a note to show when a folder and its descendants changed. For example:
+
+````markdown
+```githistory
+folder: Prosjekt/Discyboi
+```
+````
+
+Enter `.*.*` or leave the block empty to use the folder containing the note. Enter `/` for the whole vault. The chart shows the first and last commit dates and the number of commits per day or month, including gaps. A commit that touches several files in the folder counts once. Deleted files still contribute to the folder's activity.
+
+## Sort the file browser
+
+**Last change** uses the most recent Git commit for a tracked file or for changes inside a tracked folder. Untracked entries and local vaults use filesystem modification times. **Manual** reads a hidden `.order` file in each folder, with one immediate file or folder name per line. Reorder with drag and drop on desktop or with **Move up** and **Move down** in a file or folder's long-press menu on mobile.
 
 ## Commit Timeline
 
@@ -34,7 +49,7 @@ The list is ordered newest-first, so the most recent change is at the top.
 
 ### Following Renames
 
-The commit log uses Git's `--follow` flag, which means it tracks the file across renames. If you renamed `old-name.md` to `new-name.md` and then view the history of `new-name.md`, the timeline includes commits from before the rename.
+File history follows renames detected by the native Git library. If you renamed `old-name.md` to `new-name.md`, the history of `new-name.md` can include commits from before the rename.
 
 ## Viewing Content at a Commit
 
@@ -84,7 +99,6 @@ The history panel shows an empty state when:
 
 - The file has never been committed (it exists only as an untracked file in Git).
 - The vault is not a Git repository.
-- Git is not installed or not in the system PATH.
 - The Git backend call fails for any reason (permissions, corrupt repo, etc.).
 
 In all these cases, [File Recovery](./file-recovery.md) may still have snapshots available.

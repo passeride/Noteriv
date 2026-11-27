@@ -19,7 +19,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import { migrateDecorations, readDecorations, saveDecoration } from '@/lib/file-decoration';
 import { vaultRelativePath } from '@/lib/sync-state';
-import { FileEntry } from '@/types';
+import type { FileDrawerSort, FileEntry } from '@/types';
 import { readProperties } from '@/lib/properties';
 import { fileDrawerScroll } from '@/lib/file-drawer-scroll';
 import { filePreviewKind } from '@/lib/file-preview';
@@ -27,6 +27,9 @@ import { readFile, rename, deleteFile, deleteDir, trashFile } from '@/lib/file-s
 
 const FILE_ROW_HEIGHT = 64;
 const TREE_ROW_HEIGHT = 48;
+const SORT_OPTIONS: [FileDrawerSort, string][] = [
+  ['name', 'Name A–Z'], ['name-desc', 'Name Z–A'], ['last-change', 'Last change'], ['manual', 'Manual'],
+];
 const PREVIEW_ICONS = {
   image: 'image-outline', pdf: 'document-outline', audio: 'musical-notes-outline',
   video: 'videocam-outline', cad: 'cube-outline', external: 'attach-outline',
@@ -64,8 +67,9 @@ interface NotesListProps {
   initialOffset: number;
   focusSelected: boolean;
   onScrollOffset: (offset: number) => void;
-  sortMode: 'name' | 'name-desc';
-  onSortModeChange: (mode: 'name' | 'name-desc') => void;
+  sortMode: FileDrawerSort;
+  onSortModeChange: (mode: FileDrawerSort) => void;
+  onReorder: (entry: FileEntry, delta: number) => Promise<void>;
   editIconPath?: string;
   currentDir: string;
   vaultPath: string;
@@ -88,6 +92,7 @@ export default function NotesList({
   onScrollOffset,
   sortMode,
   onSortModeChange,
+  onReorder,
   editIconPath,
   currentDir,
   vaultPath,
@@ -130,18 +135,8 @@ export default function NotesList({
   const [renameValue, setRenameValue] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
-  const sortedFiles = useMemo(() => {
-    if (indentation) return files;
-    const sorted = [...files];
-    if (sortMode === 'name-desc') {
-      sorted.sort((a, b) => {
-        if (a.isDirectory && !b.isDirectory) return -1;
-        if (!a.isDirectory && b.isDirectory) return 1;
-        return b.name.localeCompare(a.name);
-      });
-    }
-    return sorted;
-  }, [files, sortMode, indentation]);
+  const [showSortOptions, setShowSortOptions] = useState(false);
+  const sortedFiles = files;
 
   const rowHeight = indentation ? TREE_ROW_HEIGHT : FILE_ROW_HEIGHT;
   const rowStride = rowHeight + (indentation ? 0 : 1);
@@ -223,6 +218,15 @@ export default function NotesList({
     );
   }, [fileIcons, onRefresh, vaultPath]);
 
+  const openActions = useCallback((entry: FileEntry) => {
+    if (sortMode !== 'manual') return handleLongPress(entry);
+    Alert.alert(entry.name, undefined, [
+      { text: 'Move up', onPress: () => void onReorder(entry, -1) },
+      { text: 'Move down', onPress: () => void onReorder(entry, 1) },
+      { text: 'File actions', onPress: () => handleLongPress(entry) },
+    ], { cancelable: true });
+  }, [handleLongPress, onReorder, sortMode]);
+
   const handleRename = useCallback(() => {
     if (!renameTarget || !renameValue.trim()) return;
     rename(renameTarget.path, renameValue.trim());
@@ -242,7 +246,7 @@ export default function NotesList({
             style={[styles.item, treeStyle]}
             onPress={() => onFolderPress(item)}
             accessibilityState={{ expanded: expanded?.has(item.path.endsWith('/') ? item.path : item.path + '/') }}
-            onLongPress={() => handleLongPress(item)}
+            onLongPress={() => openActions(item)}
             activeOpacity={0.6}
           >
             <View style={[styles.folderIcon, { backgroundColor: colors.blue + '15' }]}>
@@ -264,7 +268,7 @@ export default function NotesList({
           style={[styles.item, treeStyle, selected && { backgroundColor: colors.accent + '25', borderLeftColor: colors.accent }]}
           onPress={() => onFilePress(item)}
           accessibilityState={{ selected }}
-          onLongPress={() => handleLongPress(item)}
+          onLongPress={() => openActions(item)}
           activeOpacity={0.6}
         >
           <NoteIcon path={item.path} symbol={icon?.symbol || undefined} color={icon?.color} />
@@ -274,7 +278,7 @@ export default function NotesList({
         </TouchableOpacity>
       );
     },
-    [colors, fileIcons, vaultPath, selectedKey, onFilePress, onFolderPress, handleLongPress, indentation, expanded, metrics.rowRadius]
+    [colors, fileIcons, vaultPath, selectedKey, onFilePress, onFolderPress, openActions, indentation, expanded, metrics.rowRadius]
   );
 
   return (
@@ -294,22 +298,21 @@ export default function NotesList({
           </Text>
         </TouchableOpacity>
       )}
-      {!indentation && files.length > 0 && (
-        <View style={[styles.sortRow, { borderBottomColor: colors.bgTertiary }]}>
-          <Text style={{ color: colors.textMuted, fontSize: 12 }}>{files.length} items</Text>
-          <TouchableOpacity
-            style={styles.sortBtn}
-            onPress={() => onSortModeChange(sortMode === 'name' ? 'name-desc' : 'name')}
-          >
-            <Ionicons
-              name={sortMode === 'name' ? 'arrow-down' : 'arrow-up'}
-              size={14}
-              color={colors.textMuted}
-            />
-            <Text style={{ color: colors.textMuted, fontSize: 12 }}>Name</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={[styles.sortRow, { borderBottomColor: colors.bgTertiary }]}>
+        <Text style={{ color: colors.textMuted, fontSize: 12 }}>{files.length} items</Text>
+        <TouchableOpacity style={styles.sortBtn} accessibilityRole="button"
+          accessibilityState={{ expanded: showSortOptions }} accessibilityLabel="Sort files"
+          onPress={() => setShowSortOptions(value => !value)}>
+          <Ionicons name="swap-vertical" size={14} color={colors.textMuted} />
+          <Text style={{ color: colors.textMuted, fontSize: 12 }}>{SORT_OPTIONS.find(([value]) => value === sortMode)?.[1]}</Text>
+        </TouchableOpacity>
+      </View>
+      {showSortOptions && SORT_OPTIONS.map(([value, label]) => (
+        <TouchableOpacity key={value} accessibilityRole="button" accessibilityState={{ selected: sortMode === value }}
+          style={styles.sortRow} onPress={() => { onSortModeChange(value); setShowSortOptions(false); }}>
+          <Text style={{ color: sortMode === value ? colors.accent : colors.textPrimary }}>{label}</Text>
+        </TouchableOpacity>
+      ))}
       <FlatList
         getItemLayout={(_, index) => ({ index, length: rowHeight, offset: index * rowStride })}
         initialScrollIndex={initialIndex || undefined}

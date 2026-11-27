@@ -6,11 +6,14 @@ import { childPath, fileNameOf, noteTitleOf, parentFolderOf } from "@/lib/file-p
 import { FILE_LIST_DRAG } from "@/lib/drag-kinds";
 import ContextMenu, { ContextMenuItem } from "./ContextMenu";
 import { confirmDialog } from "./ConfirmDialog";
+import { parseFileOrder, relativeGitPath } from "../../../packages/git-client/path-history";
 
 interface FileEntry {
   name: string;
   path: string;
   isDirectory: boolean;
+  mtime?: number;
+  ctime?: number;
 }
 
 interface SidebarProps {
@@ -65,10 +68,40 @@ type DropIndicator = {
 };
 
 /** The order the file list is in, for every folder at every depth. */
-const FileSortContext = createContext<FileSort>("manual");
+const FileSortContext = createContext<{ sort: FileSort; vault: string | undefined }>({ sort: "manual", vault: undefined });
 
 function sortEntries(entries: FileEntry[], order: string[] | undefined, sort: FileSort = "manual"): FileEntry[] {
   return sortFileEntries(entries, sort, order);
+}
+
+function useFolderOrder(dir: string | undefined, entries: FileEntry[], sort: FileSort, vault: string | undefined) {
+  const [manual, setManual] = useState<{ entries: FileEntry[]; order: string[] | undefined }>();
+  const [changes, setChanges] = useState<{ entries: FileEntry[]; files: FileEntry[] }>();
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api || !dir || !vault || entries.length === 0) return;
+    let active = true;
+    if (sort === "manual") {
+      void api.readFile(childPath(dir, ".order")).then(content => {
+        if (active) setManual({ entries, order: parseFileOrder(content) });
+      }).catch(() => undefined);
+    } else if (sort === "lastChange" && api.gitNative) {
+      const paths = entries.map(entry => relativeGitPath(vault, entry.path));
+      void api.gitNative<Record<string, number>>({ action: "lastChanges", dir: vault, paths: paths.filter(Boolean) })
+        .then(dates => {
+          if (!active) return;
+          setChanges({ entries, files: entries.map((entry, index) => {
+            const path = paths[index];
+            return { ...entry, gitMtime: path && Object.hasOwn(dates, path) ? dates[path] : undefined };
+          }) });
+        }).catch(() => undefined);
+    }
+    return () => { active = false; };
+  }, [dir, entries, sort, vault]);
+  return {
+    entries: sort === "lastChange" && changes?.entries === entries ? changes.files : entries,
+    order: sort === "manual" && manual?.entries === entries ? manual.order : undefined,
+  };
 }
 
 function FolderItem({
@@ -169,8 +202,9 @@ function FolderItem({
     if (!isRenaming) didFocusRef.current = false;
   }, [isRenaming, renameValue]);
 
-  const fileSort = useContext(FileSortContext);
-  const sorted = sortEntries(children, fileOrder[entry.path], fileSort);
+  const { sort: fileSort, vault } = useContext(FileSortContext);
+  const childOrder = useFolderOrder(expanded ? entry.path : undefined, children, fileSort, vault);
+  const sorted = sortEntries(childOrder.entries, childOrder.order ?? fileOrder[entry.path], fileSort);
 
   const isFolderDropTarget = entry.isDirectory && dropIndicator?.type === "into" && dropIndicator.dirPath === entry.path;
   const showDropLineBefore = dropIndicator?.type === "between" && dropIndicator.dirPath === parentDir && dropIndicator.index === index;
@@ -498,11 +532,13 @@ export default function Sidebar({
         refreshEntries();
         setRefreshKey((k) => k + 1);
       }, 100);
-    } else {
+    } else if (fileSort === "manual") {
       // Reorder within same directory (only single file reorder makes sense)
       let currentEntries: FileEntry[] = [];
       if (window.electronAPI) currentEntries = await window.electronAPI.readDir(dirPath);
-      const sorted = sortEntries(currentEntries, fileOrder[dirPath], fileSort);
+      const orderFile = childPath(dirPath, ".order");
+      const diskOrder = parseFileOrder(await window.electronAPI?.readFile(orderFile).catch(() => null) ?? null);
+      const sorted = sortEntries(currentEntries, diskOrder ?? fileOrder[dirPath], fileSort);
       const names = sorted.map((e) => e.name);
       const fromIdx = names.indexOf(source.entry.name);
       if (fromIdx === -1) return;
@@ -511,12 +547,14 @@ export default function Sidebar({
       if (fromIdx < index) targetIdx--;
       targetIdx = Math.max(0, Math.min(targetIdx, names.length));
       names.splice(targetIdx, 0, source.entry.name);
+      await window.electronAPI?.writeFile(orderFile, names.join("\n") + "\n");
       onFileOrderChange({ ...fileOrder, [dirPath]: names });
+      void refreshEntries();
       setRefreshKey((k) => k + 1);
     }
     setDropIndicator(null);
     dragSourceRef.current = null;
-  }, [dropIndicator, onMoveFile, fileOrder, onFileOrderChange, refreshEntries, selectedFiles]);
+  }, [dropIndicator, onMoveFile, fileOrder, fileSort, onFileOrderChange, refreshEntries, selectedFiles]);
 
   // Build flat list of visible files from DOM order for shift-select
   const getAllVisibleFiles = useCallback((): string[] => {
@@ -644,6 +682,11 @@ export default function Sidebar({
         : await window.electronAPI.rename(renamingPath, newPath);
       if (success) {
         onFileRename(renamingPath, newPath);
+        const orderFile = childPath(dir, ".order");
+        const diskOrder = parseFileOrder(await window.electronAPI.readFile(orderFile).catch(() => null));
+        if (diskOrder?.includes(oldName)) {
+          await window.electronAPI.writeFile(orderFile, diskOrder.map(n => n === oldName ? newFileName : n).join("\n") + "\n");
+        }
         if (fileOrder[dir]) {
           const updated = fileOrder[dir].map((n) => n === oldName ? newFileName : n);
           onFileOrderChange({ ...fileOrder, [dir]: updated });
@@ -837,9 +880,9 @@ export default function Sidebar({
     return items;
   }, [contextMenu, vault, handleNewFileIn, handleNewFolderIn, startRename, handleDelete, selectedFiles, handleMergeNotes, handleDeleteSelected, onAnalyzeNote]);
 
+  const rootOrder = useFolderOrder(collapsed ? undefined : vault?.path, entries, fileSort, vault?.path);
   if (collapsed) return null;
-
-  const sorted = sortEntries(entries, vault ? fileOrder[vault.path] : undefined, fileSort);
+  const sorted = sortEntries(rootOrder.entries, rootOrder.order ?? (vault ? fileOrder[vault.path] : undefined), fileSort);
 
   const handleResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -865,7 +908,7 @@ export default function Sidebar({
   };
 
   return (
-    <FileSortContext.Provider value={fileSort}>
+    <FileSortContext.Provider value={{ sort: fileSort, vault: vault?.path }}>
     <div
       className="sidebar-root"
       style={{ width, minWidth: width }}

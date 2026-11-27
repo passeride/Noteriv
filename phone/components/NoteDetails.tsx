@@ -12,7 +12,7 @@ interface Props {
   onJump: (line: number) => void;
   onOpenLinks: () => void;
   onEditProperties: () => void;
-  onOpenHistory: () => void;
+  onOpenHistory?: () => void;
 }
 
 export default function NoteDetails({ content, onClose, onJump, onOpenLinks, onEditProperties, onOpenHistory }: Props) {
@@ -63,7 +63,7 @@ export default function NoteDetails({ content, onClose, onJump, onOpenLinks, onE
               {linkAction('Edit properties', onEditProperties)}
             </ScrollView>}
           </View>
-          {linkAction('File history', onOpenHistory)}
+          {onOpenHistory && linkAction('Git: File history', onOpenHistory)}
         </View>
       </SafeAreaView>
     </Modal>

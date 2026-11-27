@@ -144,7 +144,7 @@ export function createDir(dirPath: string): boolean {
   }
 }
 
-export function readDir(dirPath: string): FileEntry[] {
+export function readDir(dirPath: string, withMtime = false): FileEntry[] {
   try {
     const dir = new Directory(dirPath);
     if (!dir.exists) return [];
@@ -155,10 +155,15 @@ export function readDir(dirPath: string): FileEntry[] {
       const name = item.name;
       if (name.startsWith('.')) continue;
       const isDirectory = item instanceof Directory;
+      let mtime: number | undefined;
+      if (withMtime) {
+        try { mtime = item.info().modificationTime ?? undefined; } catch { /* The item may have moved. */ }
+      }
       entries.push({
         name,
         path: item.uri,
         isDirectory,
+        ...(mtime !== undefined ? { mtime } : {}),
       });
     }
 

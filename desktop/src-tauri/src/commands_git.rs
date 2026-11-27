@@ -283,7 +283,7 @@ pub async fn git_native(
     };
     let read_only = matches!(
         request["action"].as_str(),
-        Some("status" | "history" | "show")
+        Some("status" | "history" | "fileHistory" | "pathActivity" | "lastChanges" | "show")
     );
     background(move || {
         let _guard = if read_only {

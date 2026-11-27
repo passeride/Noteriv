@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, Image, type ScrollViewInstance } from 'react-native';
+import { AccessibilityInfo, Alert, Animated, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, Image, type ScrollViewInstance } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Paths } from 'expo-file-system';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,8 +7,11 @@ import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import { readDecorations } from '@/lib/file-decoration';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
-import { directoryExists, readDir } from '@/lib/file-system';
-import type { FileDrawerOpening, FileEntry } from '@/types';
+import { directoryExists, readDir, readFile, writeFile } from '@/lib/file-system';
+import { hasGitHistory } from '@/lib/git-history';
+import { native, nativeDir } from '@/lib/provider-sync';
+import type { FileDrawerOpening, FileDrawerSort, FileEntry } from '@/types';
+import { orderFileEntries, parseFileOrder } from '../../packages/git-client/path-history';
 import NotesList from '@/components/NotesList';
 import VaultSwitcher from '@/components/VaultSwitcher';
 import CreateModal from '@/components/CreateModal';
@@ -47,13 +50,14 @@ export default function FileDrawer({ vaultPath, vaultName, notePath, editIconPat
   onRefresh, onPullToRefresh, navigateIntoFolders, opening, syncMessage, onClose, onOpenNote,
   startCreating = false }: FileDrawerProps) {
   const { colors, metrics } = useTheme();
-  const { workspace, updateWorkspace } = useApp();
+  const { workspace, updateWorkspace, files } = useApp();
   const { width } = useWindowDimensions();
   const root = directoryUri(vaultPath);
   const saved = workspace.fileDrawerPosition;
   const remembered = opening === 'remember' && saved?.breadcrumbs === navigateIntoFolders &&
     existingFolder(root, saved.folder) === saved.folder ? saved : undefined;
-  const [sortMode, setSortMode] = useState(remembered?.sort ?? 'name');
+  const sortMode = workspace.fileDrawerSort ?? saved?.sort ?? 'name';
+  const setSortMode = (sort: FileDrawerSort) => updateWorkspace({ fileDrawerSort: sort });
   const latestOffset = useRef(remembered?.offset ?? 0);
   const [listStart, setListStart] = useState({ offset: remembered?.offset ?? 0, focus: opening === 'current' });
   const [location, setLocation] = useState(() => {
@@ -103,13 +107,58 @@ export default function FileDrawer({ vaultPath, vaultName, notePath, editIconPat
     return () => { active = false; offset.stopAnimation(); };
   }, [drawerWidth, offset]);
 
+  const folders = useMemo(() => {
+    const result = new Map<string, FileEntry[]>();
+    const collect = (dir: string) => {
+      const entries = readDir(dir, sortMode === 'last-change');
+      result.set(dir, entries);
+      if (!navigateIntoFolders) {
+        for (const entry of entries) {
+          const path = directoryUri(entry.path);
+          if (entry.isDirectory && expanded.has(path)) collect(path);
+        }
+      }
+    };
+    collect(navigateIntoFolders ? folder : root);
+    return result;
+  // Files and revision invalidate metadata after sync or drawer changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigateIntoFolders, folder, root, expanded, sortMode, revision, files]);
+  const [manual, setManual] = useState<{ folders: typeof folders; orders: Map<string, string[]> }>();
+  const [changes, setChanges] = useState<{ folders: typeof folders; dates: Record<string, number> }>();
+  useEffect(() => {
+    let cancelled = false;
+    if (sortMode === 'manual') {
+      void Promise.all([...folders.keys()].map(async dir =>
+        [dir, parseFileOrder(await readFile(dir + '.order')) ?? []] as const))
+        .then(pairs => { if (!cancelled) setManual({ folders, orders: new Map(pairs) }); });
+    } else if (sortMode === 'last-change' && hasGitHistory(vaultPath)) {
+      const paths = [...folders.values()].flat().map(entry =>
+        vaultRelativePath(vaultPath, entry.path).replace(/\/$/, ''));
+      void native<Record<string, number>>({ action: 'lastChanges', dir: nativeDir(vaultPath), paths })
+        .then(dates => { if (!cancelled) setChanges({ folders, dates }); })
+        .catch(() => undefined);
+    }
+    return () => { cancelled = true; };
+  }, [folders, sortMode, vaultPath]);
   const tree = useMemo(() => {
-    if (navigateIntoFolders) return { entries: readDir(folder) };
+    const sortedFolder = (dir: string) => {
+      const entries = folders.get(dir) ?? [];
+      if (sortMode === 'manual') return orderFileEntries(entries, manual?.folders === folders ? manual.orders.get(dir) ?? [] : []);
+      if (sortMode === 'name') return entries;
+      const dates = changes?.folders === folders ? changes.dates : undefined;
+      const date = (entry: FileEntry) => {
+        const path = vaultRelativePath(vaultPath, entry.path).replace(/\/$/, '');
+        return (dates && Object.hasOwn(dates, path) ? dates[path] : undefined) ?? entry.mtime ?? 0;
+      };
+      return [...entries].sort((a, b) => Number(b.isDirectory) - Number(a.isDirectory) ||
+        (sortMode === 'last-change' ? date(b) - date(a) || a.name.localeCompare(b.name) : b.name.localeCompare(a.name)));
+    };
+    if (navigateIntoFolders) return { entries: sortedFolder(folder) };
     const entries: FileEntry[] = [];
     const indentation = new Map<string, number>();
-    // Read only the directories that the user has expanded.
     const walk = (path: string, depth: number) => {
-      for (const entry of readDir(path)) {
+      for (const entry of sortedFolder(path)) {
         entries.push(entry);
         indentation.set(entry.path, depth);
         if (entry.isDirectory && expanded.has(directoryUri(entry.path))) walk(entry.path, depth + 1);
@@ -117,7 +166,20 @@ export default function FileDrawer({ vaultPath, vaultName, notePath, editIconPat
     };
     walk(root, 0);
     return { entries, indentation };
-  }, [navigateIntoFolders, folder, root, expanded, revision]);
+  }, [changes, expanded, folder, folders, manual, navigateIntoFolders, root, sortMode, vaultPath]);
+  const reorder = async (entry: FileEntry, delta: number) => {
+    const dir = directoryUri(Paths.dirname(entry.path.replace(/\/$/, '')));
+    const orderFile = dir + '.order';
+    const order = parseFileOrder(await readFile(orderFile)) ?? [];
+    const names = orderFileEntries(readDir(dir), order).map(item => item.name);
+    const from = names.indexOf(entry.name);
+    const to = from + delta;
+    if (from === -1 || to < 0 || to >= names.length) return;
+    names.splice(from, 1);
+    names.splice(to, 0, entry.name);
+    if (writeFile(orderFile, names.join('\n') + '\n')) setRevision(value => value + 1);
+    else Alert.alert('Manual order', 'Could not save .order.');
+  };
   const goToFolder = (path: string, folders = expanded) => {
     if (navigateIntoFolders && path !== folder) {
       latestOffset.current = 0;
@@ -227,7 +289,7 @@ export default function FileDrawer({ vaultPath, vaultName, notePath, editIconPat
               <NotesList key={navigateIntoFolders ? folder : root} files={tree.entries} indentation={tree.indentation} expanded={navigateIntoFolders ? undefined : expanded}
                 currentDir={folder} vaultPath={vaultPath} selectedPath={notePath} editIconPath={editIconPath}
                 initialOffset={listStart.offset} focusSelected={listStart.focus} onScrollOffset={value => { latestOffset.current = value; }}
-                sortMode={sortMode} onSortModeChange={setSortMode}
+                sortMode={sortMode} onSortModeChange={setSortMode} onReorder={reorder}
                 isAtRoot onNavigateUp={() => {}} onFolderPress={chooseFolder}
                 onFilePress={entry => { dismiss(); onOpenNote(entry.path); }} onRefresh={refresh} onPullToRefresh={pullToRefresh} />
             </>}

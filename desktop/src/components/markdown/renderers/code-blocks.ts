@@ -1,6 +1,7 @@
 import { Decoration, WidgetType } from "@codemirror/view";
 import { Text } from "@codemirror/state";
 import type { BlockContext } from "../types";
+import { notePathFacet } from "@/lib/note-path";
 import {
   getCodeBlockProcessor,
   type CodeBlockProcessor,
@@ -383,7 +384,7 @@ class CodeBlockWidget extends WidgetType {
   private readonly langKey: string;
   private readonly processor: CodeBlockProcessor | undefined;
 
-  constructor(readonly lang: string, readonly code: string) {
+  constructor(readonly lang: string, readonly code: string, readonly notePath?: string) {
     super();
     // Plugin-registered code block processors (e.g. ```chessboard). Only the
     // first whitespace-delimited token of the fence language is used for the
@@ -546,6 +547,7 @@ class CodeBlockWidget extends WidgetType {
     const container = document.createElement("div");
     container.className = "md-codeblock-plugin";
     container.dataset.lang = langKey;
+    if (this.notePath) container.dataset.notePath = this.notePath;
 
     try {
       const ctx: CodeBlockProcessorContext = {
@@ -576,7 +578,7 @@ class CodeBlockWidget extends WidgetType {
   ignoreEvent() { return true; }
 
   eq(other: CodeBlockWidget) {
-    return this.lang === other.lang && this.code === other.code && this.processor === other.processor;
+    return this.lang === other.lang && this.code === other.code && this.processor === other.processor && this.notePath === other.notePath;
   }
 }
 
@@ -647,7 +649,8 @@ export class CodeBlockTracker {
           ctx.line.from,
           ctx.line.to,
           Decoration.replace({
-            widget: new CodeBlockWidget(info.lang, info.code),
+            widget: new CodeBlockWidget(info.lang, info.code,
+              /^githistory(?:\s|$)/i.test(info.lang) ? ctx.state?.facet(notePathFacet) : undefined),
           })
         );
       }

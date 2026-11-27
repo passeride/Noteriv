@@ -7,6 +7,7 @@ export type FileSort =
   | "manual"
   | "nameAsc"
   | "nameDesc"
+  | "lastChange"
   | "modifiedNew"
   | "modifiedOld"
   | "createdNew"
@@ -16,6 +17,7 @@ export const FILE_SORTS: { value: FileSort; label: string }[] = [
   { value: "manual", label: "My own order" },
   { value: "nameAsc", label: "File name (A to Z)" },
   { value: "nameDesc", label: "File name (Z to A)" },
+  { value: "lastChange", label: "Last change" },
   { value: "modifiedNew", label: "Modified (new to old)" },
   { value: "modifiedOld", label: "Modified (old to new)" },
   { value: "createdNew", label: "Created (new to old)" },
@@ -28,6 +30,7 @@ export interface ListedEntry {
   /** Milliseconds; absent from older backends. */
   mtime?: number;
   ctime?: number;
+  gitMtime?: number;
 }
 
 /**
@@ -71,6 +74,7 @@ export function sortFileEntries<T extends ListedEntry>(entries: T[], sort: FileS
   const compare: Record<Exclude<FileSort, "manual">, (a: T, b: T) => number> = {
     nameAsc: byName,
     nameDesc: (a, b) => byName(b, a),
+    lastChange: (a, b) => (b.gitMtime ?? b.mtime ?? 0) - (a.gitMtime ?? a.mtime ?? 0) || byName(a, b),
     modifiedNew: (a, b) => (b.mtime ?? 0) - (a.mtime ?? 0) || byName(a, b),
     modifiedOld: (a, b) => (a.mtime ?? 0) - (b.mtime ?? 0) || byName(a, b),
     createdNew: (a, b) => (b.ctime ?? 0) - (a.ctime ?? 0) || byName(a, b),

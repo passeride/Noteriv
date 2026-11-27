@@ -47,7 +47,8 @@ import NoteDetails from '@/components/NoteDetails';
 import SyncStatusSheet from '@/components/SyncStatusSheet';
 import SyncToast from '@/components/SyncToast';
 import MarkdownPreview from '@/components/MarkdownPreview';
-import CadAttachmentPreview from '@/components/CadAttachmentPreview';
+import AttachmentPreview from '@/components/AttachmentPreview';
+import { getAttachmentType } from '@/lib/attachments';
 import BoardView from '@/components/BoardView';
 import FileDrawer from '@/components/FileDrawer';
 import { rename as renameFile, listAllMarkdownFiles } from '@/lib/file-system';
@@ -80,8 +81,9 @@ function filePanelSwipe(enabled: boolean, openFiles: () => void) {
 
 export default function EditorRoute() {
   const { path } = useLocalSearchParams<{ path: string }>();
-  if (typeof path === 'string' && /\.(step|stp|stl)$/i.test(path)) {
-    return <CadAttachmentPreview key={path} path={path} />;
+  if (typeof path === 'string') {
+    if (getAttachmentType(path) === 'image') return <AttachmentPreview key={path} path={path} kind="image" />;
+    if (/\.(step|stp|stl)$/i.test(path)) return <AttachmentPreview key={path} path={path} kind="cad" />;
   }
   return <EditorScreen />;
 }

@@ -1,5 +1,5 @@
 import {
-  COMMUNITY_SOURCE, PLUGIN_SOURCES_PATH, fetchPluginCatalog, installCatalogPlugin,
+  COMMUNITY_SOURCE, PLUGIN_SOURCES_PATH, fetchPluginCatalog, installCatalogPlugin, isCatalogUpdate,
   parsePluginSource, parseStoredPluginSources, sourceKey,
   type CatalogPlugin, type PluginSource,
 } from '../../packages/plugin-catalog/catalog';
@@ -20,6 +20,7 @@ export interface PluginManifest {
   /** Fenced code-block languages this plugin renders (e.g. ["chessboard"]). */
   codeBlockLanguages?: string[];
   mobileHost?: boolean;
+  catalogSource?: PluginSource;
 }
 
 export interface PluginInstance {
@@ -169,7 +170,7 @@ export async function installLocalPlugin(vaultPath: string): Promise<PluginManif
 
 // --- GitHub plugin sources ---
 
-export { COMMUNITY_SOURCE, fetchPluginCatalog, parsePluginSource, sourceKey };
+export { COMMUNITY_SOURCE, fetchPluginCatalog, isCatalogUpdate, parsePluginSource, sourceKey };
 export type { CatalogPlugin, PluginSource };
 
 export async function loadPluginSources(vaultPath: string): Promise<PluginSource[]> {
@@ -182,17 +183,40 @@ export function savePluginSources(vaultPath: string, sources: PluginSource[]): v
   }
 }
 
-export async function installCommunityPlugin(vaultPath: string, entry: CatalogPlugin): Promise<void> {
+const pendingInstalls = new Set<string>();
+
+export async function installCommunityPlugin(vaultPath: string, entry: CatalogPlugin, update = false): Promise<void> {
   const plugins = vaultFileUri(vaultPath, PLUGINS_DIR);
   const target = vaultFileUri(vaultPath, `${PLUGINS_DIR}/${entry.id}`);
   const stage = vaultFileUri(vaultPath, `.noteriv/.plugin-install-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const backup = stage + '-previous';
+  const manifestPath = target + '/manifest.json';
   const hasPlugin = () => readDir(plugins).some(file => file.name.toLowerCase() === entry.id.toLowerCase());
-  await installCatalogPlugin(entry, {
-    hasPlugin,
-    createStage: () => createDir(plugins) && createDir(stage),
-    write: (name, content) => writeFile(`${stage}/${name}`, content),
-    publish: () => !hasPlugin() && movePath(stage, target),
-    discardStage: () => deleteDir(stage),
-  });
-  pluginEvents.emit('config', vaultPath);
+  if (pendingInstalls.has(target)) throw new Error('This plugin is already being installed or updated.');
+  pendingInstalls.add(target);
+  try {
+    const previous = update ? await readFile(manifestPath) : null;
+    if (update && (!previous || !isCatalogUpdate(JSON.parse(previous), entry))) {
+      throw new Error('No newer version is available from this source.');
+    }
+    await installCatalogPlugin(entry, {
+      hasPlugin,
+      createStage: () => createDir(plugins) && createDir(stage),
+      write: (name, content) => writeFile(`${stage}/${name}`, content),
+      async publish() {
+        if (!update) return !hasPlugin() && movePath(stage, target);
+        if (await readFile(manifestPath) !== previous || !movePath(target, backup)) return false;
+        if (movePath(stage, target)) {
+          deleteDir(backup);
+          return true;
+        }
+        if (!movePath(backup, target)) throw new Error('Unable to restore the previous plugin. Backup: ' + backup);
+        return false;
+      },
+      discardStage: () => deleteDir(stage),
+    }, update);
+    pluginEvents.emit('config', vaultPath);
+  } finally {
+    pendingInstalls.delete(target);
+  }
 }

@@ -83,7 +83,7 @@ export default function EditorRoute() {
   const { path } = useLocalSearchParams<{ path: string }>();
   if (typeof path === 'string') {
     if (getAttachmentType(path) === 'image') return <AttachmentPreview key={path} path={path} kind="image" />;
-    if (/\.(step|stp|stl)$/i.test(path)) return <AttachmentPreview key={path} path={path} kind="cad" />;
+    if (/\.(step|stp|stl|fcstd)$/i.test(path)) return <AttachmentPreview key={path} path={path} kind="cad" />;
   }
   return <EditorScreen />;
 }

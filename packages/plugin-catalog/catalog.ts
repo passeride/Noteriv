@@ -28,6 +28,39 @@ export function sourceKey(source: PluginSource): string {
   return source.repository.toLowerCase() + "@" + source.branch;
 }
 
+export type InstalledCatalogPlugin = Pick<CatalogPlugin, "id" | "version" | "name" | "author"> & {
+  catalogSource?: PluginSource;
+};
+
+function compareVersions(a: string, b: string): number {
+  const parse = (value: string) => /^(\d+)\.(\d+)\.(\d+)(?:-([\w.-]+))?(?:\+[\w.-]+)?$/.exec(value);
+  const left = parse(a), right = parse(b);
+  if (!left || !right) return 0;
+  for (let i = 1; i <= 3; i++) {
+    const difference = BigInt(left[i]) - BigInt(right[i]);
+    if (difference) return difference > 0 ? 1 : -1;
+  }
+  if (!left[4] || !right[4]) return Number(!left[4]) - Number(!right[4]);
+  const first = left[4].split("."), second = right[4].split(".");
+  for (let i = 0; i < Math.min(first.length, second.length); i++) {
+    if (first[i] === second[i]) continue;
+    const numericFirst = /^\d+$/.test(first[i]), numericSecond = /^\d+$/.test(second[i]);
+    if (numericFirst && numericSecond) return BigInt(first[i]) > BigInt(second[i]) ? 1 : -1;
+    if (numericFirst !== numericSecond) return numericFirst ? -1 : 1;
+    return first[i] > second[i] ? 1 : -1;
+  }
+  return first.length - second.length;
+}
+
+export function isCatalogUpdate(installed: InstalledCatalogPlugin, entry: CatalogPlugin): boolean {
+  if (installed.id !== entry.id || compareVersions(entry.version, installed.version) <= 0) return false;
+  const source = installed.catalogSource;
+  // Older installations did not save their source. Require their catalog identity to match.
+  return source
+    ? typeof source.repository === "string" && typeof source.branch === "string" && sourceKey(source) === sourceKey(entry.source)
+    : installed.name === entry.name && installed.author === entry.author;
+}
+
 export function parsePluginSource(value: string, ref: string): PluginSource {
   let repository = value.trim().replace(/\/$/, "");
   if (/^https:\/\//i.test(repository)) {
@@ -197,6 +230,7 @@ export async function downloadCatalogPlugin(entry: CatalogPlugin): Promise<Map<s
   }
   files.set("manifest.json", JSON.stringify({
     ...manifest, main,
+    catalogSource: entry.source,
     description: typeof manifest.description === "string" ? manifest.description : entry.description,
     author: typeof manifest.author === "string" ? manifest.author : entry.author,
   }, null, 2) + "\n");
@@ -211,17 +245,25 @@ type InstallIO = {
   discardStage: () => unknown | Promise<unknown>;
 };
 
-export async function installCatalogPlugin(entry: CatalogPlugin, io: InstallIO): Promise<void> {
-  if (await io.hasPlugin()) throw new Error("A plugin with this ID is already installed.");
+export async function installCatalogPlugin(entry: CatalogPlugin, io: InstallIO, updating = false): Promise<void> {
+  async function checkInstalled() {
+    if (await io.hasPlugin() !== updating) {
+      throw new Error(updating ? "The installed plugin was removed." : "A plugin with this ID is already installed.");
+    }
+  }
+  await checkInstalled();
   const files = await downloadCatalogPlugin(entry);
+  if (updating && JSON.parse(files.get("manifest.json")!).version !== entry.version) {
+    throw new Error("The plugin version does not match its catalog entry.");
+  }
   if (!await io.createStage()) throw new Error("Unable to prepare the plugin folder.");
   let installed = false;
   try {
     for (const [name, content] of files) {
       if (!await io.write(name, content)) throw new Error("Unable to save " + name + ".");
     }
-    if (await io.hasPlugin()) throw new Error("A plugin with this ID is already installed.");
-    if (!await io.publish()) throw new Error("Unable to install the plugin.");
+    await checkInstalled();
+    if (!await io.publish()) throw new Error(updating ? "Unable to update the plugin." : "Unable to install the plugin.");
     installed = true;
   } finally {
     if (!installed) await io.discardStage();

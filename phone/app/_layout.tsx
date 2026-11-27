@@ -76,7 +76,7 @@ function ThemedNavigation() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="editor" options={{ headerShown: false }} />
+        <Stack.Screen name="editor" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="open" options={{ headerShown: false }} />
         <Stack.Screen
           name="settings"

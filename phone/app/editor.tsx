@@ -37,11 +37,8 @@ import { markdownLinkTarget } from '@/lib/markdown-links';
 import { Directory, File } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Git from '@/lib/provider-sync';
-import { describeOutcome } from '@/lib/webdav-sync';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 import { hasInvalidProperties, setProperty } from '@/lib/properties';
-import { getOrCreateDailyNote } from '@/lib/daily-note';
-import { getRandomNote } from '@/lib/random-note';
 import QuickLauncher, { type EditorCommand } from '@/components/QuickLauncher';
 import NoteDetails from '@/components/NoteDetails';
 import SyncStatusSheet from '@/components/SyncStatusSheet';
@@ -58,6 +55,7 @@ import { parseWikiLink, resolveWikiLink, warmWikiLinks } from '@/lib/wiki-links'
 import { useFileSwipes } from '@/components/useFileSwipes';
 import { useCommandPull } from '@/components/CommandPull';
 import { useFileNavigation } from '@/lib/use-file-navigation';
+import { useFilePanelActions } from '@/lib/use-file-panel-actions';
 import { clampNoteFontSize } from '../../packages/appearance/note-text';
 
 // The toolbar uses bundled Ionicons artwork with fixed layout bounds.
@@ -97,7 +95,6 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     vault,
     files,
     refreshFiles,
-    syncCurrentVault,
   } = useApp();
 
   const [overlay, setOverlay] = useState<'files' | 'commands' | 'search' | null>(root && !homePath ? 'files' : null);
@@ -115,7 +112,6 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const inlineLauncher = (overlay === 'commands' || overlay === 'search') && Platform.OS === 'android';
   const [startCreating, setStartCreating] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
-  const [syncStatusVisible, setSyncStatusVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -397,7 +393,6 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   const openFiles = useCallback(() => openOverlay('files'), [openOverlay]);
   const openSearch = useCallback(() => openOverlay('search'), [openOverlay]);
   const openDetails = useCallback(() => { setMenuVisible(false); Keyboard.dismiss(); setDetailsVisible(true); }, []);
-  const openSyncStatus = () => { setMenuVisible(false); setSyncStatusVisible(true); };
   const newEntry = () => { setStartCreating(true); openFiles(); };
   const canSwipeFiles = !!vault && !overlay && !menuVisible && Platform.OS !== 'web';
   const hasMarkdownNote = !!displayedPath && !loadingNote && !isBoard;
@@ -442,53 +437,11 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     }
     openFileDestination({ path: notePath, ...(targetLine ? { line: String(targetLine) } : {}) });
   };
-  const openLibraryNote = async (kind: 'daily' | 'random') => {
-    if (!vault || !flushFile()) return;
-    const notePath = await (kind === 'daily' ? getOrCreateDailyNote(vault.path) : getRandomNote(vault.path));
-    if (notePath) openNote(notePath);
-  };
-  const [syncBusy, setSyncBusy] = useState(false);
-  const syncInFlight = useRef<Promise<void> | null>(null);
-  const [syncNotice, setSyncNotice] = useState<{ vaultId: string; message: string }>();
-  const syncMessage = syncNotice?.vaultId === vault?.id ? syncNotice?.message : undefined;
-  const syncProvider = vault?.gitRemote ? 'Git' : vault?.webdav?.url ? 'WebDAV' : undefined;
+  const {
+    commands: libraryCommands, syncVault, syncBusy, syncMessage, syncStatusVisible,
+    openSyncStatus, closeSyncStatus, openSyncSettings,
+  } = useFilePanelActions({ openFile: openNote, openSearch, root });
   const [history, setHistory] = useState<{ hash: string; date: string; author: string; message: string }[]>();
-
-  useEffect(() => {
-    if (!syncNotice) return;
-    const timeout = setTimeout(() => setSyncNotice(undefined), 4500);
-    return () => clearTimeout(timeout);
-  }, [syncNotice]);
-
-  const syncVault = useCallback(async () => {
-    if (!vault || !syncProvider) return;
-    if (syncInFlight.current) return syncInFlight.current;
-    setSyncBusy(true);
-    setSyncNotice(undefined);
-    const operation = (async () => {
-      try {
-        const result = await syncCurrentVault();
-        if (!result) return;
-        const { outcome } = result;
-        const message = result.provider === 'webdav'
-          ? describeOutcome(result.outcome)
-          : outcome.errors[0] || (outcome.pulled || outcome.pushed
-            ? `Pulled ${outcome.pulled}, pushed ${outcome.pushed}.`
-            : 'Up to date.');
-        setSyncNotice({ vaultId: vault.id, message });
-      } catch (error) {
-        setSyncNotice({ vaultId: vault.id, message: error instanceof Error ? error.message : String(error) });
-      } finally {
-        setSyncBusy(false);
-      }
-    })();
-    syncInFlight.current = operation;
-    try {
-      await operation;
-    } finally {
-      syncInFlight.current = null;
-    }
-  }, [syncCurrentVault, syncProvider, vault]);
 
   const showFileHistory = async () => {
     if (!vault || !currentFile) return;
@@ -523,18 +476,6 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       Alert.alert('Set banner', String(error));
     }
   };
-  const libraryCommands: EditorCommand[] = [
-    ...(vault?.gitRemote ? [{ label: 'Git: Sync status', run: openSyncStatus }] : []),
-    ...(syncProvider && !syncBusy ? [{ label: `${syncProvider}: Sync now`, run: () => void syncVault() }] : []),
-    { label: 'Daily note', run: () => void openLibraryNote('daily') },
-    { label: 'Calendar', run: () => { if (flushFile()) router.push('/calendar'); } },
-    { label: 'Flashcards', run: () => { if (flushFile()) router.push('/flashcards'); } },
-    { label: 'Vault graph', run: () => { if (flushFile()) router.push('/graph'); } },
-    { label: 'Random note', run: () => void openLibraryNote('random') },
-    { label: 'Quick open or search', run: openSearch },
-    { label: 'Settings', run: () => { if (flushFile()) router.push('/settings'); } },
-    ...(vault?.homeFile && !root ? [{ label: 'Start note', run: () => { if (flushFile()) router.dismissTo('/'); } }] : []),
-  ];
   const pluginCommands = usePluginCommands();
   const commands: EditorCommand[] = [
     ...pluginCommands,
@@ -666,7 +607,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
               <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Save note</Text>
             </TouchableOpacity>}
           </>}
-          {vault?.gitRemote && <TouchableOpacity style={styles.menuItem} onPress={openSyncStatus}>
+          {vault?.gitRemote && <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); openSyncStatus(); }}>
             <Ionicons name="sync-outline" size={20} color={colors.accent} />
             <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Sync status</Text>
           </TouchableOpacity>}
@@ -970,7 +911,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       {overlay !== 'files' && !syncStatusVisible && <SyncToast message={syncMessage} />}
       {vault?.gitRemote && syncStatusVisible && (
         <SyncStatusSheet vaultPath={vault.path} busy={syncBusy} syncMessage={syncMessage} onSync={() => void syncVault()}
-          onClose={() => setSyncStatusVisible(false)} onSettings={() => router.push({ pathname: '/settings', params: { section: 'vault' } })} />
+          onClose={closeSyncStatus} onSettings={openSyncSettings} />
       )}
       {vault && currentFile && detailsVisible && (
         <NoteDetails content={content} onClose={() => setDetailsVisible(false)} onJump={target => setAnchor({ line: target })}

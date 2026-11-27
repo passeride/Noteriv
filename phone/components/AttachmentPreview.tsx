@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MobilePluginBlock, usePluginRenderers } from '@/components/MobilePluginHost';
 import { useApp } from '@/context/AppContext';
@@ -43,15 +43,11 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
             source={{ uri: vaultFileUri(vaultPath, relativePath) }} contentFit="contain"
             onError={() => setImageFailed(true)} />
         )
+      ) : renderer ? (
+        <MobilePluginBlock renderer={renderer} vaultPath={vaultPath}
+          block={{ code: relativePath, language: 'cad', sourcePath: null, color: colors.bgPrimary, layout: 'viewport' }} />
       ) : (
-        <ScrollView contentContainerStyle={styles.body}>
-          {renderer ? (
-            <MobilePluginBlock renderer={renderer} vaultPath={vaultPath}
-              block={{ code: relativePath, language: 'cad', sourcePath: null, color: colors.bgPrimary }} />
-          ) : (
-            <Text style={{ color: colors.textSecondary }}>Install and enable CAD Viewer in Plugins to open this 3D model.</Text>
-          )}
-        </ScrollView>
+        <Text style={[styles.body, { color: colors.textSecondary }]}>Install and enable CAD Viewer in Plugins to open this 3D model.</Text>
       )}
     </SafeAreaView>
   );

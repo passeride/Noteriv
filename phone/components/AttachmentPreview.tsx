@@ -11,6 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureDetector, useExclusiveGestures } from 'react-native-gesture-handler';
 import { useSharedValue } from 'react-native-reanimated';
 import FileDrawer from '@/components/FileDrawer';
+import SyncToast from '@/components/SyncToast';
+import SyncStatusSheet from '@/components/SyncStatusSheet';
 import QuickLauncher, { type LauncherMode } from '@/components/QuickLauncher';
 import { useCommandPull } from '@/components/CommandPull';
 import { useFileSwipes } from '@/components/useFileSwipes';
@@ -22,18 +24,24 @@ import { useTheme } from '@/context/ThemeContext';
 import type { FilePreviewKind } from '@/lib/file-preview';
 import { readDir } from '@/lib/file-system';
 import { useFileNavigation } from '@/lib/use-file-navigation';
+import { useFilePanelActions } from '@/lib/use-file-panel-actions';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 
 export default function AttachmentPreview({ path, kind }: { path: string; kind: FilePreviewKind }) {
   const router = useRouter();
   const { open, back, forward } = useFileNavigation();
-  const { vault, settings, refreshFiles, syncCurrentVault } = useApp();
+  const { vault, settings, refreshFiles } = useApp();
   const { colors } = useTheme();
   const renderer = usePluginRenderers().cad;
   const [failed, setFailed] = useState(false);
   const [overlay, setOverlay] = useState<'drawer' | LauncherMode | null>(null);
   const openDrawer = () => setOverlay('drawer');
   const openCommands = () => setOverlay('commands');
+  const openSearch = () => setOverlay('files');
+  const openFile = (nextPath: string) => { if (nextPath !== path) open({ path: nextPath }); };
+  const {
+    commands: fileCommands, syncVault, syncBusy, syncMessage, syncStatusVisible, closeSyncStatus, openSyncSettings,
+  } = useFilePanelActions({ openFile, openSearch });
   const closeOverlay = useCallback(() => { Keyboard.dismiss(); setOverlay(null); }, []);
   const handleBack = useCallback(() => {
     if (overlay) { closeOverlay(); return; }
@@ -144,18 +152,23 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
         <View style={styles.screen}>{preview}</View>
       </GestureDetector>
       {vault && overlay === 'drawer' && <FileDrawer vaultPath={vault.path} vaultName={vault.name} notePath={path}
-        fileCommands={[]} onVaultChange={() => router.dismissTo('/')} onRefresh={refreshFiles}
-        onPullToRefresh={async () => { await syncCurrentVault(); }} navigateIntoFolders={settings.fileDrawerBreadcrumbs}
+        fileCommands={fileCommands} onVaultChange={() => router.dismissTo('/')} onRefresh={refreshFiles}
+        onPullToRefresh={syncVault} syncMessage={syncMessage} navigateIntoFolders={settings.fileDrawerBreadcrumbs}
         opening={settings.fileDrawerOpening} onClose={closeOverlay}
-        onOpenNote={nextPath => { if (nextPath !== path) open({ path: nextPath }); }} />}
+        onOpenNote={openFile} />}
       {vault && (overlay === 'commands' || overlay === 'files') &&
         <QuickLauncher mode={overlay} onModeChange={setOverlay} vaultPath={vault.path}
-          onClose={closeOverlay} onFileSelect={nextPath => { if (nextPath !== path) open({ path: nextPath }); }}
+          onClose={closeOverlay} onFileSelect={openFile}
           commands={[
             { label: 'Browse files', run: openDrawer },
             ...(uri ? [{ label: 'Open with', run: () => void openExternally() }] : []),
-            { label: 'Open settings', run: () => router.push('/settings') },
+            ...fileCommands,
           ]} />}
+      {overlay !== 'drawer' && !syncStatusVisible && <SyncToast message={syncMessage} />}
+      {vault?.gitRemote && syncStatusVisible && (
+        <SyncStatusSheet vaultPath={vault.path} busy={syncBusy} syncMessage={syncMessage} onSync={() => void syncVault()}
+          onClose={closeSyncStatus} onSettings={openSyncSettings} />
+      )}
     </SafeAreaView>
   );
 }

@@ -43,6 +43,7 @@
       "./plugins/withMobilePluginShortcuts.js",
       "./plugins/withAndroidUserCertificates.js",
       "./plugins/withOptionalPortrait.js",
+      ["expo-audio", { "microphonePermission": false, "recordAudioAndroid": false }],
       "expo-secure-store"
     ],
     "experiments": {

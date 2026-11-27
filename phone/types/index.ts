@@ -25,6 +25,7 @@ export interface VaultWebDav {
 export type GitProvider = 'github' | 'gitlab' | 'gitea';
 
 export type LivePreviewReplacement = 'off' | 'read' | 'both';
+export type FileDrawerOpening = 'top' | 'remember' | 'current';
 
 export interface AppSettings {
   autoSaveInterval: number;
@@ -35,6 +36,7 @@ export interface AppSettings {
   wordWrap: boolean;
   livePreviewReplacement: LivePreviewReplacement;
   fileDrawerBreadcrumbs: boolean;
+  fileDrawerOpening: FileDrawerOpening;
   lineHeight: number;
   editorFont: string;
   tabSize: number;
@@ -54,6 +56,7 @@ export interface WorkspaceState {
   fileOrder?: Record<string, string[]>;
   bookmarks?: string[];
   fileIcons?: Record<string, { symbol: string; color: string }>;
+  fileDrawerPosition?: { folder: string; expanded: string[]; offset: number; sort: 'name' | 'name-desc'; breadcrumbs: boolean };
 }
 
 export interface FileEntry {

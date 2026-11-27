@@ -38,7 +38,7 @@ import {
 } from '@/lib/community';
 import Constants from 'expo-constants';
 import { usePluginEntries } from '@/components/MobilePluginHost';
-import type { LivePreviewReplacement } from '@/types';
+import type { FileDrawerOpening, LivePreviewReplacement } from '@/types';
 
 const AUTO_SAVE_OPTIONS = [
   { label: 'Off', value: 0 },
@@ -806,6 +806,11 @@ export default function SettingsScreen() {
         {renderToggle('Folder navigation with breadcrumbs', settings.fileDrawerBreadcrumbs, fileDrawerBreadcrumbs =>
           updateSettings({ fileDrawerBreadcrumbs })
         )}
+        {renderPicker('When opening the file panel', [
+          { label: 'Start at top', value: 'top' },
+          { label: 'Remember position', value: 'remember' },
+          { label: 'Show open file', value: 'current' },
+        ], settings.fileDrawerOpening, value => updateSettings({ fileDrawerOpening: value as FileDrawerOpening }))}
       </View>
 
       {renderSectionHeader('Git Sync', 'git-branch-outline')}

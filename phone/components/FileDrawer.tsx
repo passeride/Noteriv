@@ -4,10 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Paths } from 'expo-file-system';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
+import { useApp } from '@/context/AppContext';
 import { readDecorations } from '@/lib/file-decoration';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 import { directoryExists, readDir } from '@/lib/file-system';
-import type { FileEntry } from '@/types';
+import type { FileDrawerOpening, FileEntry } from '@/types';
 import NotesList from '@/components/NotesList';
 import VaultSwitcher from '@/components/VaultSwitcher';
 import CreateModal from '@/components/CreateModal';
@@ -35,6 +36,7 @@ interface FileDrawerProps {
   onRefresh: () => void;
   onPullToRefresh: () => Promise<void>;
   navigateIntoFolders: boolean;
+  opening: FileDrawerOpening;
   syncMessage?: string;
   onClose: () => void;
   onOpenNote: (path: string) => void;
@@ -42,16 +44,24 @@ interface FileDrawerProps {
 }
 
 export default function FileDrawer({ vaultPath, vaultName, notePath, editIconPath, fileCommands, onVaultChange,
-  onRefresh, onPullToRefresh, navigateIntoFolders, syncMessage, onClose, onOpenNote, startCreating = false }: FileDrawerProps) {
+  onRefresh, onPullToRefresh, navigateIntoFolders, opening, syncMessage, onClose, onOpenNote,
+  startCreating = false }: FileDrawerProps) {
   const { colors, metrics } = useTheme();
+  const { workspace, updateWorkspace } = useApp();
   const { width } = useWindowDimensions();
   const root = directoryUri(vaultPath);
+  const saved = workspace.fileDrawerPosition;
+  const remembered = opening === 'remember' && saved?.breadcrumbs === navigateIntoFolders &&
+    existingFolder(root, saved.folder) === saved.folder ? saved : undefined;
+  const [sortMode, setSortMode] = useState(remembered?.sort ?? 'name');
+  const latestOffset = useRef(remembered?.offset ?? 0);
+  const [listStart, setListStart] = useState({ offset: remembered?.offset ?? 0, focus: opening === 'current' });
   const [location, setLocation] = useState(() => {
     const stored = fileLocations.get(vaultPath);
-    if (stored) return { ...stored, folder: existingFolder(root, stored.folder) };
-    const parent = directoryUri(Paths.dirname(notePath));
-    const folder = existingFolder(root, parent);
-    const expanded = new Set<string>();
+    const folder = opening === 'current'
+      ? existingFolder(root, directoryUri(Paths.dirname(notePath)))
+      : remembered?.folder ?? root;
+    const expanded = new Set(remembered?.expanded ?? stored?.expanded);
     let next = root;
     for (const part of folder.slice(root.length).split('/').filter(Boolean)) {
       next += part + '/';
@@ -109,6 +119,10 @@ export default function FileDrawer({ vaultPath, vaultName, notePath, editIconPat
     return { entries, indentation };
   }, [navigateIntoFolders, folder, root, expanded, revision]);
   const goToFolder = (path: string, folders = expanded) => {
+    if (navigateIntoFolders && path !== folder) {
+      latestOffset.current = 0;
+      setListStart({ offset: 0, focus: false });
+    }
     setLocation({ folder: path, expanded: folders });
   };
   const chooseFolder = (entry: FileEntry) => {
@@ -139,10 +153,23 @@ export default function FileDrawer({ vaultPath, vaultName, notePath, editIconPat
       refresh();
     }
   };
+  const rememberPosition = () => {
+    updateWorkspace({ fileDrawerPosition: {
+      folder, expanded: [...expanded], offset: latestOffset.current, sort: sortMode, breadcrumbs: navigateIntoFolders,
+    } });
+  };
+  const dismiss = () => {
+    rememberPosition();
+    onClose();
+  };
+  const showMode = (next: typeof mode) => {
+    setListStart({ offset: latestOffset.current, focus: false });
+    setMode(next);
+  };
   const close = () => {
     if (creating) setCreating(false);
-    else if (mode !== 'files') setMode('files');
-    else onClose();
+    else if (mode !== 'files') showMode('files');
+    else dismiss();
   };
 
   return (
@@ -162,22 +189,22 @@ export default function FileDrawer({ vaultPath, vaultName, notePath, editIconPat
           </View>
           <View style={styles.controls}>
             <Pressable accessibilityRole="button" accessibilityLabel="Switch vault" accessibilityState={{ expanded: mode === 'vaults' }}
-              onPress={() => setMode(mode === 'vaults' ? 'files' : 'vaults')}
+              onPress={() => showMode(mode === 'vaults' ? 'files' : 'vaults')}
               style={[styles.vaultButton, { borderColor: colors.border, borderRadius: metrics.controlRadius, backgroundColor: colors.bgPrimary }]}>
               <Ionicons name="folder-outline" size={17} color={colors.textMuted} />
               <Text numberOfLines={1} style={{ flex: 1, color: colors.textPrimary, fontWeight: '600' }}>{vaultName}</Text>
               <Ionicons name="chevron-down" size={15} color={colors.textMuted} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={mode === 'actions' ? 'Show files' : 'File actions'}
-              onPress={() => setMode(mode === 'actions' ? 'files' : 'actions')} style={styles.iconButton}>
+            {fileCommands.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel={mode === 'actions' ? 'Show files' : 'File actions'}
+              onPress={() => showMode(mode === 'actions' ? 'files' : 'actions')} style={styles.iconButton}>
               <Ionicons name={mode === 'actions' ? 'folder-outline' : 'ellipsis-horizontal'} size={20} color={colors.textPrimary} />
-            </Pressable>
+            </Pressable>}
           </View>
-          {mode === 'vaults' ? <VaultSwitcher visible embedded onClose={() => setMode('files')}
+          {mode === 'vaults' ? <VaultSwitcher visible embedded onClose={() => showMode('files')}
             onVaultChange={() => { onClose(); onVaultChange(); }} />
             : mode === 'actions' ? <FlatList data={fileCommands} keyExtractor={(item, index) => item.label + ':' + index}
               renderItem={({ item }) => <Pressable accessibilityRole="button" style={styles.action} onPress={() => {
-                onClose();
+                dismiss();
                 requestAnimationFrame(item.run);
               }}><Text style={{ color: colors.textPrimary }}>{item.label}</Text></Pressable>} />
             : <>
@@ -197,10 +224,12 @@ export default function FileDrawer({ vaultPath, vaultName, notePath, editIconPat
               </ScrollView>}
               {banner && <Image source={{ uri: vaultFileUri(vaultPath, banner) }} resizeMode="cover"
                 style={{ width: '100%', height: 80 }} />}
-              <NotesList files={tree.entries} indentation={tree.indentation} expanded={navigateIntoFolders ? undefined : expanded}
+              <NotesList key={navigateIntoFolders ? folder : root} files={tree.entries} indentation={tree.indentation} expanded={navigateIntoFolders ? undefined : expanded}
                 currentDir={folder} vaultPath={vaultPath} selectedPath={notePath} editIconPath={editIconPath}
+                initialOffset={listStart.offset} focusSelected={listStart.focus} onScrollOffset={value => { latestOffset.current = value; }}
+                sortMode={sortMode} onSortModeChange={setSortMode}
                 isAtRoot onNavigateUp={() => {}} onFolderPress={chooseFolder}
-                onFilePress={entry => { onClose(); onOpenNote(entry.path); }} onRefresh={refresh} onPullToRefresh={pullToRefresh} />
+                onFilePress={entry => { dismiss(); onOpenNote(entry.path); }} onRefresh={refresh} onPullToRefresh={pullToRefresh} />
             </>}
         </Animated.View>
         {mode === 'files' && <Pressable accessibilityRole="button" accessibilityLabel="Create a note or folder in the selected folder"

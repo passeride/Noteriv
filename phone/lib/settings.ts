@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   wordWrap: true,
   livePreviewReplacement: 'off',
   fileDrawerBreadcrumbs: false,
+  fileDrawerOpening: 'current',
   lineHeight: 1.6,
   editorFont: 'monospace',
   tabSize: 4,

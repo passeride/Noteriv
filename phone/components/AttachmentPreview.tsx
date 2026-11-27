@@ -3,27 +3,46 @@ import { File } from 'expo-file-system';
 import { getContentUriAsync } from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { startActivityAsync } from 'expo-intent-launcher';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import { useCallback, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GestureDetector, useExclusiveGestures } from 'react-native-gesture-handler';
+import { useSharedValue } from 'react-native-reanimated';
 import FileDrawer from '@/components/FileDrawer';
+import QuickLauncher, { type LauncherMode } from '@/components/QuickLauncher';
+import { useCommandPull } from '@/components/CommandPull';
+import { useFileSwipes } from '@/components/useFileSwipes';
 import { AudioPreview, VideoPreview } from '@/components/MediaPreview';
 import { MobilePluginBlock, usePluginRenderers } from '@/components/MobilePluginHost';
 import PdfPreview from '@/components/PdfPreview';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { FilePreviewKind } from '@/lib/file-preview';
+import { readDir } from '@/lib/file-system';
+import { useFileNavigation } from '@/lib/use-file-navigation';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 
 export default function AttachmentPreview({ path, kind }: { path: string; kind: FilePreviewKind }) {
   const router = useRouter();
+  const { open, back, forward } = useFileNavigation();
   const { vault, settings, refreshFiles, syncCurrentVault } = useApp();
   const { colors } = useTheme();
   const renderer = usePluginRenderers().cad;
   const [failed, setFailed] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [overlay, setOverlay] = useState<'drawer' | LauncherMode | null>(null);
+  const openDrawer = () => setOverlay('drawer');
+  const openCommands = () => setOverlay('commands');
+  const closeOverlay = useCallback(() => { Keyboard.dismiss(); setOverlay(null); }, []);
+  const handleBack = useCallback(() => {
+    if (overlay) { closeOverlay(); return; }
+    if (!back()) router.replace('/');
+  }, [back, closeOverlay, overlay, router]);
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { handleBack(); return true; });
+    return () => subscription.remove();
+  }, [handleBack]));
   const onError = useCallback(() => setFailed(true), []);
   const vaultPath = vault?.path;
   const prefix = vaultPath?.endsWith('/') ? vaultPath : vaultPath && vaultPath + '/';
@@ -32,6 +51,21 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
   const inVault = !!parts && parts.every(part => part && part !== '.' && part !== '..' && !/[\\\x00-\x1f\x7f]/.test(part));
   const uri = inVault && vaultPath && relativePath ? vaultFileUri(vaultPath, relativePath) : null;
   const name = parts?.at(-1) || 'Attachment';
+
+  const next = () => {
+    const siblings = readDir(path.slice(0, path.lastIndexOf('/') + 1)).filter(entry => !entry.isDirectory);
+    const index = siblings.findIndex(entry => entry.path === path);
+    forward(index >= 0 ? siblings[index + 1]?.path : undefined);
+  };
+  const enabled = !!vault && !overlay;
+  const interactive = kind === 'cad' || kind === 'pdf' || kind === 'video';
+  const bodySwipe = useFileSwipes(enabled, openDrawer, openCommands, next, interactive);
+  const headerSwipe = useFileSwipes(enabled, openDrawer, openCommands, next);
+  const scroll = useSharedValue(0);
+  const { gesture: headerPull } = useCommandPull(enabled ? openCommands : undefined, scroll);
+  const { gesture: bodyPull } = useCommandPull(enabled && !interactive ? openCommands : undefined, scroll);
+  const headerGestures = useExclusiveGestures(headerSwipe, headerPull);
+  const bodyGestures = useExclusiveGestures(bodySwipe, bodyPull);
 
   async function openExternally() {
     if (!uri) return;
@@ -89,27 +123,39 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgPrimary }]}>
-      <View style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.border }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.iconButton}
-          onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        {vault && <Pressable accessibilityRole="button" accessibilityLabel="Browse files" style={styles.iconButton}
-          onPress={() => setDrawerOpen(true)}>
-          <Ionicons name="folder-outline" size={21} color={colors.textPrimary} />
-        </Pressable>}
-        <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{name}</Text>
-        {uri && <Pressable accessibilityRole="button" accessibilityLabel="Open with" style={styles.iconButton}
-          onPress={() => void openExternally()}>
-          <Ionicons name="open-outline" size={22} color={colors.textPrimary} />
-        </Pressable>}
-      </View>
-      {preview}
-      {vault && drawerOpen && <FileDrawer vaultPath={vault.path} vaultName={vault.name} notePath={path}
+      <GestureDetector gesture={headerGestures}>
+        <View style={[styles.header, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.border }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.iconButton}
+            onPress={handleBack}>
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </Pressable>
+          {vault && <Pressable accessibilityRole="button" accessibilityLabel="Browse files" style={styles.iconButton}
+            onPress={openDrawer}>
+            <Ionicons name="folder-outline" size={21} color={colors.textPrimary} />
+          </Pressable>}
+          <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{name}</Text>
+          {uri && <Pressable accessibilityRole="button" accessibilityLabel="Open with" style={styles.iconButton}
+            onPress={() => void openExternally()}>
+            <Ionicons name="open-outline" size={22} color={colors.textPrimary} />
+          </Pressable>}
+        </View>
+      </GestureDetector>
+      <GestureDetector gesture={bodyGestures}>
+        <View style={styles.screen}>{preview}</View>
+      </GestureDetector>
+      {vault && overlay === 'drawer' && <FileDrawer vaultPath={vault.path} vaultName={vault.name} notePath={path}
         fileCommands={[]} onVaultChange={() => router.dismissTo('/')} onRefresh={refreshFiles}
         onPullToRefresh={async () => { await syncCurrentVault(); }} navigateIntoFolders={settings.fileDrawerBreadcrumbs}
-        opening={settings.fileDrawerOpening} onClose={() => setDrawerOpen(false)}
-        onOpenNote={next => { if (next !== path) router.replace({ pathname: '/editor', params: { path: next } }); }} />}
+        opening={settings.fileDrawerOpening} onClose={closeOverlay}
+        onOpenNote={nextPath => { if (nextPath !== path) open({ path: nextPath }); }} />}
+      {vault && (overlay === 'commands' || overlay === 'files') &&
+        <QuickLauncher mode={overlay} onModeChange={setOverlay} vaultPath={vault.path}
+          onClose={closeOverlay} onFileSelect={nextPath => { if (nextPath !== path) open({ path: nextPath }); }}
+          commands={[
+            { label: 'Browse files', run: openDrawer },
+            ...(uri ? [{ label: 'Open with', run: () => void openExternally() }] : []),
+            { label: 'Open settings', run: () => router.push('/settings') },
+          ]} />}
     </SafeAreaView>
   );
 }

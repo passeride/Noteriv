@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useComposedEventHandler, useSharedValue } from 'react-native-reanimated';
 import {
-  GestureDetector, useExclusiveGestures, useNativeGesture, type PinchGesture,
+  GestureDetector, useExclusiveGestures, useNativeGesture, type PanGesture, type PinchGesture,
 } from 'react-native-gesture-handler';
 import { WebView } from 'react-native-webview';
 import { frontmatterLineCount, readProperties } from '@/lib/properties';
@@ -40,6 +40,7 @@ interface MarkdownPreviewProps {
   onScroll?: ReturnType<typeof useAnimatedScrollHandler>;
   onPullDown?: () => void;
   pinchGesture?: PinchGesture;
+  sideSwipe?: PanGesture;
   hideReadingMetadata?: boolean;
   onLinkPress?: (url: string) => void;
   onWikiLinkPress?: (name: string) => void;
@@ -742,6 +743,7 @@ export default function MarkdownPreview({
   onScroll,
   onPullDown,
   pinchGesture,
+  sideSwipe,
   hideReadingMetadata,
   onLinkPress: onNoteLinkPress,
   onWikiLinkPress,
@@ -779,7 +781,7 @@ export default function MarkdownPreview({
   const trackScroll = useAnimatedScrollHandler(event => { scrollY.value = event.contentOffset.y; });
   const handleScroll = useComposedEventHandler([onScroll ?? null, onPullDown ? trackScroll : null]);
   const { gesture, pullDistance } = useCommandPull(onPullDown, scrollY, pinchGesture);
-  const nativeScroll = useNativeGesture({ simultaneousWith: pinchGesture });
+  const nativeScroll = useNativeGesture({ simultaneousWith: pinchGesture, requireToFail: sideSwipe });
   const pullGesture = useExclusiveGestures(gesture, nativeScroll);
   const headingYMap = useRef<Map<number, number>>(new Map());
   const anchorLine = useMemo(() => {

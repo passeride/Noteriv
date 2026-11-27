@@ -23,7 +23,7 @@ import Animated, {
   useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { Gesture, GestureDetector, usePinchGesture } from 'react-native-gesture-handler';
+import { GestureDetector, usePinchGesture, useExclusiveGestures, useSimultaneousGestures } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Paths } from 'expo-file-system';
@@ -55,6 +55,9 @@ import { rename as renameFile, listAllMarkdownFiles } from '@/lib/file-system';
 import { lintMarkdown, LintWarning } from '@/lib/markdown-lint';
 import { isBoardContent, isBoardFile } from '@/lib/board-utils';
 import { parseWikiLink, resolveWikiLink, warmWikiLinks } from '@/lib/wiki-links';
+import { useFileSwipes } from '@/components/useFileSwipes';
+import { useCommandPull } from '@/components/CommandPull';
+import { useFileNavigation } from '@/lib/use-file-navigation';
 import { clampNoteFontSize } from '../../packages/appearance/note-text';
 
 // The toolbar uses bundled Ionicons artwork with fixed layout bounds.
@@ -62,22 +65,6 @@ const toolbarIcons = {
   back: require('../assets/images/editor-toolbar/back.png'),
   files: require('../assets/images/editor-toolbar/files.png'),
 };
-
-function filePanelSwipe(enabled: boolean, openFiles: () => void) {
-  return Gesture.Pan()
-    .enabled(enabled)
-    .hitSlop({ left: 0, width: 56 })
-    .activeOffsetX(18)
-    .failOffsetX(-8)
-    .failOffsetY([-16, 16])
-    .maxPointers(1)
-    .runOnJS(true)
-    .onEnd((event, success) => {
-      if (success && event.translationX >= 48 && event.translationX > Math.abs(event.translationY) * 1.5) {
-        openFiles();
-      }
-    });
-}
 
 export default function EditorRoute() {
   const { path } = useLocalSearchParams<{ path: string }>();
@@ -88,6 +75,7 @@ export default function EditorRoute() {
 
 export function EditorScreen({ root = false, homePath }: { root?: boolean; homePath?: string }) {
   const router = useRouter();
+  const { open: openFileDestination, back: goBackInFiles, forward: goForwardInFiles } = useFileNavigation();
   const { path: routePath, heading, line } = useLocalSearchParams<{ path: string; heading?: string; line?: string }>();
   const path = root ? homePath : routePath;
   const [anchor, setAnchor] = useState<{ heading?: string; line?: number } | null>(() =>
@@ -149,32 +137,12 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
   }, [files]);
 
   const currentIndex = useMemo(() => {
-    if (!currentFile) return -1;
-    return siblingNotes.findIndex((f) => f.path === currentFile);
-  }, [siblingNotes, currentFile]);
+    if (!path) return -1;
+    return siblingNotes.findIndex((f) => f.path === path);
+  }, [siblingNotes, path]);
 
-  const navigateToNote = useCallback(async (notePath: string) => {
-    if (!flushFile()) return;
-    const target = { pathname: '/editor' as const, params: { path: notePath } };
-    if (root) router.push(target);
-    else router.replace(target);
-  }, [flushFile, root, router]);
-
-  const allowNoteSwipe = !isEditing || usesLiveEditor || settings.wordWrap;
-  const swipeBetweenNotes = useMemo(() => Gesture.Pan()
-    .enabled(allowNoteSwipe)
-    .maxPointers(1)
-    .activeOffsetX([-30, 30])
-    .failOffsetY([-10, 10])
-    .onEnd((e, success) => {
-      if (!success || Math.abs(e.velocityX) < 300) return;
-      if (e.translationX > 80 && currentIndex > 0) {
-        navigateToNote(siblingNotes[currentIndex - 1].path);
-      } else if (e.translationX < -80 && currentIndex < siblingNotes.length - 1) {
-        navigateToNote(siblingNotes[currentIndex + 1].path);
-      }
-    })
-    .runOnJS(true), [allowNoteSwipe, currentIndex, navigateToNote, siblingNotes]);
+  const nextFile = currentIndex >= 0 ? siblingNotes[currentIndex + 1]?.path : undefined;
+  const forward = () => goForwardInFiles(nextFile);
 
   const closeOverlay = useCallback(() => {
     setOverlay(null);
@@ -197,8 +165,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       return;
     }
     void setCurrentFile(null);
-    router.back();
-  }, [closeOverlay, flushFile, inlineLauncher, root, setCurrentFile, router]);
+    goBackInFiles();
+  }, [closeOverlay, flushFile, inlineLauncher, root, setCurrentFile, router, goBackInFiles]);
 
   useFocusEffect(useCallback(() => {
     if ((path || root) && activePath.current !== (path ?? null)) void setCurrentFile(path ?? null);
@@ -306,15 +274,14 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         if (targetHeading) setAnchor({ heading: targetHeading });
         return;
       }
-      if (!flushFile()) return;
-      router.push({ pathname: '/editor', params: { path: resolved, ...(targetHeading ? { heading: targetHeading } : {}) } });
+      openFileDestination({ path: resolved, ...(targetHeading ? { heading: targetHeading } : {}) });
     } catch {
       if (request === linkRequest.current) Alert.alert('Could not open note', name);
     } finally {
       clearTimeout(indicator);
       if (request === linkRequest.current) setOpeningLink(false);
     }
-  }, [vault, currentFile, flushFile, router]);
+  }, [vault, currentFile, openFileDestination]);
 
   const handleMarkdownLink = useCallback((url: string) => {
     void openNoteLink(url, true);
@@ -461,27 +428,19 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       setPinchFontSize(undefined);
     },
   });
-  const noteGestures = useMemo(() => Gesture.Exclusive(
-    filePanelSwipe(canSwipeFiles, openFiles), swipeBetweenNotes
-  ), [canSwipeFiles, openFiles, swipeBetweenNotes]);
-  const pullHeader = Gesture.Pan()
-    .enabled(!!vault && !overlay)
-    .maxPointers(1)
-    .activeOffsetY(18)
-    .failOffsetX([-20, 20])
-    .failOffsetY([-12, 10000])
-    .onEnd(event => {
-      if (event.translationY >= 52 && event.translationY > Math.abs(event.translationX) * 1.5) openCommands();
-    })
-    .runOnJS(true);
-  const headerGestures = Gesture.Race(filePanelSwipe(canSwipeFiles, openFiles), pullHeader);
+  const bodySwipe = useFileSwipes(canSwipeFiles, openFiles, openCommands, forward,
+    isEditing && !usesLiveEditor && !settings.wordWrap);
+  const noteGestures = useSimultaneousGestures(bodySwipe, pinch);
+  const headerSwipe = useFileSwipes(canSwipeFiles, openFiles, openCommands, forward);
+  const headerScroll = useSharedValue(0);
+  const { gesture: headerPull } = useCommandPull(pullDownCommands, headerScroll);
+  const headerGestures = useExclusiveGestures(headerSwipe, headerPull);
   const openNote = (notePath: string, targetLine?: number) => {
     if (notePath === currentFile) {
       if (targetLine) setAnchor({ line: targetLine });
       return;
     }
-    if (flushFile()) router.push({ pathname: '/editor',
-      params: { path: notePath, ...(targetLine ? { line: String(targetLine) } : {}) } });
+    openFileDestination({ path: notePath, ...(targetLine ? { line: String(targetLine) } : {}) });
   };
   const openLibraryNote = async (kind: 'daily' | 'random') => {
     if (!vault || !flushFile()) return;
@@ -852,61 +811,62 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
       )}
 
       {/* Editor / Preview / Board */}
-      <GestureDetector gesture={pinch}>
-        <GestureDetector gesture={noteGestures}>
-          <View style={styles.editorContainer}>
-            {loadingNote ? null : !displayedPath ? (
-              <Text style={{ color: colors.textSecondary, padding: 20 }}>Open a note from the file panel.</Text>
-            ) : isBoard ? (
-              <BoardView content={content} onChange={setContent} />
-            ) : usesLiveEditor ? (
-              <LiveMarkdownEditor
-                key={displayedPath}
-                content={content}
-                anchor={anchor ?? undefined}
-                onChange={setContent}
-                fontSize={fontSize}
-                pinchGesture={pinch}
-                onPullDown={pullDownCommands}
-                focusMode={focusMode}
-                onToggleFocusMode={() => setFocusMode((f) => !f)}
-                onLinkPress={handleLiveLink}
-                onWikiLinkPress={openNoteLink}
-                onToggleTask={handleLiveTask}
-              />
-            ) : isEditing ? (
-              <MarkdownEditor
-                notePath={displayedPath}
-                content={content}
-                onChange={setContent}
-                fontSize={fontSize}
-                wordWrap={settings.wordWrap}
-                pinchGesture={pinch}
-                onPullDown={pullDownCommands}
-                lineSpacing={settings.lineHeight}
-                spellCheck={settings.spellCheck}
-                focusMode={focusMode}
-                onToggleFocusMode={() => setFocusMode((f) => !f)}
-              />
-            ) : (
-              <MarkdownPreview
-                content={content}
-                fontSize={fontSize}
-                pinchGesture={pinch}
-                vaultPath={vault?.path}
-                notePath={displayedPath}
-                showLocation
-                headerInset={collapsibleHeader ? headerHeight : undefined}
-                onScroll={collapsibleHeader ? readingScroll : undefined}
-                onPullDown={pullDownCommands}
-                hideReadingMetadata={settings.hideReadingMetadata}
-                anchor={anchor ?? undefined}
-                onWikiLinkPress={openNoteLink}
-                onLinkPress={handleMarkdownLink}
-              />
-            )}
-          </View>
-        </GestureDetector>
+      <GestureDetector gesture={noteGestures}>
+        <View style={styles.editorContainer}>
+          {loadingNote ? null : !displayedPath ? (
+            <Text style={{ color: colors.textSecondary, padding: 20 }}>Open a note from the file panel.</Text>
+          ) : isBoard ? (
+            <BoardView content={content} onChange={setContent} />
+          ) : usesLiveEditor ? (
+            <LiveMarkdownEditor
+              key={displayedPath}
+              content={content}
+              anchor={anchor ?? undefined}
+              onChange={setContent}
+              fontSize={fontSize}
+              pinchGesture={pinch}
+              sideSwipe={bodySwipe}
+              onPullDown={pullDownCommands}
+              focusMode={focusMode}
+              onToggleFocusMode={() => setFocusMode((f) => !f)}
+              onLinkPress={handleLiveLink}
+              onWikiLinkPress={openNoteLink}
+              onToggleTask={handleLiveTask}
+            />
+          ) : isEditing ? (
+            <MarkdownEditor
+              notePath={displayedPath}
+              content={content}
+              onChange={setContent}
+              fontSize={fontSize}
+              wordWrap={settings.wordWrap}
+              pinchGesture={pinch}
+              sideSwipe={bodySwipe}
+              onPullDown={pullDownCommands}
+              lineSpacing={settings.lineHeight}
+              spellCheck={settings.spellCheck}
+              focusMode={focusMode}
+              onToggleFocusMode={() => setFocusMode((f) => !f)}
+            />
+          ) : (
+            <MarkdownPreview
+              content={content}
+              fontSize={fontSize}
+              pinchGesture={pinch}
+              sideSwipe={bodySwipe}
+              vaultPath={vault?.path}
+              notePath={displayedPath}
+              showLocation
+              headerInset={collapsibleHeader ? headerHeight : undefined}
+              onScroll={collapsibleHeader ? readingScroll : undefined}
+              onPullDown={pullDownCommands}
+              hideReadingMetadata={settings.hideReadingMetadata}
+              anchor={anchor ?? undefined}
+              onWikiLinkPress={openNoteLink}
+              onLinkPress={handleMarkdownLink}
+            />
+          )}
+        </View>
       </GestureDetector>
       {!focusMode && <PluginStatusBar />}
 

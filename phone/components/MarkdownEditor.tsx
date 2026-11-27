@@ -13,7 +13,7 @@ import {
   type TextInputInstance,
   type ScrollViewInstance,
 } from 'react-native';
-import { GestureDetector, useExclusiveGestures, useNativeGesture, type PinchGesture } from 'react-native-gesture-handler';
+import { GestureDetector, useExclusiveGestures, useNativeGesture, type PanGesture, type PinchGesture } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useSharedValue } from 'react-native-reanimated';
 import { CommandPullIndicator, useCommandPull } from '@/components/CommandPull';
@@ -27,6 +27,7 @@ interface MarkdownEditorProps {
   fontSize: number;
   wordWrap: boolean;
   pinchGesture: PinchGesture;
+  sideSwipe?: PanGesture;
   onPullDown?: () => void;
   lineSpacing?: number;
   spellCheck?: boolean;
@@ -155,7 +156,7 @@ function lineColumns(line: string): number {
   return line.length + tabs * 7 + wide;
 }
 
-export default function MarkdownEditor({ notePath, content, onChange, fontSize, wordWrap, pinchGesture, onPullDown, lineSpacing = 1.6, spellCheck = true, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
+export default function MarkdownEditor({ notePath, content, onChange, fontSize, wordWrap, pinchGesture, sideSwipe, onPullDown, lineSpacing = 1.6, spellCheck = true, focusMode, onToggleFocusMode }: MarkdownEditorProps) {
   const { colors, metrics } = useTheme();
   const { width: windowWidth, fontScale } = useWindowDimensions();
   const inputRef = useRef<TextInputInstance>(null);
@@ -172,8 +173,8 @@ export default function MarkdownEditor({ notePath, content, onChange, fontSize, 
     + 2 * metrics.contentPadding + 16));
   const scrollY = useSharedValue(0);
   const { gesture, pullDistance } = useCommandPull(onPullDown, scrollY, pinchGesture);
-  const nativeScroll = useNativeGesture({ simultaneousWith: pinchGesture });
-  const nativeInput = useNativeGesture({ simultaneousWith: [pinchGesture, nativeScroll] });
+  const nativeScroll = useNativeGesture({ enabled: !wordWrap, simultaneousWith: pinchGesture, requireToFail: sideSwipe });
+  const nativeInput = useNativeGesture({ simultaneousWith: [pinchGesture, nativeScroll], requireToFail: sideSwipe });
   const inputGesture = useExclusiveGestures(gesture, nativeInput);
 
   useEffect(() => {

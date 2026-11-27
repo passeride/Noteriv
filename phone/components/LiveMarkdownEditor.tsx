@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { GestureDetector, useExclusiveGestures, useNativeGesture, type PinchGesture } from 'react-native-gesture-handler';
+import { GestureDetector, useExclusiveGestures, useNativeGesture, type PanGesture, type PinchGesture } from 'react-native-gesture-handler';
 import { useSharedValue } from 'react-native-reanimated';
 import { CommandPullIndicator, useCommandPull } from '@/components/CommandPull';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,6 +42,7 @@ interface LiveMarkdownEditorProps {
   onChange: (text: string) => void;
   fontSize: number;
   pinchGesture?: PinchGesture;
+  sideSwipe?: PanGesture;
   onPullDown?: () => void;
   focusMode?: boolean;
   onToggleFocusMode?: () => void;
@@ -339,6 +340,7 @@ export default function LiveMarkdownEditor({
   onChange,
   fontSize,
   pinchGesture,
+  sideSwipe,
   onPullDown,
   focusMode,
   onToggleFocusMode,
@@ -351,10 +353,10 @@ export default function LiveMarkdownEditor({
   const keyboard = useKeyboardInset();
   const scrollY = useSharedValue(0);
   const { gesture, pullDistance } = useCommandPull(onPullDown, scrollY, pinchGesture);
-  const nativeScroll = useNativeGesture({ simultaneousWith: pinchGesture });
+  const nativeScroll = useNativeGesture({ simultaneousWith: pinchGesture, requireToFail: sideSwipe });
   const listGesture = useExclusiveGestures(gesture, nativeScroll);
   const inputPull = useCommandPull(onPullDown, scrollY, pinchGesture);
-  const nativeInput = useNativeGesture({ simultaneousWith: pinchGesture });
+  const nativeInput = useNativeGesture({ simultaneousWith: pinchGesture, requireToFail: sideSwipe });
   const inputGesture = useExclusiveGestures(inputPull.gesture, nativeInput);
   const segments = useMemo(() => segmentLiveMarkdown(content), [content]);
   const [activeSelection, setActiveSelection] = useState<AbsoluteSelection | null>(

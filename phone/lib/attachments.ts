@@ -1,4 +1,5 @@
-import { File, Directory } from 'expo-file-system';
+import { filePreviewKind } from '@/lib/file-preview';
+import { File } from 'expo-file-system';
 import { readDir, createDir, deleteFile } from '@/lib/file-system';
 
 export interface Attachment {
@@ -7,11 +8,6 @@ export interface Attachment {
   type: 'image' | 'audio' | 'video' | 'pdf' | 'other';
   size: number;
 }
-
-const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'];
-const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
-const VIDEO_EXTS = ['.mp4', '.mov', '.avi', '.mkv', '.webm'];
-const PDF_EXTS = ['.pdf'];
 
 /**
  * Get the path to the attachments directory inside a vault.
@@ -25,13 +21,8 @@ export function getAttachmentsDir(vaultPath: string): string {
  * Determine the attachment type from a filename's extension.
  */
 export function getAttachmentType(filename: string): Attachment['type'] {
-  const ext = getExtension(filename).toLowerCase();
-
-  if (IMAGE_EXTS.includes(ext)) return 'image';
-  if (AUDIO_EXTS.includes(ext)) return 'audio';
-  if (VIDEO_EXTS.includes(ext)) return 'video';
-  if (PDF_EXTS.includes(ext)) return 'pdf';
-  return 'other';
+  const kind = filePreviewKind(filename);
+  return kind === 'image' || kind === 'audio' || kind === 'video' || kind === 'pdf' ? kind : 'other';
 }
 
 /**
@@ -113,14 +104,4 @@ export function markdownLinkForAttachment(
   }
 
   return `[${attachment.name}](${encodedPath})`;
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-function getExtension(filename: string): string {
-  const dotIndex = filename.lastIndexOf('.');
-  if (dotIndex === -1) return '';
-  return filename.slice(dotIndex);
 }

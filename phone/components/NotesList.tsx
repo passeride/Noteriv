@@ -21,7 +21,16 @@ import { migrateDecorations, readDecorations, saveDecoration } from '@/lib/file-
 import { vaultRelativePath } from '@/lib/sync-state';
 import { FileEntry } from '@/types';
 import { readProperties } from '@/lib/properties';
+import { fileDrawerScroll } from '@/lib/file-drawer-scroll';
+import { filePreviewKind } from '@/lib/file-preview';
 import { readFile, rename, deleteFile, deleteDir, trashFile } from '@/lib/file-system';
+
+const FILE_ROW_HEIGHT = 64;
+const TREE_ROW_HEIGHT = 48;
+const PREVIEW_ICONS = {
+  image: 'image-outline', pdf: 'document-outline', audio: 'musical-notes-outline',
+  video: 'videocam-outline', cad: 'cube-outline', external: 'attach-outline',
+} as const;
 
 const ICONS = ['📁', '📝', '⭐', '📚', '🏠', '💡', '📅', '✅', '🎯', '🛠️', '🔬', '🎵', '💻', '🌱', '💼', '📌'];
 const ICON_COLORS = ['#6278B5', '#953F70', '#AA632D', '#378257', '#566575'];
@@ -39,10 +48,11 @@ function NoteIcon({ path, symbol, color }: { path: string; symbol?: string; colo
     });
     return () => { active = false; };
   }, [path]);
+  const kind = filePreviewKind(path);
   const resolved = symbol ?? (metadata?.path === path ? metadata.symbol : undefined);
   return <View style={[styles.fileIcon, { backgroundColor: resolved ? (color ?? ICON_COLORS[0]) + '38' : colors.bgTertiary }]}>
     {resolved ? <Text numberOfLines={1} style={{ color: colors.textPrimary, fontSize: 19 }}>{resolved}</Text>
-      : <Ionicons name="document-text-outline" size={20} color={colors.textSecondary} />}
+      : <Ionicons name={kind ? PREVIEW_ICONS[kind] : 'document-text-outline'} size={20} color={colors.textSecondary} />}
   </View>;
 }
 
@@ -51,6 +61,11 @@ interface NotesListProps {
   indentation?: Map<string, number>;
   expanded?: Set<string>;
   selectedPath?: string;
+  initialOffset: number;
+  focusSelected: boolean;
+  onScrollOffset: (offset: number) => void;
+  sortMode: 'name' | 'name-desc';
+  onSortModeChange: (mode: 'name' | 'name-desc') => void;
   editIconPath?: string;
   currentDir: string;
   vaultPath: string;
@@ -68,6 +83,11 @@ export default function NotesList({
   indentation,
   expanded,
   selectedPath,
+  initialOffset,
+  focusSelected,
+  onScrollOffset,
+  sortMode,
+  onSortModeChange,
   editIconPath,
   currentDir,
   vaultPath,
@@ -110,14 +130,6 @@ export default function NotesList({
   const [renameValue, setRenameValue] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
-  const listRef = useRef<FlatList<FileEntry>>(null);
-  const listedFolder = indentation ? vaultPath : currentDir;
-
-  useEffect(() => {
-    listRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [listedFolder]);
-  const [sortMode, setSortMode] = useState<'name' | 'name-desc'>('name');
-
   const sortedFiles = useMemo(() => {
     if (indentation) return files;
     const sorted = [...files];
@@ -130,6 +142,13 @@ export default function NotesList({
     }
     return sorted;
   }, [files, sortMode, indentation]);
+
+  const rowHeight = indentation ? TREE_ROW_HEIGHT : FILE_ROW_HEIGHT;
+  const rowStride = rowHeight + (indentation ? 0 : 1);
+  const selectedKey = selectedPath && vaultRelativePath(vaultPath, selectedPath);
+  const { offset, index: initialIndex } = fileDrawerScroll(
+    sortedFiles, vaultPath, focusSelected ? selectedKey : undefined, initialOffset, rowStride,
+  );
 
   const folderName = useMemo(() => {
     if (isAtRoot) return null;
@@ -214,8 +233,9 @@ export default function NotesList({
   const renderItem = useCallback(
     ({ item }: { item: FileEntry }) => {
       const depth = indentation?.get(item.path) ?? 0;
-      const treeStyle = indentation && { paddingLeft: 10 + Math.min(depth, 6) * 12, borderRadius: metrics.rowRadius, minHeight: 48, paddingVertical: 4 };
-      const icon = fileIcons?.[vaultRelativePath(vaultPath, item.path).replace(/\/$/, '')];
+      const treeStyle = indentation && { paddingLeft: 10 + Math.min(depth, 6) * 12, borderRadius: metrics.rowRadius, height: TREE_ROW_HEIGHT, paddingVertical: 4 };
+      const relativePath = vaultRelativePath(vaultPath, item.path).replace(/\/$/, '');
+      const icon = fileIcons?.[relativePath];
       if (item.isDirectory) {
         return (
           <TouchableOpacity
@@ -237,29 +257,65 @@ export default function NotesList({
         );
       }
 
+      const selected = relativePath === selectedKey;
       const displayName = item.name.replace(/\.(md|markdown)$/i, '');
       return (
         <TouchableOpacity
-          style={[styles.item, treeStyle, item.path === selectedPath && { backgroundColor: colors.accent + '20' }]}
+          style={[styles.item, treeStyle, selected && { backgroundColor: colors.accent + '25', borderLeftColor: colors.accent }]}
           onPress={() => onFilePress(item)}
-          accessibilityState={{ selected: item.path === selectedPath }}
+          accessibilityState={{ selected }}
           onLongPress={() => handleLongPress(item)}
           activeOpacity={0.6}
         >
           <NoteIcon path={item.path} symbol={icon?.symbol || undefined} color={icon?.color} />
-          <Text style={[styles.itemName, { color: item.path === selectedPath ? colors.accent : colors.textPrimary }]} numberOfLines={1}>
+          <Text style={[styles.itemName, { color: selected ? colors.accent : colors.textPrimary }]} numberOfLines={1}>
             {displayName}
           </Text>
         </TouchableOpacity>
       );
     },
-    [colors, fileIcons, vaultPath, selectedPath, onFilePress, onFolderPress, handleLongPress, indentation, expanded, metrics.rowRadius]
+    [colors, fileIcons, vaultPath, selectedKey, onFilePress, onFolderPress, handleLongPress, indentation, expanded, metrics.rowRadius]
   );
 
   return (
     <View style={styles.container}>
+      {onGoHome && (
+        <TouchableOpacity accessibilityLabel="Go to home folder" style={styles.backRow} onPress={onGoHome}>
+          <Ionicons name="home-outline" size={18} color={colors.blue} />
+          <Text style={{ color: colors.blue }}>Home</Text>
+        </TouchableOpacity>
+      )}
+      {!isAtRoot && (
+        <TouchableOpacity style={[styles.backRow, { borderBottomColor: colors.bgTertiary }]} onPress={onNavigateUp}>
+          <Ionicons name="chevron-back" size={20} color={colors.blue} />
+          <Text style={[styles.backText, { color: colors.blue }]}>Back</Text>
+          <Text style={[styles.folderTitle, { color: colors.textMuted }]} numberOfLines={1}>
+            {folderName}
+          </Text>
+        </TouchableOpacity>
+      )}
+      {!indentation && files.length > 0 && (
+        <View style={[styles.sortRow, { borderBottomColor: colors.bgTertiary }]}>
+          <Text style={{ color: colors.textMuted, fontSize: 12 }}>{files.length} items</Text>
+          <TouchableOpacity
+            style={styles.sortBtn}
+            onPress={() => onSortModeChange(sortMode === 'name' ? 'name-desc' : 'name')}
+          >
+            <Ionicons
+              name={sortMode === 'name' ? 'arrow-down' : 'arrow-up'}
+              size={14}
+              color={colors.textMuted}
+            />
+            <Text style={{ color: colors.textMuted, fontSize: 12 }}>Name</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <FlatList
-        ref={listRef}
+        getItemLayout={(_, index) => ({ index, length: rowHeight, offset: index * rowStride })}
+        initialScrollIndex={initialIndex || undefined}
+        contentOffset={offset ? { x: 0, y: offset } : undefined}
+        onScroll={event => onScrollOffset(event.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={16}
         data={sortedFiles}
         keyExtractor={(item) => item.path}
         renderItem={renderItem}
@@ -271,41 +327,6 @@ export default function NotesList({
             colors={[colors.blue]}
             progressBackgroundColor={colors.bgTertiary}
           />
-        }
-        ListHeaderComponent={
-          <>
-            {onGoHome && (
-              <TouchableOpacity accessibilityLabel="Go to home folder" style={styles.backRow} onPress={onGoHome}>
-                <Ionicons name="home-outline" size={18} color={colors.blue} />
-                <Text style={{ color: colors.blue }}>Home</Text>
-              </TouchableOpacity>
-            )}
-            {!isAtRoot && (
-              <TouchableOpacity style={[styles.backRow, { borderBottomColor: colors.bgTertiary }]} onPress={onNavigateUp}>
-                <Ionicons name="chevron-back" size={20} color={colors.blue} />
-                <Text style={[styles.backText, { color: colors.blue }]}>Back</Text>
-                <Text style={[styles.folderTitle, { color: colors.textMuted }]} numberOfLines={1}>
-                  {folderName}
-                </Text>
-              </TouchableOpacity>
-            )}
-            {!indentation && files.length > 0 && (
-              <View style={[styles.sortRow, { borderBottomColor: colors.bgTertiary }]}>
-                <Text style={{ color: colors.textMuted, fontSize: 12 }}>{files.length} items</Text>
-                <TouchableOpacity
-                  style={styles.sortBtn}
-                  onPress={() => setSortMode((m) => m === 'name' ? 'name-desc' : 'name')}
-                >
-                  <Ionicons
-                    name={sortMode === 'name' ? 'arrow-down' : 'arrow-up'}
-                    size={14}
-                    color={colors.textMuted}
-                  />
-                  <Text style={{ color: colors.textMuted, fontSize: 12 }}>Name</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -408,10 +429,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   item: {
+    height: FILE_ROW_HEIGHT,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 14,
     gap: 14,
   },
   folderIcon: {

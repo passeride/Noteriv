@@ -1,3 +1,4 @@
+import { filePreviewKind } from '@/lib/file-preview';
 import { fileExists, readFile, listAllMarkdownFiles } from '@/lib/file-system';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 
@@ -138,6 +139,13 @@ export async function resolveWikiLink(
   }
   const localPath = relative.join('/');
   const explicit = markdown || /^[.]{1,2}\//.test(name);
+  if (filePreviewKind(localPath)) {
+    const rootPath = name.replace(/^\//, '');
+    const candidates = [localPath];
+    if (!/^[.]{1,2}\//.test(name) && !rootPath.split('/').includes('..')) candidates.push(rootPath);
+    const attachment = candidates.map(file => vaultFileUri(vaultPath, file)).find(fileExists);
+    if (attachment) return attachment;
+  }
   const rooted = !explicit && name.includes('/') && !name.split('/').some(part => part === '..' || part === '.') ? name.replace(/^\//, '') : undefined;
   const direct = (path: string) => {
     const candidates = /\.(md|markdown)$/i.test(path)

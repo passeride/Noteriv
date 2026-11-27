@@ -48,7 +48,7 @@ import SyncStatusSheet from '@/components/SyncStatusSheet';
 import SyncToast from '@/components/SyncToast';
 import MarkdownPreview from '@/components/MarkdownPreview';
 import AttachmentPreview from '@/components/AttachmentPreview';
-import { getAttachmentType } from '@/lib/attachments';
+import { filePreviewKind } from '@/lib/file-preview';
 import BoardView from '@/components/BoardView';
 import FileDrawer from '@/components/FileDrawer';
 import { rename as renameFile, listAllMarkdownFiles } from '@/lib/file-system';
@@ -81,10 +81,8 @@ function filePanelSwipe(enabled: boolean, openFiles: () => void) {
 
 export default function EditorRoute() {
   const { path } = useLocalSearchParams<{ path: string }>();
-  if (typeof path === 'string') {
-    if (getAttachmentType(path) === 'image') return <AttachmentPreview key={path} path={path} kind="image" />;
-    if (/\.(step|stp|stl|fcstd)$/i.test(path)) return <AttachmentPreview key={path} path={path} kind="cad" />;
-  }
+  const kind = typeof path === 'string' ? filePreviewKind(path) : null;
+  if (kind) return <AttachmentPreview key={path} path={path} kind={kind} />;
   return <EditorScreen />;
 }
 
@@ -610,6 +608,9 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     ...(vault ? [{
       label: settings.fileDrawerBreadcrumbs ? 'Use folder tree in file panel' : 'Use breadcrumbs in file panel',
       run: () => updateSettings({ fileDrawerBreadcrumbs: !settings.fileDrawerBreadcrumbs }),
+    }, {
+      label: 'File panel settings',
+      run: () => { if (flushFile()) router.push({ pathname: '/settings', params: { section: 'vault' } }); },
     }] : []),
     { label: 'New note or folder', run: newEntry },
     ...(displayedPath && currentFile === displayedPath ? [{ label: 'Note details', run: openDetails }] : []),
@@ -997,7 +998,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         <FileDrawer key={vault.id} vaultPath={vault.path} notePath={displayedPath || vault.path}
           editIconPath={editIconPath} vaultName={vault.name} fileCommands={libraryCommands} startCreating={startCreating}
           onVaultChange={() => { if (!root) router.dismissTo('/'); }} onRefresh={refreshFiles}
-          onPullToRefresh={syncVault} navigateIntoFolders={settings.fileDrawerBreadcrumbs} syncMessage={syncMessage}
+          onPullToRefresh={syncVault} navigateIntoFolders={settings.fileDrawerBreadcrumbs} opening={settings.fileDrawerOpening} syncMessage={syncMessage}
           onClose={closeOverlay} onOpenNote={openNote} />
       )}
       {vault && (overlay === 'commands' || overlay === 'search') && (

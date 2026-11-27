@@ -132,8 +132,8 @@ export default function AttachmentsScreen() {
   }, [vault, loadAttachments]);
 
   const handleTap = useCallback((attachment: Attachment) => {
-    setPreviewAttachment(attachment);
-  }, []);
+    router.push({ pathname: '/editor', params: { path: attachment.path } });
+  }, [router]);
 
   const styles = makeStyles(colors);
 
@@ -160,6 +160,11 @@ export default function AttachmentsScreen() {
             {previewAttachment.name}
           </Text>
           <View style={styles.previewActions}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open attachment"
+              style={styles.previewActionBtn}
+              onPress={() => router.push({ pathname: '/editor', params: { path: previewAttachment.path } })}>
+              <Ionicons name="open-outline" size={20} color={colors.accent} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.previewActionBtn}
               onPress={() => handleCopyLink(previewAttachment)}
@@ -248,7 +253,7 @@ export default function AttachmentsScreen() {
             <TouchableOpacity
               style={styles.attachmentItem}
               onPress={() => handleTap(item)}
-              onLongPress={() => handleDelete(item)}
+              onLongPress={() => setPreviewAttachment(item)}
               activeOpacity={0.7}
             >
               {item.type === 'image' ? (

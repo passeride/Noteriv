@@ -119,3 +119,19 @@ test('reads binary model bytes through the mobile plugin bridge', async () => {
   await loading;
   assert.equal(main.textContent, '0,128,255');
 });
+
+test('passes the viewport layout to an attachment renderer without measuring it as an inline block', async () => {
+  const block = { code: 'model.step', language: 'cad', sourcePath: null, color: '#222', layout: 'viewport' };
+  const source = `
+    module.exports.onLoad = api => {
+      api.markdown.registerCodeBlockProcessor('cad', (path, target, context) => {
+        target.textContent = context.layout + ':' + path;
+      });
+    };
+  `;
+  assert.match(mobilePluginDocument(source, block), /html,body,main\{height:100%/);
+  const { messages, send, main } = open(source, block);
+  await send({ type: 'start', snapshot });
+  assert.equal(main.textContent, 'viewport:model.step');
+  assert.ok(messages.some(item => item.type === 'ready'));
+});

@@ -1,11 +1,13 @@
-export type PluginBlock = { code: string; language: string; sourcePath: string | null; color: string };
+export type PluginBlock = {
+  code: string; language: string; sourcePath: string | null; color: string; layout?: 'viewport';
+};
 
 export function mobilePluginDocument(code: string, block?: PluginBlock): string {
   const input = JSON.stringify({ code, block }).replace(/</g, '\\u003c');
   return `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; frame-src about:; base-uri 'none'; form-action 'none'">
-    <body style="margin:0;padding:12px"><main></main><script>
+    ${block?.layout === 'viewport' ? '<style>html,body,main{height:100%;margin:0;overflow:hidden}</style><body>' : '<body style="margin:0;padding:12px">'}<main></main><script>
     (() => {
       const input = ${input};
       const send = data => window.ReactNativeWebView.postMessage(JSON.stringify(data));
@@ -158,12 +160,14 @@ export function mobilePluginDocument(code: string, block?: PluginBlock): string 
             await module.exports.onLoad?.(api);
             if (stopped) return;
             if (input.block) {
-              const { code, language, sourcePath, color } = input.block;
+              const { code, language, sourcePath, color, layout } = input.block;
               document.body.style.backgroundColor = color;
               const processor = processors.get(language);
               if (!processor) main.textContent = code;
-              else cleanup = await processor(code, main, { source: code, language, sourcePath });
-              new ResizeObserver(() => send({ type: 'height', height: document.body.scrollHeight + 24 })).observe(main);
+              else cleanup = await processor(code, main, { source: code, language, sourcePath, layout });
+              if (layout !== 'viewport') {
+                new ResizeObserver(() => send({ type: 'height', height: document.body.scrollHeight + 24 })).observe(main);
+              }
             }
             send({ type: 'ready' });
           } else if (data.type === 'stop') {

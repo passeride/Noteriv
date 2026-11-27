@@ -64,11 +64,12 @@ function Runtime({ script, vaultPath, update, stopped, block }: {
   const commandTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const unloading = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
   const [ready, setReady] = useState(false);
-  const { code, color, language, sourcePath } = block ?? {};
+  const { code, color, language, sourcePath, layout } = block ?? {};
+  const fillsViewport = layout === 'viewport';
   const source = useMemo(() => ({
     html: mobilePluginDocument(script.code,
-      code !== undefined && color && language ? { code, color, language, sourcePath: sourcePath ?? null } : undefined),
-  }), [script.code, code, color, language, sourcePath]);
+      code !== undefined && color && language ? { code, color, language, sourcePath: sourcePath ?? null, layout } : undefined),
+  }), [script.code, code, color, language, sourcePath, layout]);
 
   const send = (data: object) => web.current?.injectJavaScript(bridgeJS(data));
   const snapshot = () => {
@@ -247,7 +248,7 @@ function Runtime({ script, vaultPath, update, stopped, block }: {
         setReady(true);
         break;
       case 'height':
-        if (block && typeof message.height === 'number') setHeight(Math.max(48, Math.min(message.height, 2_000)));
+        if (block && !fillsViewport && typeof message.height === 'number') setHeight(Math.max(48, Math.min(message.height, 2_000)));
         break;
       case 'notice':
         if (typeof message.value === 'string' && !block) {
@@ -369,13 +370,14 @@ function Runtime({ script, vaultPath, update, stopped, block }: {
     <View pointerEvents={block || panel ? 'auto' : 'none'}
       accessibilityViewIsModal={!!panel}
       importantForAccessibility={block || panel ? 'auto' : 'no-hide-descendants'}
-      style={block ? { height } : panel ? styles.panel : styles.hidden}>
+      style={fillsViewport ? { flex: 1 } : block ? { height } : panel ? styles.panel : styles.hidden}>
       {!!panel && <SafeAreaView edges={['top']}>
         <Pressable accessibilityRole="button" style={styles.close} onPress={closePanel}>
           <Text>Close {panel}</Text>
         </Pressable>
       </SafeAreaView>}
       <WebView<object> ref={web} source={source} javaScriptEnabled domStorageEnabled={false}
+        scrollEnabled={!fillsViewport}
         allowFileAccess={false} allowFileAccessFromFileURLs={false} allowUniversalAccessFromFileURLs={false}
         originWhitelist={['*']} onShouldStartLoadWithRequest={request =>
           request.url === 'about:blank' || (request.url === 'about:srcdoc' && request.isTopFrame !== true)}

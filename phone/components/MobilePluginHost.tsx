@@ -17,7 +17,7 @@ import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 type Kind = 'command' | 'panel' | 'settings' | 'status';
 type Registration = { id: string; name: string; kind: Kind; hotkey?: string; title?: string };
 type Entry = Registration & { label: string; run: () => void };
-type Script = { generation?: number; id: string; name: string; path: string; code: string; enabled: boolean };
+type Script = { version?: string; generation?: number; id: string; name: string; path: string; code: string; enabled: boolean };
 type Snapshot = { revision: number; path: string | null; content: string | null; selection: PluginSelection };
 type Edit = { content: string; selection: PluginSelection };
 type RuntimeInfo = { entries: Entry[]; languages?: string[] };
@@ -69,7 +69,7 @@ function Runtime({ script, vaultPath, update, stopped, block }: {
   const source = useMemo(() => ({
     html: mobilePluginDocument(script.code,
       code !== undefined && color && language ? { code, color, language, sourcePath: sourcePath ?? null, layout } : undefined),
-  }), [script.code, code, color, language, sourcePath, layout]);
+  }), [script.code, script.version, code, color, language, sourcePath, layout]);
 
   const send = (data: object) => web.current?.injectJavaScript(bridgeJS(data));
   const snapshot = () => {
@@ -438,7 +438,7 @@ export function MobilePluginHost({ children }: { children: ReactNode }) {
         const main = pluginMainPath(path, p);
         const code = main && await readFile(main);
         if (!main || !code || code.length > 500_000) return null;
-        return { script: { id: p.id, name: p.name, path: main, code, enabled: true }, languages: p.codeBlockLanguages ?? [] };
+        return { script: { id: p.id, name: p.name, version: p.version, path: main, code, enabled: true }, languages: p.codeBlockLanguages ?? [] };
       }));
       if (request !== generation) return;
       const active: Script[] = [];
@@ -453,7 +453,7 @@ export function MobilePluginHost({ children }: { children: ReactNode }) {
       setScripts(previous => [
         ...active.map(script => {
           const old = previous.find(item => item.id === script.id);
-          return { ...script, generation: (old?.generation ?? 0) + (old && (!old.enabled || old.code !== script.code) ? 1 : 0) };
+          return { ...script, generation: (old?.generation ?? 0) + (old && (!old.enabled || old.code !== script.code || old.version !== script.version) ? 1 : 0) };
         }),
         ...previous.filter(script => !active.some(item => item.id === script.id))
           .map(script => ({ ...script, enabled: false })),

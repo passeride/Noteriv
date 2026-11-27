@@ -20,6 +20,7 @@ import {
   type PluginSource,
   COMMUNITY_SOURCE,
   fetchPluginCatalog,
+  isCatalogUpdate,
   loadPluginSources,
   parsePluginSource,
   savePluginSources,
@@ -48,6 +49,9 @@ export default function PluginsScreen() {
   const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
   const [communityPlugins, setCommunityPlugins] = useState<CatalogPlugin[]>([]);
   const [loadingCommunity, setLoadingCommunity] = useState(false);
+  const [updateEntries, setUpdateEntries] = useState<CatalogPlugin[]>([]);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [updatesUnavailable, setUpdatesUnavailable] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [catalogError, setCatalogError] = useState('');
   const [sources, setSources] = useState<PluginSource[] | null>(null);
@@ -102,6 +106,22 @@ export default function PluginsScreen() {
     ).finally(() => { if (!abort.signal.aborted) setLoadingCommunity(false); });
     return () => abort.abort();
   }, [activeTab, source, reload, vaultPath]);
+
+  useEffect(() => {
+    if (!vaultPath || activeTab !== 'installed' || !sources || !plugins.length) return;
+    const abort = new AbortController();
+    setCheckingUpdates(true);
+    setUpdatesUnavailable(false);
+    setUpdateEntries([]);
+    void Promise.allSettled([COMMUNITY_SOURCE, ...sources].map(item => fetchPluginCatalog(item, abort.signal)))
+      .then(results => {
+        if (abort.signal.aborted) return;
+        setUpdatesUnavailable(results.some(result => result.status === 'rejected'));
+        setUpdateEntries(results.flatMap(result => result.status === 'fulfilled' ? result.value : []));
+        setCheckingUpdates(false);
+      });
+    return () => abort.abort();
+  }, [activeTab, sources, vaultPath, plugins.length, reload]);
 
   useEffect(() => {
     if (action === 'sources') setActiveTab('community');
@@ -169,14 +189,14 @@ export default function PluginsScreen() {
   );
 
   const handleInstallCommunity = useCallback(
-    async (entry: CatalogPlugin) => {
+    async (entry: CatalogPlugin, update = false) => {
       if (!vaultPath || installingId) return;
       setInstallingId(entry.id);
       try {
-        await installCommunityPlugin(vaultPath, entry);
+        await installCommunityPlugin(vaultPath, entry, update);
         await refreshPlugins();
       } catch (error) {
-        Alert.alert('Unable to install plugin', String(error));
+        Alert.alert(update ? 'Unable to update plugin' : 'Unable to install plugin', String(error));
       } finally {
         setInstallingId(null);
       }
@@ -203,7 +223,11 @@ export default function PluginsScreen() {
     void importPlugin();
   }, [action, vaultPath, importPlugin]);
 
-  const installedIds = new Set(plugins.map((p) => p.manifest.id.toLowerCase()));
+  const installedManifests = new Map(plugins.map(plugin => [plugin.manifest.id.toLowerCase(), plugin.manifest]));
+  const availableUpdates = new Map(plugins.map(({ manifest }) => {
+    const matches = updateEntries.filter(entry => isCatalogUpdate(manifest, entry));
+    return [manifest.id, matches.length === 1 ? matches[0] : undefined] as const;
+  }));
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
@@ -229,10 +253,17 @@ export default function PluginsScreen() {
 
       {activeTab === 'installed' ? (
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-          <TouchableOpacity accessibilityRole="button" onPress={() => void importPlugin()}
+          <TouchableOpacity accessibilityRole="button" onPress={() => void importPlugin()} disabled={installingId !== null}
             style={{ paddingVertical: 14 }}>
             <Text style={{ color: colors.accent }}>Install plugin from folder</Text>
           </TouchableOpacity>
+          {plugins.length > 0 && (
+            <TouchableOpacity accessibilityRole="button" onPress={() => setReload(count => count + 1)}
+              disabled={checkingUpdates || installingId !== null} style={{ paddingVertical: 8 }}>
+              <Text style={{ color: colors.accent }}>{checkingUpdates ? 'Checking for updates…' : 'Check for updates'}</Text>
+            </TouchableOpacity>
+          )}
+          {updatesUnavailable && <Text style={{ color: colors.textSecondary }}>Some plugin sources could not be checked.</Text>}
           {plugins.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="extension-puzzle-outline" size={48} color={colors.textMuted} />
@@ -244,39 +275,52 @@ export default function PluginsScreen() {
               </Text>
             </View>
           ) : (
-            plugins.map((plugin) => (
-              <TouchableOpacity
-                key={plugin.manifest.id}
-                style={[styles.pluginCard, { backgroundColor: colors.bgTertiary, borderColor: colors.border }]}
-                onLongPress={() => handleUninstall(plugin)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.pluginCardBody}>
-                  <View style={styles.pluginNameRow}>
-                    <Text style={[styles.pluginName, { color: colors.textPrimary }]}>
-                      {plugin.manifest.name}
+            plugins.map((plugin) => {
+              const update = availableUpdates.get(plugin.manifest.id);
+              return (
+                <TouchableOpacity
+                  key={plugin.manifest.id}
+                  style={[styles.pluginCard, { backgroundColor: colors.bgTertiary, borderColor: colors.border }]}
+                  onLongPress={installingId === null ? () => handleUninstall(plugin) : undefined}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.pluginCardBody}>
+                    <View style={styles.pluginNameRow}>
+                      <Text style={[styles.pluginName, { color: colors.textPrimary }]}>
+                        {plugin.manifest.name}
+                      </Text>
+                      <Text style={[styles.pluginVersion, { color: colors.textMuted }]}>
+                        v{plugin.manifest.version}
+                      </Text>
+                    </View>
+                    <Text style={[styles.pluginAuthor, { color: colors.textMuted }]}>
+                      by {plugin.manifest.author}
                     </Text>
-                    <Text style={[styles.pluginVersion, { color: colors.textMuted }]}>
-                      v{plugin.manifest.version}
+                    <Text style={[styles.pluginDescription, { color: colors.textSecondary }]} numberOfLines={2}>
+                      {plugin.manifest.description}
                     </Text>
                   </View>
-                  <Text style={[styles.pluginAuthor, { color: colors.textMuted }]}>
-                    by {plugin.manifest.author}
-                  </Text>
-                  <Text style={[styles.pluginDescription, { color: colors.textSecondary }]} numberOfLines={2}>
-                    {plugin.manifest.description}
-                  </Text>
-                </View>
-                <View style={styles.pluginActions}>
-                  <Switch
-                    value={plugin.enabled}
-                    onValueChange={() => handleToggle(plugin)}
-                    trackColor={{ false: colors.border, true: colors.accent }}
-                    thumbColor={colors.textPrimary}
-                  />
-                </View>
-              </TouchableOpacity>
-            ))
+                  <View style={styles.pluginActions}>
+                    {update && (
+                      <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Update ${plugin.manifest.name}`}
+                        style={[styles.installButton, { backgroundColor: colors.accent }]}
+                        onPress={() => void handleInstallCommunity(update, true)} disabled={installingId !== null}>
+                        <Text style={[styles.installButtonText, { color: colors.bgPrimary }]}>
+                          {installingId === update.id ? 'Updating…' : 'Update'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    <Switch
+                      value={plugin.enabled}
+                      disabled={installingId !== null}
+                      onValueChange={() => handleToggle(plugin)}
+                      trackColor={{ false: colors.border, true: colors.accent }}
+                      thumbColor={colors.textPrimary}
+                    />
+                  </View>
+                </TouchableOpacity>
+              );
+            })
           )}
 
           {plugins.length > 0 && (
@@ -348,7 +392,9 @@ export default function PluginsScreen() {
             </View>
           ) : (
             communityPlugins.map((entry) => {
-              const isInstalled = installedIds.has(entry.id.toLowerCase());
+              const installed = installedManifests.get(entry.id.toLowerCase());
+              const canUpdate = installed !== undefined && isCatalogUpdate(installed, entry);
+              const isDisabled = !!installed && !canUpdate;
               const isInstalling = installingId === entry.id;
 
               return (
@@ -375,11 +421,11 @@ export default function PluginsScreen() {
                   <TouchableOpacity
                     style={[
                       styles.installButton,
-                      { backgroundColor: isInstalled ? colors.bgSecondary : colors.accent },
+                      { backgroundColor: isDisabled ? colors.bgSecondary : colors.accent },
                       isInstalling && { opacity: 0.6 },
                     ]}
-                    onPress={() => !isInstalled && !isInstalling && handleInstallCommunity(entry)}
-                    disabled={isInstalled || installingId !== null}
+                    onPress={() => void handleInstallCommunity(entry, canUpdate)}
+                    disabled={isDisabled || installingId !== null}
                   >
                     {isInstalling ? (
                       <ActivityIndicator size="small" color={colors.bgPrimary} />
@@ -387,10 +433,10 @@ export default function PluginsScreen() {
                       <Text
                         style={[
                           styles.installButtonText,
-                          { color: isInstalled ? colors.textMuted : colors.bgPrimary },
+                          { color: isDisabled ? colors.textMuted : colors.bgPrimary },
                         ]}
                       >
-                        {isInstalled ? 'Installed' : 'Install'}
+                        {canUpdate ? 'Update' : installed ? 'Installed' : 'Install'}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -493,6 +539,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   pluginActions: {
+    gap: 8,
     alignItems: 'center',
   },
 

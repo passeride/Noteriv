@@ -9,6 +9,8 @@ Noteriv can be driven from a terminal with the `noteriv` command, and from other
 
 ## How It Works
 
+The [Noteriv package for Emacs](https://github.com/passeride/Noteriv/tree/main/integrations/emacs) uses these commands to browse, search, and capture notes from Emacs.
+
 Noteriv runs as one copy. If you start it while it is already running, the second copy hands its arguments to the first and ends. That is how a command such as `noteriv open Plan`, or a link you click, reaches the window that is already open.
 
 There are two kinds of command:

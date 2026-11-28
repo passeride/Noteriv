@@ -8,14 +8,15 @@ import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import { useCallback, useState } from 'react';
 import { Alert, BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureDetector, useExclusiveGestures } from 'react-native-gesture-handler';
-import { useSharedValue } from 'react-native-reanimated';
+import { GestureDetector, useCompetingGestures, useExclusiveGestures, useSimultaneousGestures } from 'react-native-gesture-handler';
+import Animated, { useSharedValue } from 'react-native-reanimated';
 import FileDrawer from '@/components/FileDrawer';
 import SyncToast from '@/components/SyncToast';
 import SyncStatusSheet from '@/components/SyncStatusSheet';
 import QuickLauncher, { type LauncherMode } from '@/components/QuickLauncher';
 import { useCommandPull } from '@/components/CommandPull';
 import { useFileSwipes } from '@/components/useFileSwipes';
+import { useImageZoom } from '@/components/useImageZoom';
 import { AudioPreview, VideoPreview } from '@/components/MediaPreview';
 import { MobilePluginBlock, usePluginRenderers } from '@/components/MobilePluginHost';
 import PdfPreview from '@/components/PdfPreview';
@@ -70,14 +71,18 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
     forward(index >= 0 ? siblings[index + 1]?.path : undefined);
   };
   const enabled = !!vault && !overlay;
-  const interactive = kind === 'cad' || kind === 'pdf' || kind === 'video';
-  const bodySwipe = useFileSwipes(enabled, openDrawer, openCommands, next, interactive);
+  const nativePdf = kind === 'pdf' && !!uri && !failed && Platform.OS !== 'web';
+  const interactive = kind === 'cad' || kind === 'video';
+  const bodySwipe = useFileSwipes(enabled && !nativePdf, openDrawer, openCommands, next, interactive);
   const headerSwipe = useFileSwipes(enabled, openDrawer, openCommands, next);
   const scroll = useSharedValue(0);
   const { gesture: headerPull } = useCommandPull(enabled ? openCommands : undefined, scroll);
-  const { gesture: bodyPull } = useCommandPull(enabled && !interactive ? openCommands : undefined, scroll);
+  const { gesture: bodyPull } = useCommandPull(enabled && !interactive && !nativePdf ? openCommands : undefined, scroll);
   const headerGestures = useExclusiveGestures(headerSwipe, headerPull);
   const bodyGestures = useExclusiveGestures(bodySwipe, bodyPull);
+  const imageZoom = useImageZoom(enabled && kind === 'image' && !!uri && !failed);
+  const imageNavigation = useCompetingGestures(imageZoom.pan, bodyGestures);
+  const imageGestures = useSimultaneousGestures(imageZoom.pinch, imageNavigation);
 
   async function openExternally() {
     if (!uri) return;
@@ -109,8 +114,12 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
   } else {
     switch (kind) {
       case 'image':
-        preview = <Image accessibilityLabel={name} style={styles.image}
-          source={{ uri }} contentFit="contain" autoplay onError={onError} />;
+        preview = (
+          <Animated.View style={[styles.image, imageZoom.style]}>
+            <Image accessibilityLabel={name} style={styles.image} source={{ uri }}
+              contentFit="contain" autoplay onLoad={imageZoom.onLoad} onError={onError} />
+          </Animated.View>
+        );
         break;
       case 'pdf':
         preview = <PdfPreview uri={uri} onError={onError} />;
@@ -154,9 +163,15 @@ export default function AttachmentPreview({ path, kind }: { path: string; kind: 
           </Pressable>}
         </View>
       </GestureDetector>
-      <GestureDetector gesture={bodyGestures}>
+      {nativePdf ? (
+        // The native PDF view needs to own pinch and drag. File swipes remain available in the header.
         <View style={styles.screen}>{preview}</View>
-      </GestureDetector>
+      ) : (
+        <GestureDetector gesture={kind === 'image' ? imageGestures : bodyGestures}>
+          <View style={kind === 'image' ? styles.imageViewport : styles.screen}
+            onLayout={kind === 'image' ? imageZoom.onLayout : undefined}>{preview}</View>
+        </GestureDetector>
+      )}
       {vault && overlay === 'drawer' && <FileDrawer vaultPath={vault.path} vaultName={vault.name} notePath={path}
         fileCommands={fileCommands} onVaultChange={() => router.dismissTo('/')} onRefresh={refreshFiles}
         onPullToRefresh={syncVault} syncMessage={syncMessage} navigateIntoFolders={settings.fileDrawerBreadcrumbs}
@@ -185,6 +200,7 @@ const styles = StyleSheet.create({
   header: { minHeight: 48, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },
   iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   title: { flex: 1, fontWeight: '600', fontSize: 16, paddingRight: 12 },
+  imageViewport: { flex: 1, overflow: 'hidden' },
   image: { flex: 1, width: '100%' },
   body: { padding: 16 },
 });

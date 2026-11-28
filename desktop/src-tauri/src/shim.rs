@@ -52,6 +52,7 @@ pub const SHIM_JS: &str = r#"
       onAppRequest: function (cb) { return on("app:request", cb); },
       windowIsMaximized: function () { return invoke("window_is_maximized"); },
       windowSetTitle: function (title) { return invoke("window_set_title", { title: title }); },
+      windowSetMenuVisible: function (visible) { return invoke("window_set_menu_visible", { visible: visible }); },
       getPlatform: function () { return invoke("window_platform"); },
 
       // ---- workspace

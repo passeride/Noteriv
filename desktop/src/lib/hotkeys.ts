@@ -81,6 +81,8 @@ export type HotkeyAction =
   | "openTrash"
   | "togglePinTab"
   | "noteHistory"
+  | "editFileDecoration"
+  | "toggleNativeMenu"
   | "sortFilesByChange"
   | "sortFilesByName"
   | "sortFilesManually"
@@ -217,6 +219,8 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   { action: "toggleWorkspaceTools", label: "Toggle Workspace Tools", keys: "", category: "View" },
   { action: "noteDetails", label: "Note Details", keys: "", category: "View" },
   { action: "noteHistory", label: "Git: File history", keys: "", category: "View" },
+  { action: "editFileDecoration", label: "Set File Icon and Color", keys: "", category: "File" },
+  { action: "toggleNativeMenu", label: "Toggle Native Menu Bar", keys: "", category: "View" },
   { action: "sortFilesByChange", label: "Sort files by last change", keys: "", category: "File" },
   { action: "sortFilesByName", label: "Sort files alphabetically", keys: "", category: "File" },
   { action: "sortFilesManually", label: "Sort files manually", keys: "", category: "File" },

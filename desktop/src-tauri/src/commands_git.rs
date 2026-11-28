@@ -284,7 +284,7 @@ pub async fn git_native(
     let read_only = matches!(
         request["action"].as_str(),
         Some("status" | "history" | "fileHistory" | "pathActivity" | "lastChanges" | "show")
-    );
+    ) || (request["action"] == "pluginVault" && request["operation"] == "readBinary");
     background(move || {
         let _guard = if read_only {
             None

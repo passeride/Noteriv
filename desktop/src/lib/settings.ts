@@ -1,5 +1,6 @@
 import { DEFAULT_WORKSPACE_THEME } from "../../../packages/appearance/workspace";
 export interface AppSettings {
+  hideNativeMenu: boolean;
   autoSaveInterval: number; // seconds, 0 = disabled
   spellCheck: boolean;
   accentColor: string;
@@ -45,6 +46,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  hideNativeMenu: false,
   autoSaveInterval: 30,
   spellCheck: false,
   accentColor: "#89b4fa",

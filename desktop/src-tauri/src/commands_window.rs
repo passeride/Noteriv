@@ -123,3 +123,21 @@ pub fn close_popouts(app: &tauri::AppHandle) {
         }
     }
 }
+
+#[tauri::command]
+pub async fn window_set_menu_visible(window: WebviewWindow, visible: bool) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let result = if visible {
+            window.show_menu()
+        } else {
+            window.hide_menu()
+        };
+        result.map_err(|error| error.to_string())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (window, visible);
+        Ok(())
+    }
+}

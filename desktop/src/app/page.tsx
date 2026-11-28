@@ -1,5 +1,10 @@
 "use client";
 
+import CadViewer from "@/components/CadViewer";
+import FileDecorationDialog from "@/components/FileDecorationDialog";
+import { decorationKey } from "@/lib/file-decorations";
+import { useFileDecorations } from "@/lib/use-file-decorations";
+import { isCadFile } from "../../../packages/appearance/cad-files";
 import { useState, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import Sidebar from "@/components/Sidebar";
@@ -164,7 +169,7 @@ interface TabState {
   savedContent: string;
   // Non-markdown tabs render a dedicated view instead of the text editor.
   // Absent = a normal markdown note.
-  kind?: "canvas" | "drawing" | "pdf" | "image" | "base";
+  kind?: "canvas" | "drawing" | "pdf" | "image" | "base" | "cad";
   externalConflict?: boolean;
 }
 
@@ -553,10 +558,26 @@ function Home() {
   }, []);
   const openLinksInReaderRef = useRef(false);
 
+  const activeVaultPath = activeVault?.path;
+  const { byPath: decorationFor, save: saveDecoration } = useFileDecorations(activeVaultPath, sidebarRefresh + vaultFilesTick);
+  const [decorationTarget, setDecorationTarget] = useState<{ vault: string; path: string }>();
+  const editDecoration = useCallback((path: string) => {
+    if (activeVaultPath && decorationKey(activeVaultPath, path)) {
+      setDecorationTarget({ vault: activeVaultPath, path });
+    }
+  }, [activeVaultPath]);
+
+  useEffect(() => {
+    if (platform === "win32") {
+      void window.electronAPI?.windowSetMenuVisible?.(!settings.hideNativeMenu).catch(console.error);
+    }
+  }, [platform, settings.hideNativeMenu]);
+
   const tabInfos = tabs.map((t) => ({
     filePath: t.filePath,
     name: (t.filePath.split("/").pop()?.split("\\").pop() || "Untitled").replace(/\.(md|markdown)$/i, ""),
     isDirty: isTabDirty(t),
+    decoration: decorationFor(t.filePath),
   }));
 
   // ============================================================
@@ -602,6 +623,7 @@ function Home() {
       else if (isPdfFile(filePath)) kind = "pdf";
       else if (isImageFile(filePath)) kind = "image";
       else if (isBaseFile(filePath)) kind = "base";
+      else if (isCadFile(filePath)) kind = "cad";
       if (kind) {
         restored.push({ filePath, content: "", savedContent: "", kind });
         continue;
@@ -1203,6 +1225,7 @@ function Home() {
     else if (isPdfFile(filePath)) kind = "pdf";
     else if (isImageFile(filePath)) kind = "image";
     else if (isBaseFile(filePath)) kind = "base";
+    else if (isCadFile(filePath)) kind = "cad";
 
     if (kind) {
       setTabs((prev) =>
@@ -2800,6 +2823,8 @@ function Home() {
       },
       openTrash: () => setShowTrash(true),
       togglePinTab: () => { if (activeTab) handleTogglePin(activeTab); },
+      editFileDecoration: () => { if (activeTab) editDecoration(activeTab); },
+      toggleNativeMenu: () => { if (platform === "win32") void handleSettingsChange({ ...settingsRef.current, hideNativeMenu: !settingsRef.current.hideNativeMenu }); },
       noteHistory: () => { if (currentTab) setShowNoteHistory(true); },
       sortFilesByChange: () => changeFileSort("lastChange"),
       sortFilesByName: () => changeFileSort("nameAsc"),
@@ -2836,7 +2861,7 @@ function Home() {
       unfoldAll: () => { const v = shownView(); if (v) unfoldAll(v); },
     };
     actions[action]?.();
-  }, [handleSave, handleSaveAs, handleNewFile, handleNewFolder, handleOpenFile, activeTab, tabs, closeTab, handleCloseAllTabs, handleCloseOtherTabs, handleDeleteFile, handleGitSync, handleToggleFullscreen, handleToggleSidebar, handleZenMode, handleDailyNote, activeVault, openFile, content, currentTab, handleNewBoard, handleNewDrawing, handleInsertToc, handleUpdateToc, handleInsertDataview, handleFocusMode, handlePublish, pdfFile, handleTogglePin, handleSplitRight, handleCloseSplit, openKnowledgeIngest, viewMode, layoutStore, saveLayoutAs, handleNewBase, handleUniqueNote, openPopout, webReaderUrl, setWebReaderUrl, openPlugins, hasMarkdownNote, adjustNoteFontSize, updateNoteTextSettings, changeFileSort]);
+  }, [handleSave, handleSaveAs, handleNewFile, handleNewFolder, handleOpenFile, activeTab, tabs, closeTab, handleCloseAllTabs, handleCloseOtherTabs, handleDeleteFile, handleGitSync, handleToggleFullscreen, handleToggleSidebar, handleZenMode, handleDailyNote, activeVault, openFile, content, currentTab, handleNewBoard, handleNewDrawing, handleInsertToc, handleUpdateToc, handleInsertDataview, handleFocusMode, handlePublish, pdfFile, handleTogglePin, handleSplitRight, handleCloseSplit, openKnowledgeIngest, viewMode, layoutStore, saveLayoutAs, handleNewBase, handleUniqueNote, openPopout, webReaderUrl, setWebReaderUrl, openPlugins, hasMarkdownNote, adjustNoteFontSize, updateNoteTextSettings, changeFileSort, editDecoration, platform, handleSettingsChange]);
 
   // ============================================================
   // Recent commands handler
@@ -2987,6 +3012,7 @@ function Home() {
           viewMode={viewMode}
           showViewModes={!currentTab?.kind}
           pinnedTabs={pinnedTabs}
+          onEditDecoration={activeVaultPath ? editDecoration : undefined}
           onTabSelect={setActiveTab}
           onTabClose={closeTab}
           onTabReorder={reorderTabs}
@@ -3129,6 +3155,8 @@ function Home() {
         )}
         {!zenMode && (
           <Sidebar
+            decorationFor={decorationFor}
+            onEditDecoration={editDecoration}
             vault={activeVault}
             currentFile={activeTab}
             onFileSelect={openFile}
@@ -3239,7 +3267,11 @@ function Home() {
                       </button>
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      {(isBoardFile(splitTabState.filePath) || isBoardContent(splitContent)) && viewMode !== "source" ? (
+                      {splitTabState.kind === "cad" ? (
+                        <CadViewer key={splitTabState.filePath}
+                          path={activeVaultPath ? decorationKey(activeVaultPath, splitTabState.filePath) : null}
+                          onOpenPlugins={() => openPlugins("community")} />
+                      ) : (isBoardFile(splitTabState.filePath) || isBoardContent(splitContent)) && viewMode !== "source" ? (
                         <BoardView content={splitContent} onChange={handleSplitContentChange} />
                       ) : viewMode === "view" ? (
                         <ReadOnlyView content={splitContent} onChange={handleSplitContentChange} notePath={splitTabState.filePath} />
@@ -3282,6 +3314,10 @@ function Home() {
             />
           ) : currentTab.kind === "base" && activeVault ? (
             <BaseView filePath={currentTab.filePath} vaultPath={activeVault.path} onOpenFile={openFile} />
+          ) : currentTab.kind === "cad" ? (
+            <CadViewer key={`${activeVaultPath}:${currentTab.filePath}`}
+              path={activeVaultPath ? decorationKey(activeVaultPath, currentTab.filePath) : null}
+              onOpenPlugins={() => openPlugins("community")} />
           ) : currentTab.kind === "image" ? (
             <ImageViewer filePath={currentTab.filePath} />
           ) : currentTab.kind === "pdf" && activeVault ? (
@@ -3542,6 +3578,8 @@ function Home() {
       {launcher === "commands" && (
         <CommandPalette
           hotkeys={hotkeys.filter(({ action }) => {
+            if (action === "editFileDecoration") return !!activeVaultPath && !!activeTab && !!decorationKey(activeVaultPath, activeTab);
+            if (action === "toggleNativeMenu") return platform === "win32";
             if (action === "noteHistory") return !!currentTab && !!activeVault;
             if (action.startsWith("sortFiles")) return !!activeVault;
             if (action === "increaseNoteFontSize" || action === "decreaseNoteFontSize") return hasMarkdownNote;
@@ -3650,6 +3688,13 @@ function Home() {
           content={content}
           onClose={() => setShowSlidePresentation(false)}
         />
+      )}
+
+      {decorationTarget && decorationTarget.vault === activeVaultPath && (
+        <FileDecorationDialog key={decorationTarget.path} name={fileNameOf(decorationTarget.path)}
+          initial={decorationFor(decorationTarget.path)}
+          onSave={(decoration) => saveDecoration(decorationTarget.path, decoration)}
+          onClose={() => setDecorationTarget(undefined)} />
       )}
 
       {/* Plugin manager */}

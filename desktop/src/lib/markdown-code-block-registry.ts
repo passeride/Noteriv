@@ -13,6 +13,7 @@ export interface CodeBlockProcessorContext {
   language: string;
   /** Vault-relative path of the note being rendered, if known. Best-effort, may be null. */
   sourcePath: string | null;
+  layout?: "viewport";
 }
 
 export type CodeBlockProcessor = (

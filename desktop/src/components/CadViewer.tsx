@@ -37,11 +37,11 @@ export default function CadViewer({ path, onOpenPlugins }: {
   return (
     <div className="cad-file-view">
       {path === null ? <p>Open this model from its vault to preview it.</p> : !processor ? (
-        <div>
+        <div key="missing-plugin">
           <p>Install and enable CAD Viewer to open this model.</p>
           <button className="workspace-control" onClick={onOpenPlugins}>Open Plugins</button>
         </div>
-      ) : <div ref={target} className="cad-file-canvas" />}
+      ) : <div key="plugin-viewport" ref={target} className="cad-file-canvas" />}
       {error?.path === path && error.processor === processor && <p role="alert">{error.message}</p>}
     </div>
   );

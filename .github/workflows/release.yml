@@ -3,10 +3,24 @@ name: Build & Release
 on:
   push:
     tags: ["v*"]
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'crates/noteriv-git/**'
+      - 'packages/**'
+      - '.github/workflows/release.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
   workflow_dispatch:
+    inputs:
+      signed:
+        description: Rehearse release signing and updater validation
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -43,7 +57,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
@@ -82,12 +96,18 @@ jobs:
       # checks that it is. The setting is kept out of tauri.conf.json so that
       # a build on someone's own machine does not need the key.
       # Run with bash on every system: PowerShell takes the "--" for itself.
-      - name: Build
+      - name: Build downloadable test installers
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') && !inputs.signed }}
+        shell: bash
+        run: npm exec -- tauri build ${{ matrix.args }}
+
+      - name: Build signed release installers
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.signed }}
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run build -- --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
+        run: npm exec -- tauri build --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
 
       - name: Check the AppImage launcher can be run by anyone (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -112,7 +132,7 @@ jobs:
       # the signatures Tauri makes as BAD. Requires the secrets RPM_SIGNING_KEY
       # (ASCII-armored private key) and RPM_SIGNING_KEY_PASSPHRASE.
       - name: Sign the RPM (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: ${{ matrix.platform == 'ubuntu-22.04' && (startsWith(github.ref, 'refs/tags/v') || inputs.signed) }}
         env:
           RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
           RPM_SIGNING_KEY_PASSPHRASE: ${{ secrets.RPM_SIGNING_KEY_PASSPHRASE }}
@@ -189,14 +209,24 @@ jobs:
           Write-Host "Created $zip"
 
       - uses: actions/upload-artifact@v4
+        id: desktop-bundle
         with:
           name: bundles-${{ matrix.platform }}
           path: bundles/
+          if-no-files-found: error
+
+      - name: Link to desktop installers
+        shell: bash
+        env:
+          ARTIFACT_URL: ${{ steps.desktop-bundle.outputs.artifact-url }}
+          PLATFORM: ${{ matrix.platform }}
+        run: printf '[Download Noteriv installers (%s)](%s)\n' "$PLATFORM" "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
 
   # Sideloadable APK built with EAS using the project's stored Android
   # credentials. Requires an EXPO_TOKEN secret; skipped until it is set, and
   # a failure here never blocks the desktop release.
   android:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     continue-on-error: true
     defaults:
@@ -258,6 +288,7 @@ jobs:
   # job runs on a manual run too, so a rehearsal proves the signatures before a
   # tag needs them.
   updater:
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.signed
     needs: build
     runs-on: ubuntu-latest
     steps:

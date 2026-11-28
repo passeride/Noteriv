@@ -20,11 +20,24 @@ fn activity_includes_descendants_and_deletions_but_not_sibling_folders() {
     let activity = serde_json::to_value(engine::path_activity(root, "Project").unwrap()).unwrap();
     let entries = activity.as_array().unwrap();
     assert_eq!(entries.len(), 2);
-    let changed = entries.iter().find(|entry| entry["message"] == "change files").unwrap();
-    assert_eq!(changed["paths"], serde_json::json!(["Project/b.md", "Project/nested/a.md"]));
-    let dates = engine::last_changes(root, &[
-        "Project".into(), "Project/b.md".into(), "Project/local.md".into(), "../outside".into(),
-    ]).unwrap();
+    let changed = entries
+        .iter()
+        .find(|entry| entry["message"] == "change files")
+        .unwrap();
+    assert_eq!(
+        changed["paths"],
+        serde_json::json!(["Project/b.md", "Project/nested/a.md"])
+    );
+    let dates = engine::last_changes(
+        root,
+        &[
+            "Project".into(),
+            "Project/b.md".into(),
+            "Project/local.md".into(),
+            "../outside".into(),
+        ],
+    )
+    .unwrap();
     assert_eq!(dates.len(), 2);
     assert_eq!(dates["Project"], dates["Project/b.md"]);
     assert!(engine::path_activity(root, "../outside").is_err());

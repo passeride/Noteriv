@@ -21,5 +21,12 @@
         "dragDropEnabled": false
       }
     ]
+  },
+  "bundle": {
+    "windows": {
+      "wix": {
+        "template": "windows/main.wxs"
+      }
+    }
   }
 }

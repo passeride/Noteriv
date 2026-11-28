@@ -22,6 +22,7 @@ import { CommandPullIndicator, useCommandPull } from '@/components/CommandPull';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import InlineMarkdown from '@/components/InlineMarkdown';
+import GitHistoryBlock from '@/components/GitHistoryBlock';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import {
   findLineFromOffset,
@@ -38,6 +39,8 @@ import {
 
 interface LiveMarkdownEditorProps {
   content: string;
+  vaultPath?: string;
+  notePath?: string;
   anchor?: { heading?: string; line?: number };
   onChange: (text: string) => void;
   fontSize: number;
@@ -336,6 +339,8 @@ function buildBackspaceBehavior(
 
 export default function LiveMarkdownEditor({
   content,
+  vaultPath,
+  notePath,
   anchor,
   onChange,
   fontSize,
@@ -1349,6 +1354,12 @@ export default function LiveMarkdownEditor({
     (segment: LiveMarkdownSegment) => {
       const lineHeight = fontSize * 1.6;
       if (segment.kind === 'raw_block') {
+        const history = segment.rawBlockKind === 'code_block'
+          ? /^\s*```githistory[^\S\n]*\n([\s\S]*?)^\s*```\s*$/m.exec(segment.rawText)
+          : null;
+        if (history && vaultPath) {
+          return <GitHistoryBlock key={history[1]} source={history[1]} vaultPath={vaultPath} notePath={notePath} />;
+        }
         return (
           <Pressable
             onPress={() => activateSegment(segment)}
@@ -1518,9 +1529,11 @@ export default function LiveMarkdownEditor({
       activateSegment,
       colors,
       fontSize,
+      notePath,
       onLinkPress,
       onToggleTask,
       onWikiLinkPress,
+      vaultPath,
     ]
   );
 

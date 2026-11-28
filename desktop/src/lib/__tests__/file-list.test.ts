@@ -32,6 +32,11 @@ describe("sortFileEntries", () => {
     expect(names(sortFileEntries(entries, "createdOld"))).toEqual(["Zeta", "beta.md", "note 10.md", "note 2.md", "Alpha.md"]);
   });
 
+  it("uses a tracked file's commit date and falls back to local mtime for untracked files", () => {
+    const tracked = entries.map(entry => entry.name === "beta.md" ? { ...entry, gitMtime: 90 } : entry);
+    expect(names(sortFileEntries(tracked, "lastChange"))).toEqual(["Zeta", "note 2.md", "note 10.md", "Alpha.md", "beta.md"]);
+  });
+
   it("keeps the user's own order, with anything new after it", () => {
     expect(names(sortFileEntries(entries, "manual", ["note 2.md", "Zeta"]))).toEqual([
       "note 2.md",

@@ -4,6 +4,7 @@ import {
   type CatalogPlugin, type PluginSource,
 } from "../../../packages/plugin-catalog/catalog";
 import { relativePathFromVault } from "@/lib/knowledge/path-safety";
+import type { PathActivity } from "../../../packages/git-client/path-history";
 // ─── Plugin System for Noteriv ───
 // Plugins live in {vaultPath}/.noteriv/plugins/{plugin-id}/
 // Each plugin has a manifest.json and a main.js entry file.
@@ -45,6 +46,7 @@ export interface PluginInstance {
 export interface PluginAPI {
   assets: { readText: (name: string) => Promise<string | null> };
   vault: {
+    gitHistory: (folder?: string) => Promise<PathActivity[]>;
     read: (path: string) => Promise<string | null>;
     write: (path: string, content: string) => Promise<boolean>;
     list: (dir?: string) => Promise<{ path: string; name: string; isDir: boolean }[]>;
@@ -468,6 +470,12 @@ export class PluginManager {
         },
       },
       vault: {
+        gitHistory: async (folder = "") => {
+          if (!window.electronAPI) return [];
+          return window.electronAPI.gitNative<PathActivity[]>({
+            action: "pathActivity", dir: manager.vaultPath, path: folder,
+          });
+        },
         read: async (path: string): Promise<string | null> => {
           if (!window.electronAPI) return null;
           const fullPath = `${manager.vaultPath}/${path}`;

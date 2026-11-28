@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
   Keyboard,
   Modal,
-  FlatList,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -36,7 +35,8 @@ import { getLineInfo, replaceLineRange, toggleTaskMarker } from '@/lib/markdown'
 import { markdownLinkTarget } from '@/lib/markdown-links';
 import { Directory, File } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
-import * as Git from '@/lib/provider-sync';
+import GitFileHistory from '@/components/GitFileHistory';
+import { hasGitHistory } from '@/lib/git-history';
 import { vaultFileUri, vaultRelativePath } from '@/lib/sync-state';
 import { hasInvalidProperties, setProperty } from '@/lib/properties';
 import QuickLauncher, { type EditorCommand } from '@/components/QuickLauncher';
@@ -441,17 +441,10 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     commands: libraryCommands, syncVault, syncBusy, syncMessage, syncStatusVisible,
     openSyncStatus, closeSyncStatus, openSyncSettings,
   } = useFilePanelActions({ openFile: openNote, openSearch, root });
-  const [history, setHistory] = useState<{ hash: string; date: string; author: string; message: string }[]>();
-
-  const showFileHistory = async () => {
-    if (!vault || !currentFile) return;
-    try {
-      setHistory(await Git.native<NonNullable<typeof history>>({
-        action: 'fileHistory', dir: Git.nativeDir(vault.path), path: vaultRelativePath(vault.path, currentFile),
-      }));
-    } catch (error) {
-      Alert.alert('File history', String(error));
-    }
+  const [historyPath, setHistoryPath] = useState<string>();
+  const canShowHistory = !!vault && !!currentFile && hasGitHistory(vault.path);
+  const showFileHistory = () => {
+    if (canShowHistory && currentFile) setHistoryPath(currentFile);
   };
   const chooseBanner = async () => {
     if (!vault || !currentFile || !flushFile()) return;
@@ -502,7 +495,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     ...(displayedPath && displayedPath === currentFile ? [
       { label: 'Set file icon', run: () => { setEditIconPath(displayedPath); setOverlay('files'); } },
       { label: 'Set banner from local image', run: () => void chooseBanner() },
-      { label: 'Git: File history and changelog', run: () => void showFileHistory() },
+      ...(canShowHistory ? [{ label: 'Git: File history', run: showFileHistory }] : []),
     ] : []),
     { label: 'Browse files', run: openFiles },
     ...(vault ? [{
@@ -530,19 +523,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       <View style={styles.container}>
       <View style={styles.container} importantForAccessibility={inlineLauncher ? 'no-hide-descendants' : 'auto'}>
-      <Modal visible={history !== undefined} onRequestClose={() => setHistory(undefined)} animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary, padding: 16 }}>
-          <TouchableOpacity accessibilityRole="button" onPress={() => setHistory(undefined)}>
-            <Text style={{ color: colors.accent, paddingVertical: 12 }}>Close file history</Text>
-          </TouchableOpacity>
-          <FlatList data={history ?? []} keyExtractor={item => item.hash}
-            ListEmptyComponent={<Text style={{ color: colors.textSecondary }}>No commits for this file.</Text>}
-            renderItem={({ item }) => <View style={{ paddingVertical: 12 }}>
-              <Text style={{ color: colors.textPrimary }}>{item.message}</Text>
-              <Text style={{ color: colors.textSecondary }}>{item.author} · {item.date} · {item.hash.slice(0, 8)}</Text>
-            </View>} />
-        </SafeAreaView>
-      </Modal>
+      {vault && historyPath && <GitFileHistory key={`${vault.path}:${historyPath}`} vaultPath={vault.path}
+        filePath={historyPath} onClose={() => setHistoryPath(undefined)} />}
       {/* Header */}
       {!focusMode && <View style={collapsibleHeader ? styles.headerOverlay : undefined}
         pointerEvents={collapsibleHeader && headerHidden ? 'none' : 'box-none'}
@@ -762,6 +744,8 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
             <LiveMarkdownEditor
               key={displayedPath}
               content={content}
+              vaultPath={vault?.path}
+              notePath={displayedPath}
               anchor={anchor ?? undefined}
               onChange={setContent}
               fontSize={fontSize}
@@ -917,7 +901,7 @@ export function EditorScreen({ root = false, homePath }: { root?: boolean; homeP
         <NoteDetails content={content} onClose={() => setDetailsVisible(false)} onJump={target => setAnchor({ line: target })}
           onEditProperties={() => { if (flushFile()) router.push('/frontmatter'); }}
           onOpenLinks={() => { if (flushFile()) router.push({ pathname: '/backlinks', params: { filePath: currentFile, vaultPath: vault.path } }); }}
-          onOpenHistory={() => void showFileHistory()} />
+          onOpenHistory={canShowHistory ? showFileHistory : undefined} />
       )}
       </View>
     </SafeAreaView>

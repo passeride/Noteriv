@@ -42,6 +42,7 @@ import { inlineRenderers } from "./inline";
 import { commentRenderer, inlineFootnoteRenderer } from "./comments";
 import { registerQueryBlock } from "./query-block";
 import { registerBaseBlock } from "./base-block";
+import { registerGitHistoryBlock } from "./git-history-block";
 
 /**
  * Register all built-in renderers.
@@ -52,6 +53,7 @@ export function registerBuiltinRenderers() {
   // Fenced blocks the app draws itself, beside the ones plugins add.
   registerQueryBlock();
   registerBaseBlock();
+  registerGitHistoryBlock();
 
   // Block renderers — order matters (first match wins)
   registerBlockRenderer(horizontalRuleRenderer);

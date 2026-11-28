@@ -9576,3 +9576,20 @@ body {
 .qo-path, .qo-line { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .qo-path { color: var(--text-muted); font-size: 11px; }
 .qo-line { font-size: 12px; color: var(--text-secondary); }
+.md-git-activity {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  overflow-x: auto;
+  min-height: 40px;
+}
+
+.md-git-activity-bar {
+  flex: 0 0 9px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.md-git-activity-bar.active {
+  background: var(--accent);
+}

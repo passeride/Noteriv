@@ -980,6 +980,7 @@ function Home() {
       if (activeVault.gitRemote) {
         const msg = message || formatCommitMessage(settings.commitMessageFormat);
         await window.electronAPI.gitSync(activeVault.path, msg, activeVault.id);
+        setSidebarRefresh(value => value + 1);
       }
 
       // Extra sync provider (folder, webdav, s3)
@@ -2662,6 +2663,38 @@ function Home() {
     return () => workspace.removeEventListener("wheel", handlePinch);
   }, [appState, adjustNoteFontSize]);
 
+  const handleSettingsChange = useCallback(async (newSettings: AppSettings) => {
+    if (noteTextSaveRef.current) clearTimeout(noteTextSaveRef.current);
+    settingsRef.current = newSettings;
+    setSettings(newSettings);
+    // The sync settings in it are the open vault's, and are kept as that
+    // vault's. When they were nobody's, they are not kept at all.
+    const syncVault = syncVaultIdRef.current;
+    if (syncVault) setVaultSync({ vaultId: syncVault, sync: pickVaultSync(newSettings) });
+    applySettings(newSettings);
+    // Apply theme if changed
+    if (newSettings.theme) {
+      const allBuiltIn = BUILT_IN_THEMES;
+      const theme = allBuiltIn.find((t) => t.id === newSettings.theme);
+      if (theme) applyTheme(theme);
+      // Also check custom themes
+      if (!theme && activeVault) {
+        loadCustomThemes(activeVault.path).then((customs) => {
+          const custom = customs.find((t) => t.id === newSettings.theme);
+          if (custom) applyTheme(custom);
+        });
+      }
+    }
+    if (window.electronAPI) {
+      const stored = await window.electronAPI.loadSettings();
+      await window.electronAPI.saveSettings(settingsToStore(stored, newSettings, syncVault));
+    }
+  }, [activeVault]);
+
+  const changeFileSort = useCallback((fileSort: AppSettings["fileSort"]) => {
+    void handleSettingsChange({ ...settingsRef.current, fileSort });
+  }, [handleSettingsChange]);
+
   const handleCommandExecute = useCallback((action: HotkeyAction) => {
     const view = editorViewRef.current;
     // The editor on screen: the reading view has its own.
@@ -2768,6 +2801,9 @@ function Home() {
       openTrash: () => setShowTrash(true),
       togglePinTab: () => { if (activeTab) handleTogglePin(activeTab); },
       noteHistory: () => { if (currentTab) setShowNoteHistory(true); },
+      sortFilesByChange: () => changeFileSort("lastChange"),
+      sortFilesByName: () => changeFileSort("nameAsc"),
+      sortFilesManually: () => changeFileSort("manual"),
       timeScrubber: () => { if (currentTab) setShowTimeScrubber(true); },
       toggleLint: () => setShowLintPanel((l) => !l),
       splitEditor: () => { if (activeTab) handleSplitRight(activeTab); },
@@ -2800,7 +2836,7 @@ function Home() {
       unfoldAll: () => { const v = shownView(); if (v) unfoldAll(v); },
     };
     actions[action]?.();
-  }, [handleSave, handleSaveAs, handleNewFile, handleNewFolder, handleOpenFile, activeTab, tabs, closeTab, handleCloseAllTabs, handleCloseOtherTabs, handleDeleteFile, handleGitSync, handleToggleFullscreen, handleToggleSidebar, handleZenMode, handleDailyNote, activeVault, openFile, content, currentTab, handleNewBoard, handleNewDrawing, handleInsertToc, handleUpdateToc, handleInsertDataview, handleFocusMode, handlePublish, pdfFile, handleTogglePin, handleSplitRight, handleCloseSplit, openKnowledgeIngest, viewMode, layoutStore, saveLayoutAs, handleNewBase, handleUniqueNote, openPopout, webReaderUrl, setWebReaderUrl, openPlugins, hasMarkdownNote, adjustNoteFontSize, updateNoteTextSettings]);
+  }, [handleSave, handleSaveAs, handleNewFile, handleNewFolder, handleOpenFile, activeTab, tabs, closeTab, handleCloseAllTabs, handleCloseOtherTabs, handleDeleteFile, handleGitSync, handleToggleFullscreen, handleToggleSidebar, handleZenMode, handleDailyNote, activeVault, openFile, content, currentTab, handleNewBoard, handleNewDrawing, handleInsertToc, handleUpdateToc, handleInsertDataview, handleFocusMode, handlePublish, pdfFile, handleTogglePin, handleSplitRight, handleCloseSplit, openKnowledgeIngest, viewMode, layoutStore, saveLayoutAs, handleNewBase, handleUniqueNote, openPopout, webReaderUrl, setWebReaderUrl, openPlugins, hasMarkdownNote, adjustNoteFontSize, updateNoteTextSettings, changeFileSort]);
 
   // ============================================================
   // Recent commands handler
@@ -2829,34 +2865,6 @@ function Home() {
       await window.electronAPI.saveSettings(stored);
     }
   }, []);
-
-  const handleSettingsChange = useCallback(async (newSettings: AppSettings) => {
-    if (noteTextSaveRef.current) clearTimeout(noteTextSaveRef.current);
-    settingsRef.current = newSettings;
-    setSettings(newSettings);
-    // The sync settings in it are the open vault's, and are kept as that
-    // vault's. When they were nobody's, they are not kept at all.
-    const syncVault = syncVaultIdRef.current;
-    if (syncVault) setVaultSync({ vaultId: syncVault, sync: pickVaultSync(newSettings) });
-    applySettings(newSettings);
-    // Apply theme if changed
-    if (newSettings.theme) {
-      const allBuiltIn = BUILT_IN_THEMES;
-      const theme = allBuiltIn.find((t) => t.id === newSettings.theme);
-      if (theme) applyTheme(theme);
-      // Also check custom themes
-      if (!theme && activeVault) {
-        loadCustomThemes(activeVault.path).then((customs) => {
-          const custom = customs.find((t) => t.id === newSettings.theme);
-          if (custom) applyTheme(custom);
-        });
-      }
-    }
-    if (window.electronAPI) {
-      const stored = await window.electronAPI.loadSettings();
-      await window.electronAPI.saveSettings(settingsToStore(stored, newSettings, syncVault));
-    }
-  }, [activeVault]);
 
   // ============================================================
   // Keyboard shortcuts (driven by configurable hotkeys)
@@ -3146,7 +3154,7 @@ function Home() {
             }
             deletedFiles={settings.deletedFiles}
             fileSort={settings.fileSort}
-            onFileSortChange={(fileSort) => handleSettingsChange({ ...settings, fileSort })}
+            onFileSortChange={changeFileSort}
             reveal={revealFile}
           />
         )}
@@ -3534,6 +3542,8 @@ function Home() {
       {launcher === "commands" && (
         <CommandPalette
           hotkeys={hotkeys.filter(({ action }) => {
+            if (action === "noteHistory") return !!currentTab && !!activeVault;
+            if (action.startsWith("sortFiles")) return !!activeVault;
             if (action === "increaseNoteFontSize" || action === "decreaseNoteFontSize") return hasMarkdownNote;
             if (action === "toggleWordWrap") return hasMarkdownNote && viewMode !== "view";
             return true;

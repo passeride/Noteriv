@@ -14,7 +14,7 @@ export function useFilePanelActions({
   root?: boolean;
 }) {
   const router = useRouter();
-  const { vault, flushFile, syncCurrentVault } = useApp();
+  const { vault, flushFile, syncCurrentVault, updateWorkspace } = useApp();
   const [syncStatusVisible, setSyncStatusVisible] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
   const syncInFlight = useRef<Promise<void> | null>(null);
@@ -72,6 +72,11 @@ export function useFilePanelActions({
   const closeSyncStatus = () => setSyncStatusVisible(false);
   const openSyncSettings = () => push({ pathname: '/settings', params: { section: 'vault' } });
   const commands: EditorCommand[] = [
+    ...(vault ? [
+      { label: 'Sort files by last change', run: () => updateWorkspace({ fileDrawerSort: 'last-change' }) },
+      { label: 'Sort files alphabetically', run: () => updateWorkspace({ fileDrawerSort: 'name' }) },
+      { label: 'Sort files manually', run: () => updateWorkspace({ fileDrawerSort: 'manual' }) },
+    ] : []),
     ...(vault?.gitRemote ? [{ label: 'Git: Sync status', run: openSyncStatus }] : []),
     ...(syncProvider && !syncBusy ? [{ label: `${syncProvider}: Sync now`, run: () => void syncVault() }] : []),
     { label: 'Daily note', run: () => void openLibraryNote('daily') },

@@ -398,3 +398,7 @@ and entry script at the root. In this case, put the optional `files` list
 directly in that manifest. The entry script may be up to 500,000 bytes and an
 asset up to 128 KiB. Noteriv reads each installation's files from the commit
 that supplied the catalog, even if the branch moves during installation.
+
+### Git folder history
+
+`await api.vault.gitHistory("Prosjekt/Discyboi")` returns commits touching that vault-relative folder or any descendant. Call without an argument for the whole vault. Each record has `hash`, `author`, `date` (Unix seconds as a string), `message`, and `paths` (changed vault-relative paths within the folder). The API reads the local Git history on desktop and in the native mobile app.

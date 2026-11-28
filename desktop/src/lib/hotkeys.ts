@@ -81,6 +81,9 @@ export type HotkeyAction =
   | "openTrash"
   | "togglePinTab"
   | "noteHistory"
+  | "sortFilesByChange"
+  | "sortFilesByName"
+  | "sortFilesManually"
   | "noteDetails"
   | "toggleWorkspaceTools"
   | "timeScrubber"
@@ -213,7 +216,10 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   // Note history & lint
   { action: "toggleWorkspaceTools", label: "Toggle Workspace Tools", keys: "", category: "View" },
   { action: "noteDetails", label: "Note Details", keys: "", category: "View" },
-  { action: "noteHistory", label: "Note History", keys: "", category: "View" },
+  { action: "noteHistory", label: "Git: File history", keys: "", category: "View" },
+  { action: "sortFilesByChange", label: "Sort files by last change", keys: "", category: "File" },
+  { action: "sortFilesByName", label: "Sort files alphabetically", keys: "", category: "File" },
+  { action: "sortFilesManually", label: "Sort files manually", keys: "", category: "File" },
   { action: "timeScrubber", label: "Time Scrubber", keys: "Ctrl+Shift+H", category: "View" },
   { action: "toggleLint", label: "Toggle Lint Warnings", keys: "Ctrl+Shift+L", category: "View" },
   { action: "splitEditor", label: "Split Editor", keys: "Ctrl+\\", category: "View" },

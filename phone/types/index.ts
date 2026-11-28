@@ -56,13 +56,17 @@ export interface WorkspaceState {
   fileOrder?: Record<string, string[]>;
   bookmarks?: string[];
   fileIcons?: Record<string, { symbol: string; color: string }>;
-  fileDrawerPosition?: { folder: string; expanded: string[]; offset: number; sort: 'name' | 'name-desc'; breadcrumbs: boolean };
+  fileDrawerSort?: FileDrawerSort;
+  fileDrawerPosition?: { folder: string; expanded: string[]; offset: number; sort: FileDrawerSort; breadcrumbs: boolean };
 }
+
+export type FileDrawerSort = 'name' | 'name-desc' | 'last-change' | 'manual';
 
 export interface FileEntry {
   name: string;
   path: string;
   isDirectory: boolean;
+  mtime?: number;
 }
 
 export interface HotkeyBinding {

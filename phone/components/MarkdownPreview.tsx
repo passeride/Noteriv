@@ -25,6 +25,7 @@ import { parseInline, type InlineNode } from '@/lib/markdown-inline';
 import { markdownLinkTarget } from '@/lib/markdown-links';
 import { useTheme } from '@/context/ThemeContext';
 import { parseQuery, executeQuery, parseNoteData, QueryResult } from '@/lib/dataview';
+import GitHistoryBlock from '@/components/GitHistoryBlock';
 import { fileExists, listAllMarkdownFiles, readFile } from '@/lib/file-system';
 import { MobilePluginBlock, usePluginRenderers } from '@/components/MobilePluginHost';
 import { CommandPullIndicator, useCommandPull } from '@/components/CommandPull';
@@ -881,6 +882,9 @@ export default function MarkdownPreview({
           );
 
         case 'code_block':
+          if (block.language === 'githistory' && vaultPath) {
+            return <GitHistoryBlock key={`${index}:${notePath}:${block.code}`} source={block.code} vaultPath={vaultPath} notePath={notePath} />;
+          }
           if (block.language === 'mermaid') {
             return (
               <View key={index} style={[styles.codeBlock, { backgroundColor: colors.bgTertiary }]}>

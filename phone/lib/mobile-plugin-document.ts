@@ -84,6 +84,7 @@ export function mobilePluginDocument(code: string, block?: PluginBlock): string 
           readText: name => request('readAsset', name),
         },
         vault: {
+          gitHistory: folder => request('gitHistory', folder),
           read: path => request('read', path), write: (path, text) => request('write', path, text),
           async readBinary(path) {
             const value = await request('readBinary', path);

@@ -46,6 +46,7 @@ export interface PluginInstance {
 export interface PluginAPI {
   assets: { readText: (name: string) => Promise<string | null> };
   vault: {
+    readBinary: (path: string) => Promise<Uint8Array | null>;
     gitHistory: (folder?: string) => Promise<PathActivity[]>;
     read: (path: string) => Promise<string | null>;
     write: (path: string, content: string) => Promise<boolean>;
@@ -470,6 +471,13 @@ export class PluginManager {
         },
       },
       vault: {
+        readBinary: async (path: string) => {
+          if (!window.electronAPI) return null;
+          const base64 = await window.electronAPI.gitNative<string | null>({
+            action: "pluginVault", operation: "readBinary", dir: manager.vaultPath, path,
+          });
+          return base64 === null ? null : Uint8Array.from(atob(base64), char => char.charCodeAt(0));
+        },
         gitHistory: async (folder = "") => {
           if (!window.electronAPI) return [];
           return window.electronAPI.gitNative<PathActivity[]>({

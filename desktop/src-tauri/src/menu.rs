@@ -147,7 +147,11 @@ pub fn install(window: &WebviewWindow) -> tauri::Result<()> {
 
     app.set_menu(menu)?;
     #[cfg(target_os = "windows")]
-    let _ = window.show_menu();
+    let _ = if hidden_on_windows() {
+        window.hide_menu()
+    } else {
+        window.show_menu()
+    };
     #[cfg(not(target_os = "windows"))]
     let _ = window.hide_menu();
 
@@ -181,4 +185,12 @@ pub fn install(window: &WebviewWindow) -> tauri::Result<()> {
     });
 
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn hidden_on_windows() -> bool {
+    crate::store::load_settings()
+        .get("hideNativeMenu")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
 }

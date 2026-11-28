@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext, type CSSProperties } from "react";
+import type { FileDecoration } from "@/lib/file-decorations";
 import { FILE_SORTS, sortFileEntries, type FileSort } from "@/lib/file-list";
 import { childPath, fileNameOf, noteTitleOf, parentFolderOf } from "@/lib/file-path";
 import { FILE_LIST_DRAG } from "@/lib/drag-kinds";
@@ -17,6 +18,8 @@ interface FileEntry {
 }
 
 interface SidebarProps {
+  decorationFor?: (path: string) => FileDecoration;
+  onEditDecoration?: (path: string) => void;
   vault: Vault | null;
   currentFile: string | null;
   onFileSelect: (filePath: string) => void;
@@ -69,6 +72,7 @@ type DropIndicator = {
 
 /** The order the file list is in, for every folder at every depth. */
 const FileSortContext = createContext<{ sort: FileSort; vault: string | undefined }>({ sort: "manual", vault: undefined });
+const DecorationsContext = createContext<SidebarProps["decorationFor"]>(undefined);
 
 function sortEntries(entries: FileEntry[], order: string[] | undefined, sort: FileSort = "manual"): FileEntry[] {
   return sortFileEntries(entries, sort, order);
@@ -203,6 +207,7 @@ function FolderItem({
   }, [isRenaming, renameValue]);
 
   const { sort: fileSort, vault } = useContext(FileSortContext);
+  const decoration = useContext(DecorationsContext)?.(entry.path);
   const childOrder = useFolderOrder(expanded ? entry.path : undefined, children, fileSort, vault);
   const sorted = sortEntries(childOrder.entries, childOrder.order ?? fileOrder[entry.path], fileSort);
 
@@ -257,8 +262,8 @@ function FolderItem({
         <button
           onClick={(e) => toggle(e)}
           onContextMenu={(e) => onContextMenu(e, entry, parentDir)}
-          className={`${rowClass}${isSelected ? " sb-selected" : ""}`}
-          style={{ paddingLeft: `${indent}px` }}
+          className={`${rowClass}${isSelected ? " sb-selected" : ""}${decoration?.color ? " file-color-ring" : ""}`}
+          style={{ paddingLeft: `${indent}px`, "--file-ring": decoration?.color } as CSSProperties}
           data-filepath={entry.isDirectory ? undefined : entry.path}
           title={entry.path}
         >
@@ -281,6 +286,7 @@ function FolderItem({
             </svg>
           )}
 
+          {decoration?.symbol && <span className="file-decoration-symbol" aria-hidden="true">{decoration.symbol}</span>}
           {isRenaming ? (
             <input
               ref={renameInputRef}
@@ -379,6 +385,8 @@ export default function Sidebar({
   fileSort = "manual",
   onFileSortChange,
   reveal,
+  decorationFor,
+  onEditDecoration,
 }: SidebarProps) {
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
@@ -846,6 +854,7 @@ export default function Sidebar({
       items.push({ label: "", separator: true, onClick: () => {} });
       if (!hasMultiSelect) {
         items.push({ label: "Rename", onClick: () => startRename(entry) });
+        if (onEditDecoration) items.push({ label: "Set Icon and Color…", onClick: () => onEditDecoration(entry.path) });
       }
       if (!hasMultiSelect) {
         items.push({
@@ -878,7 +887,7 @@ export default function Sidebar({
       onClick: () => navigator.clipboard.writeText(entry.path),
     });
     return items;
-  }, [contextMenu, vault, handleNewFileIn, handleNewFolderIn, startRename, handleDelete, selectedFiles, handleMergeNotes, handleDeleteSelected, onAnalyzeNote]);
+  }, [contextMenu, vault, handleNewFileIn, handleNewFolderIn, startRename, handleDelete, selectedFiles, handleMergeNotes, handleDeleteSelected, onAnalyzeNote, onToggleBookmark, onEditDecoration]);
 
   const rootOrder = useFolderOrder(collapsed ? undefined : vault?.path, entries, fileSort, vault?.path);
   if (collapsed) return null;
@@ -909,6 +918,7 @@ export default function Sidebar({
 
   return (
     <FileSortContext.Provider value={{ sort: fileSort, vault: vault?.path }}>
+      <DecorationsContext.Provider value={decorationFor}>
     <div
       className="sidebar-root"
       style={{ width, minWidth: width }}
@@ -1053,6 +1063,7 @@ export default function Sidebar({
         }}
       />
     </div>
+      </DecorationsContext.Provider>
     </FileSortContext.Provider>
   );
 }

@@ -82,6 +82,7 @@ interface ElectronAPI {
   openPopout: (path: string) => Promise<void>;
   windowIsMaximized: () => Promise<boolean>;
   windowSetTitle: (title: string) => Promise<void>;
+  windowSetMenuVisible: (visible: boolean) => Promise<void>;
   getPlatform: () => Promise<string>;
 
   // Workspace state

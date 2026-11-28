@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type CSSProperties } from "react";
+import type { FileDecoration } from "@/lib/file-decorations";
 import VaultSwitcher from "./VaultSwitcher";
 import ContextMenu, { ContextMenuItem } from "./ContextMenu";
 import { TAB_DRAG } from "@/lib/drag-kinds";
 
 interface Tab {
+  decoration?: FileDecoration;
   filePath: string;
   name: string;
   isDirty: boolean;
@@ -19,6 +21,7 @@ interface TitleBarProps {
   sidebarCollapsed: boolean;
   viewMode: "live" | "source" | "view";
   pinnedTabs: Set<string>;
+  onEditDecoration?: (filePath: string) => void;
   onTabSelect: (filePath: string) => void;
   onTabClose: (filePath: string) => void;
   onTabReorder: (from: number, to: number) => void;
@@ -55,6 +58,7 @@ export default function TitleBar({
   sidebarCollapsed,
   viewMode,
   pinnedTabs,
+  onEditDecoration,
   onTabSelect,
   onTabClose,
   onTabReorder,
@@ -191,8 +195,9 @@ export default function TitleBar({
         },
       },
     ];
+    if (onEditDecoration) items.push({ label: "Set Icon and Color…", onClick: () => onEditDecoration(fp) });
     return items;
-  }, [tabContextMenu, pinnedTabs, onTogglePin, onTabClose, onTabSelect, onCloseOtherTabs, onCloseAllTabs, onCloseTabsToRight, onRevealInSidebar, onCopyPath, onSplitRight]);
+  }, [tabContextMenu, pinnedTabs, onTogglePin, onTabClose, onTabSelect, onCloseOtherTabs, onCloseAllTabs, onCloseTabsToRight, onRevealInSidebar, onCopyPath, onSplitRight, onEditDecoration]);
 
   return (
     <div className="titlebar">
@@ -260,7 +265,8 @@ export default function TitleBar({
                   onTabSelect(tab.filePath);
                 }
               }}
-                className={`tab${isActive ? " tab-active" : ""}${isDragging ? " tab-dragging" : ""}${isDragOver ? " tab-dragover" : ""}${isPinned ? " tab-pinned" : ""}`}
+                className={`tab${isActive ? " tab-active" : ""}${isDragging ? " tab-dragging" : ""}${isDragOver ? " tab-dragover" : ""}${isPinned ? " tab-pinned" : ""}${tab.decoration?.color ? " file-color-ring" : ""}`}
+                style={{ "--file-ring": tab.decoration?.color } as CSSProperties}
               >
                 {isPinned && (
                   <svg className="tab-pin-icon" width="10" height="10" viewBox="0 0 16 16" fill="none">
@@ -268,6 +274,7 @@ export default function TitleBar({
                     <path d="M5.5 10.5L2 14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
                   </svg>
                 )}
+                {tab.decoration?.symbol && <span className="file-decoration-symbol" aria-hidden="true">{tab.decoration.symbol}</span>}
                 <span className="tab-label">{tab.name}</span>
                 {tab.isDirty && <span className="tab-dirty" />}
                 {!isPinned && (

@@ -108,6 +108,7 @@ pub fn run() {
             commands_window::window_close,
             commands_window::window_is_maximized,
             commands_window::window_set_title,
+            commands_window::window_set_menu_visible,
             commands_window::window_platform,
             clipboard::clipboard_take_paste,
             commands_window::window_open_popout,

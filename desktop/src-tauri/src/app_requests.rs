@@ -139,6 +139,10 @@ pub fn deliver(app: &tauri::AppHandle, invocation: Invocation, bring_forward: bo
             // and the menu bar is put away again afterwards.
             if !window.is_visible().unwrap_or(true) {
                 let _ = window.show();
+                #[cfg(target_os = "windows")]
+                if crate::menu::hidden_on_windows() {
+                    let _ = window.hide_menu();
+                }
                 #[cfg(not(target_os = "windows"))]
                 let _ = window.hide_menu();
             }

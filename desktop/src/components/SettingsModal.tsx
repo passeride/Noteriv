@@ -386,6 +386,11 @@ export default function SettingsModal({
 
   const renderAppearance = () => (
     <div className="st-section">
+      {platform === "win32" && (
+        <Row label="Hide native menu bar" desc="Hide the File, Edit, View, Settings and Developer menus above the tabs.">
+          <Toggle checked={settings.hideNativeMenu} onChange={(hideNativeMenu) => update({ hideNativeMenu })} />
+        </Row>
+      )}
       <Row label="Accent color" desc="Primary color used for highlights, links, and active states.">
         <div className="st-colors">
           {ACCENT_COLORS.map((c) => (

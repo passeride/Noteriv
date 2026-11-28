@@ -3,6 +3,32 @@ import { PluginManager } from "../plugin-api";
 
 afterEach(() => vi.unstubAllGlobals());
 
+it("reads attachment bytes through the scoped native plugin operation", async () => {
+  const dir = "C:\\Vault";
+  const read = vi.fn().mockResolvedValue("AP+A");
+  const files = new Map([
+    [`${dir}/.noteriv/plugins/sample/manifest.json`, '{"id":"sample","main":"main.js"}'],
+    [`${dir}/.noteriv/plugins/sample/main.js`, `
+      module.exports.onLoad = async api => {
+        const bytes = await api.vault.readBinary('Prosjekt/Deler.stl');
+        api.ui.showNotice(Array.from(bytes).join(','));
+      };
+    `],
+  ]);
+  vi.stubGlobal("window", { electronAPI: {
+    gitNative: read,
+    readFile: async (path: string) => files.get(path) ?? null,
+  } });
+  const manager = new PluginManager(dir, () => null);
+  const notice = vi.fn();
+  manager.setNoticeHandler(notice);
+  await manager.loadPlugin("sample");
+  expect(read).toHaveBeenCalledWith({
+    action: "pluginVault", operation: "readBinary", dir, path: "Prosjekt/Deler.stl",
+  });
+  expect(notice).toHaveBeenCalledWith("0,255,128", undefined);
+});
+
 it("loads one instance, emits relative file events and unloads its handlers", async () => {
   const root = "/vault";
   const dir = `${root}/.noteriv/plugins/sample`;

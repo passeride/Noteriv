@@ -66,8 +66,14 @@ fn execute(request: &str) -> Result<Value> {
         }
         "status" => Ok(json!(status(path)?)),
         "history" => Ok(json!(history(path, 100)?)),
-        "pathActivity" => Ok(json!(path_activity(path, req.path.as_deref().unwrap_or(""))?)),
-        "lastChanges" => Ok(json!(last_changes(path, req.paths.as_deref().unwrap_or_default())?)),
+        "pathActivity" => Ok(json!(path_activity(
+            path,
+            req.path.as_deref().unwrap_or("")
+        )?)),
+        "lastChanges" => Ok(json!(last_changes(
+            path,
+            req.paths.as_deref().unwrap_or_default()
+        )?)),
         "fileHistory" => Ok(json!(file_history(
             path,
             req.path.as_deref().unwrap_or(""),

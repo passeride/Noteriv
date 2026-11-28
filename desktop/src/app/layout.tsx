@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "katex/dist/katex.min.css";
+import "./fonts.css";
 import "./globals.css";
 import "../styles/workspace-design.css";
 

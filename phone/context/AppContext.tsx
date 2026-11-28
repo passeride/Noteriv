@@ -60,6 +60,12 @@ interface AppContextType {
   refreshFiles: () => void;
 
   syncCurrentVault: (action?: GitAction) => Promise<VaultSyncResult | null>;
+  /**
+   * Run a Git sync that a screen asks for (connecting a remote, "Sync Now"),
+   * after any sync that is already running and with the automatic ones held
+   * off until it ends.
+   */
+  syncGit: (vaultId: string, work: () => Promise<GitSync.SyncResult>) => Promise<GitSync.SyncResult>;
 
   // WebDAV sync
   /** Sync a vault with a WebDAV folder now, after any sync that is already running. Throws when the server cannot be used. */
@@ -265,6 +271,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, [vault, settings.gitSyncInterval, runGitSync]);
 
+  // Give remote setup and its first native sync the same turn. The native
+  // adapter already flushes the editor and reloads it after pulling.
+  const syncGit = useCallback(async (
+    vaultId: string, work: () => Promise<GitSync.SyncResult>,
+  ): Promise<GitSync.SyncResult> => {
+    while (syncInFlight.current) await new Promise(resolve => setTimeout(resolve, 250));
+    if (vaultIdRef.current !== vaultId) throw new Error('The active vault changed.');
+    syncInFlight.current = true;
+    try {
+      return await work();
+    } finally {
+      syncInFlight.current = false;
+    }
+  }, []);
+
   /**
    * One WebDAV sync of a vault. Only one sync of any kind runs at a time:
    * with `wait` this one takes its turn after the one that is running, and
@@ -299,12 +320,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const davUrl = !vault?.gitRemote ? vault?.webdav?.url : undefined;
   const davUsername = vault?.webdav?.username;
   const davRemotePath = vault?.webdav?.remotePath;
+  const davCertificate = vault?.webdav?.clientCertificate ?? null;
   useEffect(() => {
     if (!davVaultId || !davVaultPath || !davUrl) return;
     const target: WebDav.SyncedVault = {
       id: davVaultId,
       path: davVaultPath,
-      webdav: { url: davUrl, username: davUsername ?? '', remotePath: davRemotePath ?? '/' },
+      webdav: {
+        url: davUrl,
+        username: davUsername ?? '',
+        remotePath: davRemotePath ?? '/',
+        ...(davCertificate ? { clientCertificate: davCertificate } : {}),
+      },
     };
     let due = true;
     let ticks = 0;
@@ -344,7 +371,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearInterval(timer);
       wakeWebDav.current = null;
     };
-  }, [davVaultId, davVaultPath, davUrl, davUsername, davRemotePath, runWebDav]);
+  }, [davVaultId, davVaultPath, davUrl, davUsername, davRemotePath, davCertificate, runWebDav]);
 
   const syncWebDav = useCallback(async (target: WebDav.SyncedVault, cfg: WebDav.WebDavConfig): Promise<WebDav.Outcome> => {
     return (await runWebDav(target, cfg, true)) as WebDav.Outcome;
@@ -534,6 +561,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCurrentDir,
         refreshFiles,
         syncCurrentVault,
+        syncGit,
         syncWebDav,
         requestWebDavSync,
         setupComplete,

@@ -310,7 +310,7 @@ export default function TitleBar({
             <div className="workspace-control workspace-mode" title="Note view mode">
               <select aria-label="Note view mode" value={viewMode}
                 onChange={(event) => onViewModeChange(event.target.value as TitleBarProps["viewMode"])}>
-                <option value="live">Write</option>
+                <option value="live">Live</option>
                 <option value="view">Read</option>
                 <option value="source">Source</option>
               </select>

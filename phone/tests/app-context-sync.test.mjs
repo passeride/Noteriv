@@ -130,3 +130,24 @@ test('pull-only uses the configured Git remote and refreshes the open note', asy
   assert.equal(result.outcome.pushed, 0);
   assert.equal(app.content, 'pulled by hand');
 });
+
+test('an automatic native sync does not run during repository setup', async () => {
+  let finish;
+  const gate = new Promise(resolve => { finish = resolve; });
+  let pending;
+  await act(async () => {
+    pending = app.syncGit('v1', () => gate);
+  });
+  try {
+    desktopWrites('only on desktop during setup');
+    await sync();
+    assert.equal(app.content, 'first version');
+  } finally {
+    await act(async () => {
+      finish({ pulled: 0, pushed: 0, errors: [] });
+      await pending;
+    });
+  }
+  await sync();
+  assert.equal(app.content, 'only on desktop during setup');
+});

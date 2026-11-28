@@ -26,15 +26,16 @@ export function parseDecorationFile(text: string | null): Record<string, unknown
 }
 
 export function fileDecoration(value: unknown): FileDecoration {
-  const entry = value && typeof value === "object" ? value as FileDecoration : {};
+  const entry = value && typeof value === "object" ? value as { symbol?: unknown; ringColor?: unknown } : {};
   return {
     symbol: typeof entry.symbol === "string" && entry.symbol.trim() ? entry.symbol : undefined,
-    color: typeof entry.color === "string" && /^#[\da-f]{6}$/i.test(entry.color) ? entry.color : undefined,
+    // Android stores its icon tint in color. A row or tab ring is opt-in.
+    color: typeof entry.ringColor === "string" && /^#[\da-f]{6}$/i.test(entry.ringColor) ? entry.ringColor : undefined,
   };
 }
 
 export function updateDecoration(entries: Record<string, unknown>, path: string, decoration: FileDecoration) {
   const previous = Object.hasOwn(entries, path) ? entries[path] : undefined;
   const entry = previous && typeof previous === "object" ? { ...previous } : {};
-  return { ...entries, [path]: { ...entry, symbol: decoration.symbol, color: decoration.color } };
+  return { ...entries, [path]: { ...entry, symbol: decoration.symbol, ringColor: decoration.color } };
 }

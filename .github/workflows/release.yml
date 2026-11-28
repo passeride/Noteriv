@@ -185,6 +185,23 @@ jobs:
           # Windows
           find src-tauri/target -type f \( -name '*.msi' -o -name '*.msi.sig' -o -name '*-setup.exe' -o -name '*-setup.exe.sig' \) -exec cp {} ../bundles/ \; || true
 
+      - name: Test Windows MSI installation
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem ../bundles -Filter *.msi | Select-Object -First 1
+          if (-not $msi) { throw "Windows MSI was not built" }
+          $log = Join-Path $env:RUNNER_TEMP "noteriv-msi-install.log"
+          $arguments = '/i "{0}" /qn /norestart /L*v "{1}"' -f $msi.FullName, $log
+          $installed = Start-Process msiexec.exe -ArgumentList $arguments -Wait -PassThru
+          if ($installed.ExitCode -notin @(0, 3010)) {
+            if (Test-Path $log) { Get-Content $log -Tail 100 }
+            throw "Windows MSI installation failed with exit code $($installed.ExitCode)"
+          }
+          if (Select-String -Path $log -Pattern 'Warning\s+1946') {
+            throw "Windows MSI reported a shortcut property warning"
+          }
+
       - name: Package Windows portable (lite)
         if: matrix.platform == 'windows-latest'
         shell: pwsh

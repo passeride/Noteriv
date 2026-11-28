@@ -10,8 +10,9 @@ describe("the Windows settings", () => {
     expect(windows.app.windows).toEqual(base.app.windows.map((w) => ({ ...w, dragDropEnabled: false })));
   });
 
-  it("change nothing else", () => {
-    expect(Object.keys(windows).sort()).toEqual(["$schema", "app"]);
+  it("only override the app windows and the MSI template", () => {
+    expect(Object.keys(windows).sort()).toEqual(["$schema", "app", "bundle"]);
+    expect(windows.bundle).toEqual({ windows: { wix: { template: "windows/main.wxs" } } });
     expect(Object.keys(windows.app)).toEqual(["windows"]);
   });
 

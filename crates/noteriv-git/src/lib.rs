@@ -896,7 +896,7 @@ pub fn last_changes(
     let mut remaining: std::collections::HashSet<_> = paths
         .iter()
         .filter(|rel| !rel.is_empty() && safe_path(&repo, rel).is_ok())
-        .map(|rel| Path::new(rel))
+        .map(Path::new)
         .filter(|path| tip.get_path(path).is_ok())
         .collect();
     let mut out = std::collections::BTreeMap::new();
